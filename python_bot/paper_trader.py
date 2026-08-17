@@ -837,10 +837,6 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
         float(one_hour[-1][0]), timezone.utc
     ).isoformat()
 
-    _rsi_str = f"{indicators['rsi']:.1f}" if indicators.get("rsi") is not None else "—"
-    add_activity(connection, coin, "STRATEGY_EVALUATED",
-                 f"Signal: {signal} | 1h: {one_hour_trend} | 4h: {four_hour_trend} | RSI: {_rsi_str}")
-
     state = load_coin_state(connection, coin)
     if state["day_key"] != date_key():
         connection.execute(
@@ -876,6 +872,7 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
     # --- Evaluate new entry on completed candle ---
     is_new_candle = completed_candle_at != state["last_candle_at"]
     prop_trade: dict[str, Any] | None = None
+    execution_block_reason: str | None = None
 
     if is_new_candle and open_position is None:
         m = coin_metrics(connection, coin, state)
@@ -888,6 +885,15 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
         if risk_paused:
             add_activity(connection, coin, "RISK_LIMIT_REACHED",
                          f"Daily loss £{m['dailyLoss']:.2f}/{daily_limit:.2f} or streak {m['consecutiveLosses']}")
+            if signal in ("LONG", "SHORT"):
+                if float(state["balance"]) <= 0:
+                    execution_block_reason = "Account balance exhausted"
+                elif m["dailyLoss"] >= daily_limit:
+                    execution_block_reason = f"Daily loss limit reached (£{m['dailyLoss']:.2f} / £{daily_limit:.2f})"
+                elif m["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES:
+                    execution_block_reason = f"Max consecutive losses reached ({int(m['consecutiveLosses'])})"
+                else:
+                    execution_block_reason = "Risk limit reached"
 
         if (
             not risk_paused
@@ -943,6 +949,30 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
     if current_m["dailyLoss"] >= float(state["starting_balance"]) * DAILY_LOSS_LIMIT or \
        current_m["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES:
         status = "RISK_PAUSED"
+
+    # --- Rich STRATEGY_EVALUATED diagnostic log ---
+    _cond_list = cond_eval.get("conditions", [])
+    _failed = [cd["name"] for cd in _cond_list if not cd["pass"]]
+    if cond_eval.get("bias") == "NEUTRAL":
+        _no_trade_reason: str | None = "No directional trend on 1h or 4h timeframe"
+    elif signal == "NO_TRADE" and _failed:
+        _no_trade_reason = "Failed: " + ", ".join(_failed)
+    else:
+        _no_trade_reason = None
+    _diag: dict[str, Any] = {
+        "price":            round_price(current_price),
+        "signal":           signal,
+        "bias":             cond_eval.get("bias", "NEUTRAL"),
+        "oneHourTrend":     one_hour_trend,
+        "fourHourTrend":    four_hour_trend,
+        "passCount":        cond_eval.get("passCount", 0),
+        "totalCount":       cond_eval.get("totalCount", 6),
+        "conditions":       _cond_list,
+        "noTradeReason":    _no_trade_reason,
+        "executionBlocked": execution_block_reason is not None,
+        "blockReason":      execution_block_reason,
+    }
+    add_activity(connection, coin, "STRATEGY_EVALUATED", json.dumps(_diag))
 
     snapshot: dict[str, Any] = {
         "currentPrice":           round_price(current_price),

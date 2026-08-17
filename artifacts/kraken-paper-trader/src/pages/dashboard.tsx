@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  AlertTriangle, ArrowDownRight, ArrowUpRight, BarChart3, Clock3,
-  RefreshCw, RotateCcw, ShieldAlert, Target, TrendingDown, TrendingUp,
-  Wallet, Zap, ChevronDown, ChevronUp,
+  AlertTriangle, ArrowDownRight, ArrowUpRight, BarChart3, CheckCircle2,
+  ChevronDown, ChevronUp, Clock3, RefreshCw, RotateCcw, ScanSearch,
+  ShieldAlert, Target, TrendingDown, TrendingUp, Wallet, XCircle, Zap,
 } from 'lucide-react';
 import {
   getGetMultiCoinStateQueryKey,
@@ -85,6 +85,98 @@ function ErrorPanel({ onRetry }: { onRetry: () => void }) {
         </div>
       </div>
     </TradingShell>
+  );
+}
+
+// ─── Latest scan strip ───────────────────────────────────────────────────────
+function noTradeReason(state: PaperTraderState): string | null {
+  const conds = state.strategyConditions;
+  if (!conds || !conds.conditions || conds.conditions.length === 0) return null;
+  if (conds.bias === 'NEUTRAL') return 'No directional trend on 1h or 4h';
+  const failed = conds.conditions.filter((c) => !c.pass).map((c) => c.name);
+  if (failed.length === 0) return null;
+  return 'Failed: ' + failed.join(', ');
+}
+
+function LatestScanStrip({ coins, multiState }: { coins: readonly string[]; multiState: Record<string, PaperTraderState> }) {
+  return (
+    <section className="rise-in overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_10px_32px_hsl(215_35%_13%_/_0.05)]">
+      <div className="flex items-center gap-2 border-b border-border/70 px-5 py-4 sm:px-6">
+        <ScanSearch size={16} className="text-sky-400" />
+        <h2 className="text-sm font-extrabold">Latest strategy scan</h2>
+        <span className="ml-auto font-mono-data text-[10px] uppercase tracking-wider text-muted-foreground">all conditions required to enter</span>
+      </div>
+      <div className="divide-y divide-border/50">
+        {coins.map((coin) => {
+          const state = multiState[coin];
+          if (!state) return null;
+          const meta   = COIN_META[coin] ?? COIN_META.BTC;
+          const conds  = state.strategyConditions;
+          const pass   = conds?.passCount ?? 0;
+          const total  = conds?.totalCount ?? 6;
+          const sig    = state.signal;
+          const reason = state.botStatus === 'WAITING_FOR_DATA' ? 'Waiting for enough candles'
+                       : state.botStatus === 'API_ERROR'        ? 'API error — no market data'
+                       : state.botStatus === 'RISK_PAUSED'      ? 'Risk limit reached — entries paused'
+                       : noTradeReason(state);
+          const sigColor = sig === 'LONG' ? 'text-accent bg-accent/10'
+                         : sig === 'SHORT' ? 'text-destructive bg-destructive/10'
+                         : 'text-muted-foreground bg-muted';
+          const condItems = conds?.conditions ?? [];
+
+          return (
+            <div key={coin} className="px-5 py-4 sm:px-6">
+              {/* Top row */}
+              <div className="flex flex-wrap items-center gap-3">
+                <span className={`shrink-0 font-mono-data text-[11px] font-bold uppercase tracking-[0.18em] ${meta.accent}`}>{coin}</span>
+                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono-data text-[10px] font-semibold uppercase tracking-wider ${sigColor}`}>
+                  {sig === 'LONG' ? <ArrowUpRight size={10} /> : sig === 'SHORT' ? <ArrowDownRight size={10} /> : null}
+                  {sig.replace('_', ' ')}
+                </span>
+                {/* Mini progress */}
+                <div className="flex items-center gap-1.5">
+                  <div className="flex gap-0.5">
+                    {Array.from({ length: total }).map((_, i) => (
+                      <div key={i} className={`h-2.5 w-2.5 rounded-sm ${i < pass ? 'bg-primary' : 'bg-muted'}`} />
+                    ))}
+                  </div>
+                  <span className="font-mono-data text-[10px] text-muted-foreground">{pass}/{total}</span>
+                </div>
+                <span className="ml-auto shrink-0 flex items-center gap-1 font-mono-data text-[10px] text-muted-foreground/60">
+                  <Clock3 size={9} />
+                  {time(state.market.updatedAt)}
+                </span>
+              </div>
+
+              {/* Condition pills + reason */}
+              {condItems.length > 0 && (
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {condItems.map((cond) => (
+                    <span
+                      key={cond.name}
+                      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono-data text-[10px] font-medium ${
+                        cond.pass ? 'bg-accent/8 text-accent' : 'bg-destructive/10 text-destructive/80'
+                      }`}
+                    >
+                      {cond.pass
+                        ? <CheckCircle2 size={9} className="shrink-0" />
+                        : <XCircle size={9} className="shrink-0" />}
+                      {cond.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {reason && (
+                <p className="mt-2 text-[11px] text-muted-foreground/80">
+                  <span className="font-semibold text-muted-foreground">Why no trade: </span>{reason}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -458,6 +550,9 @@ export default function Dashboard() {
             ))}
           </div>
         </section>
+
+        {/* ─── Latest strategy scan strip ───────────────────────────────── */}
+        <LatestScanStrip coins={COINS} multiState={multiState as unknown as Record<string, PaperTraderState>} />
 
         {/* ─── Coin strategy cards ──────────────────────────────────────── */}
         <div className="grid gap-5 lg:grid-cols-2">

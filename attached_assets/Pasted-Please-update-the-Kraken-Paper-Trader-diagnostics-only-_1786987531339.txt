@@ -1,0 +1,62 @@
+Please update the Kraken Paper Trader diagnostics only. Do not change any trading strategy, thresholds, indicators, risk settings, position sizing, stop-losses, take-profits, or trade execution rules.
+
+The bot is clearly receiving market data and evaluating strategies, but the Activity Log currently shows shortened messages such as:
+
+Signal: NO_TRADE | 1h: BULLISH | 4h...
+
+I need to see exactly why each coin is producing NO_TRADE.
+
+Please make the following changes:
+
+1. Make every STRATEGY EVALUATED activity-log entry expandable/tappable.
+
+2. When opened, display the full strategy decision breakdown, including:
+   - Coin
+   - Current price
+   - 1-hour trend
+   - 4-hour trend
+   - RSI value and whether its condition passed
+   - MACD value/signal and whether its condition passed
+   - EMA/trend conditions and whether they passed
+   - Volume condition and whether it passed
+   - Volatility/ATR condition and whether it passed
+   - Any other entry conditions currently used by that coin's strategy
+   - Number of conditions passed
+   - Number of conditions required
+   - Final signal: BUY / SELL / NO_TRADE
+   - Exact reason for NO_TRADE
+
+3. Show each condition clearly using PASS or FAIL, for example:
+
+1h trend: BULLISH — PASS  
+4h trend: BULLISH — PASS  
+RSI: 71.4 — FAIL (maximum allowed 65)  
+MACD: bullish crossover — PASS  
+Volume: below required threshold — FAIL
+
+Then show:
+
+ENTRY SCORE: 3/5  
+REQUIRED: 4/5  
+FINAL DECISION: NO_TRADE  
+REASON: RSI and volume conditions failed
+
+4. If a trade signal passes the strategy but is prevented by risk management, clearly show this separately, for example:
+
+SIGNAL: BUY  
+EXECUTION: BLOCKED  
+REASON: maximum open positions reached
+
+5. Add a compact Latest Strategy Scan section on the dashboard for BTC, ETH, SOL and XRP showing:
+   - Current signal
+   - Conditions passed/required
+   - Main reason for NO_TRADE
+   - Time of last evaluation
+
+6. Make sure diagnostic text is not truncated on mobile. Allow it to wrap onto multiple lines or expand when tapped.
+
+7. Continue recording these diagnostics on every strategy evaluation so we can identify whether one particular condition is repeatedly preventing trades.
+
+8. After implementing this, inspect the latest strategy evaluations for all four coins and tell me exactly which conditions are currently preventing BTC, ETH, SOL and XRP from entering trades.
+
+Important: this is a diagnostic/UI update only. Do not loosen or modify the trading strategy yet.
