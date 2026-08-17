@@ -15,13 +15,18 @@ import type { PaperTraderStateMarket } from './paperTraderStateMarket';
 import type { PaperTraderStateOneHourTrend } from './paperTraderStateOneHourTrend';
 import type { PaperTraderStateRisk } from './paperTraderStateRisk';
 import type { PaperTraderStateSignal } from './paperTraderStateSignal';
+import type { ProposedTrade } from './proposedTrade';
+import type { StrategyConditions } from './strategyConditions';
 
 export interface PaperTraderState {
+  coin: string;
   market: PaperTraderStateMarket;
   signal: PaperTraderStateSignal;
   oneHourTrend: PaperTraderStateOneHourTrend;
   fourHourTrend: PaperTraderStateFourHourTrend;
   indicators: IndicatorSnapshot;
+  strategyConditions?: StrategyConditions | null;
+  proposedTrade?: ProposedTrade | null;
   position: OpenPosition | null;
   metrics: PaperTraderMetrics;
   risk: PaperTraderStateRisk;

@@ -23,4 +23,10 @@ export interface OpenPosition {
   /** @nullable */
   entryAtr: number | null;
   trend4h: OpenPositionTrend4h;
+  /** @nullable */
+  unrealisedPnl?: number | null;
+  /** @nullable */
+  unrealisedPct?: number | null;
+  /** @nullable */
+  currentPrice?: number | null;
 }

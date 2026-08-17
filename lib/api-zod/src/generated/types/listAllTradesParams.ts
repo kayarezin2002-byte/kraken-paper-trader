@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ListPaperTradesParams = {
+export type ListAllTradesParams = {
 /**
  * @minimum 1
- * @maximum 200
+ * @maximum 500
  */
 limit?: number;
 };

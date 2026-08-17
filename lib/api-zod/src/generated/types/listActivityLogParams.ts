@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ListPaperTradesParams = {
+export type ListActivityLogParams = {
 /**
  * @minimum 1
  * @maximum 200

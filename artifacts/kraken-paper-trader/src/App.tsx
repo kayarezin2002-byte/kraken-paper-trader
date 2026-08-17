@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import Dashboard from '@/pages/dashboard';
 import History from '@/pages/history';
+import ActivityLog from '@/pages/activity';
 import {
   Route,
   Switch,
@@ -17,12 +18,11 @@ const queryClient = new QueryClient();
 
 function Router() {
   return (
-    // Keep a shared shell (sidebar, navbar) outside the boundary so it
-    // survives a page crash.
     <RoutedErrorBoundary>
       <Switch>
-         <Route path="/" component={Dashboard} />
-         <Route path="/history" component={History} />
+        <Route path="/"         component={Dashboard}   />
+        <Route path="/history"  component={History}     />
+        <Route path="/activity" component={ActivityLog} />
         <Route component={NotFound} />
       </Switch>
     </RoutedErrorBoundary>

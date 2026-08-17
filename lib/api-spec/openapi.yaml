@@ -26,15 +26,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Legacy BTC-only endpoints (backward compat) ────────────────────────────
   /paper-trader/state:
     get:
       operationId: getPaperTraderState
       tags: [paper-trader]
-      summary: Get the current paper trading state
-      description: Returns current market data, indicators, simulated account metrics, risk state, and any open position.
+      summary: Get current BTC paper trading state
       responses:
         "200":
-          description: Current paper trading state
+          description: Current BTC paper trading state
           content:
             application/json:
               schema:
@@ -43,11 +44,10 @@ paths:
     post:
       operationId: refreshPaperTrader
       tags: [paper-trader]
-      summary: Refresh market data and evaluate the paper strategy
-      description: Fetches public Kraken data, evaluates only newly completed hourly candles, updates any simulated position, and returns the latest state.
+      summary: Refresh BTC market data and evaluate strategy
       responses:
         "200":
-          description: Refreshed paper trading state
+          description: Refreshed BTC paper trading state
           content:
             application/json:
               schema:
@@ -62,7 +62,7 @@ paths:
     get:
       operationId: listPaperTrades
       tags: [paper-trader]
-      summary: List simulated trades
+      summary: List simulated BTC trades
       parameters:
         - name: limit
           in: query
@@ -70,11 +70,11 @@ paths:
           schema:
             type: number
             minimum: 1
-            maximum: 100
+            maximum: 200
             default: 50
       responses:
         "200":
-          description: Simulated trade history
+          description: Simulated BTC trade history
           content:
             application/json:
               schema:
@@ -85,7 +85,7 @@ paths:
     post:
       operationId: resetPaperTrader
       tags: [paper-trader]
-      summary: Reset the virtual account and simulated history
+      summary: Reset the BTC virtual account
       requestBody:
         required: false
         content:
@@ -94,11 +94,123 @@ paths:
               $ref: "#/components/schemas/ResetPaperTraderInput"
       responses:
         "200":
-          description: Reset paper trading state
+          description: Reset BTC paper trading state
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PaperTraderState"
+
+  # ── Multi-coin endpoints ───────────────────────────────────────────────────
+  /paper-trader/multi-state:
+    get:
+      operationId: getMultiCoinState
+      tags: [paper-trader]
+      summary: Get paper trading state for all four coins
+      description: Returns BTC, ETH, SOL, and XRP paper trading states in one call.
+      responses:
+        "200":
+          description: All coin states
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MultiCoinState"
+  /paper-trader/multi-refresh:
+    post:
+      operationId: refreshMultiCoin
+      tags: [paper-trader]
+      summary: Refresh market data and strategy for all four coins
+      description: Fetches Kraken public data for BTC, ETH, SOL, and XRP and evaluates each strategy.
+      responses:
+        "200":
+          description: Refreshed multi-coin state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MultiCoinState"
+        "502":
+          description: Kraken public API unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /paper-trader/portfolio:
+    get:
+      operationId: getPortfolioSummary
+      tags: [paper-trader]
+      summary: Get combined portfolio summary across all four coins
+      responses:
+        "200":
+          description: Portfolio summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioSummary"
+  /paper-trader/activity:
+    get:
+      operationId: listActivityLog
+      tags: [paper-trader]
+      summary: Get the recent activity log
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Activity log entries newest-first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityEvent"
+  /paper-trader/all-trades:
+    get:
+      operationId: listAllTrades
+      tags: [paper-trader]
+      summary: List simulated trades for all coins
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+            maximum: 500
+            default: 200
+      responses:
+        "200":
+          description: All simulated trades newest-first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PaperTrade"
+  /paper-trader/reset-all:
+    post:
+      operationId: resetAllCoins
+      tags: [paper-trader]
+      summary: Reset all four virtual accounts
+      description: Resets BTC, ETH, SOL, and XRP accounts to starting balance and clears history.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPaperTraderInput"
+      responses:
+        "200":
+          description: All coins reset — returns new multi-coin state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MultiCoinState"
+
 components:
   schemas:
     HealthStatus:
@@ -106,15 +218,15 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
     ErrorResponse:
       type: object
       properties:
         error:
           type: string
-      required:
-        - error
+      required: [error]
+
+    # ── Indicators ─────────────────────────────────────────────────────────
     IndicatorSnapshot:
       type: object
       properties:
@@ -133,6 +245,71 @@ components:
         volume:
           type: ["number", "null"]
       required: [rsi, macd, macdSignal, atr, ema20, ema50, volume]
+
+    # ── Strategy conditions breakdown ──────────────────────────────────────
+    StrategyCondition:
+      type: object
+      properties:
+        name:
+          type: string
+        currentValue:
+          type: string
+        requiredValue:
+          type: string
+        pass:
+          type: boolean
+      required: [name, currentValue, requiredValue, pass]
+    StrategyConditions:
+      type: object
+      properties:
+        conditions:
+          type: array
+          items:
+            $ref: "#/components/schemas/StrategyCondition"
+        passCount:
+          type: number
+        totalCount:
+          type: number
+        bias:
+          type: string
+          enum: [LONG, SHORT, NEUTRAL]
+        signal:
+          type: string
+          enum: [LONG, SHORT, NO_TRADE]
+        oneHourTrend:
+          type: string
+          enum: [BULLISH, BEARISH, NEUTRAL]
+        fourHourTrend:
+          type: string
+          enum: [BULLISH, BEARISH, NEUTRAL]
+        indicators:
+          $ref: "#/components/schemas/IndicatorSnapshot"
+      required: [conditions, passCount, totalCount, bias, signal, oneHourTrend, fourHourTrend, indicators]
+
+    # ── Proposed trade (when signal is present but no position open) ────────
+    ProposedTrade:
+      type: object
+      properties:
+        direction:
+          type: string
+          enum: [LONG, SHORT]
+        entry:
+          type: number
+        stopLoss:
+          type: number
+        takeProfit:
+          type: number
+        riskAmount:
+          type: number
+        rewardAmount:
+          type: number
+        rrRatio:
+          type: number
+        quantity:
+          type: number
+      required: [direction, entry, stopLoss, takeProfit, riskAmount, rewardAmount, rrRatio, quantity]
+
+    # ── Open position ───────────────────────────────────────────────────────
     OpenPosition:
       type: object
       properties:
@@ -160,12 +337,22 @@ components:
         trend4h:
           type: string
           enum: [BULLISH, BEARISH, NEUTRAL]
+        unrealisedPnl:
+          type: ["number", "null"]
+        unrealisedPct:
+          type: ["number", "null"]
+        currentPrice:
+          type: ["number", "null"]
       required: [direction, entry, stopLoss, takeProfit, quantity, riskAmount, openedAt, entryRsi, entryMacd, entryAtr, trend4h]
+
+    # ── Trades ──────────────────────────────────────────────────────────────
     PaperTrade:
       type: object
       properties:
         id:
           type: number
+        coin:
+          type: string
         openedAt:
           type: string
         closedAt:
@@ -197,7 +384,9 @@ components:
         exitReason:
           type: string
           enum: [TAKE_PROFIT, STOP_LOSS, SIGNAL_REVERSAL, MANUAL]
-      required: [id, openedAt, closedAt, direction, entry, exit, stopLoss, takeProfit, rsi, macd, atr, trend4h, profitLoss, accountBalance, exitReason]
+      required: [id, coin, openedAt, closedAt, direction, entry, exit, stopLoss, takeProfit, rsi, macd, atr, trend4h, profitLoss, accountBalance, exitReason]
+
+    # ── Metrics ─────────────────────────────────────────────────────────────
     PaperTraderMetrics:
       type: object
       properties:
@@ -226,9 +415,13 @@ components:
         consecutiveLosses:
           type: number
       required: [virtualBalance, startingBalance, totalProfitLoss, roi, numberOfTrades, wins, losses, winRate, profitFactor, maximumDrawdown, dailyLoss, consecutiveLosses]
+
+    # ── Single-coin state ───────────────────────────────────────────────────
     PaperTraderState:
       type: object
       properties:
+        coin:
+          type: string
         market:
           type: object
           properties:
@@ -252,6 +445,14 @@ components:
           enum: [BULLISH, BEARISH, NEUTRAL]
         indicators:
           $ref: "#/components/schemas/IndicatorSnapshot"
+        strategyConditions:
+          oneOf:
+            - $ref: "#/components/schemas/StrategyConditions"
+            - type: "null"
+        proposedTrade:
+          oneOf:
+            - $ref: "#/components/schemas/ProposedTrade"
+            - type: "null"
         position:
           oneOf:
             - $ref: "#/components/schemas/OpenPosition"
@@ -281,11 +482,68 @@ components:
           enum: [READY, WAITING_FOR_DATA, RISK_PAUSED, API_ERROR]
         message:
           type: string
-      required: [market, signal, oneHourTrend, fourHourTrend, indicators, position, metrics, risk, recentTrades, botStatus, message]
+      required: [coin, market, signal, oneHourTrend, fourHourTrend, indicators, position, metrics, risk, recentTrades, botStatus, message]
+
+    # ── Multi-coin state ────────────────────────────────────────────────────
+    MultiCoinState:
+      type: object
+      properties:
+        BTC:
+          $ref: "#/components/schemas/PaperTraderState"
+        ETH:
+          $ref: "#/components/schemas/PaperTraderState"
+        SOL:
+          $ref: "#/components/schemas/PaperTraderState"
+        XRP:
+          $ref: "#/components/schemas/PaperTraderState"
+      required: [BTC, ETH, SOL, XRP]
+
+    # ── Portfolio ───────────────────────────────────────────────────────────
+    PortfolioSummary:
+      type: object
+      properties:
+        totalStarting:
+          type: number
+        totalBalance:
+          type: number
+        totalPnl:
+          type: number
+        totalRoi:
+          type: number
+        totalTrades:
+          type: number
+        totalWins:
+          type: number
+        totalLosses:
+          type: number
+        overallWinRate:
+          type: number
+        coins:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/PaperTraderMetrics"
+      required: [totalStarting, totalBalance, totalPnl, totalRoi, totalTrades, totalWins, totalLosses, overallWinRate, coins]
+
+    # ── Activity log ────────────────────────────────────────────────────────
+    ActivityEvent:
+      type: object
+      properties:
+        id:
+          type: number
+        coin:
+          type: string
+        event:
+          type: string
+        message:
+          type: string
+        ts:
+          type: string
+      required: [id, coin, event, message, ts]
+
+    # ── Input schemas ───────────────────────────────────────────────────────
     ResetPaperTraderInput:
       type: object
       properties:
         startingBalance:
           type: number
           minimum: 0
-

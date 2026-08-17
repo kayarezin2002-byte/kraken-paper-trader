@@ -1,0 +1,155 @@
+Update my existing crypto paper-trading dashboard. Keep the current design, layout, paper-trading engine, £100 virtual balance, Kraken BTC/GBP market data, risk guardrails and trade history working exactly as they are.
+
+Add a new Strategy Status card to the Dashboard, positioned below the main BTC market-price/account statistics and above the Risk Guardrails section.
+
+The purpose of this card is to show me clearly and in real time why the bot is either entering a trade or waiting.
+
+### Strategy Status card
+
+At the top show one of these states:
+
+- WAITING
+- READY TO ENTER
+- POSITION OPEN
+- COOLDOWN
+- RISK LIMIT REACHED
+
+Also display a short explanation, for example:
+
+WAITING — 3 of 5 entry conditions met
+
+### Entry conditions
+
+Show each strategy condition individually with a clear pass/fail indicator.
+
+Include:
+
+- Trend direction
+- RSI condition
+- MACD / momentum condition
+- Price relative to moving average
+- Volume confirmation
+
+Each condition should display:
+
+- Current value
+- Required value or condition
+- PASS or FAIL
+
+Example:
+
+Trend
+Current: Bullish  
+Required: Bullish  
+✓ PASS
+
+RSI
+Current: 54.2  
+Required: suitable entry range  
+✓ PASS
+
+MACD
+Current: bearish  
+Required: bullish confirmation  
+✕ FAIL
+
+Do not invent indicator values. Calculate them from the same live BTC/GBP market data used by the trading strategy.
+
+### Overall entry progress
+
+Add a visual progress indicator such as:
+
+Entry conditions: 3 / 5
+
+Show a progress bar underneath.
+
+The number of conditions shown as passing must be generated from the actual strategy logic.
+
+### Trade direction
+
+Display:
+
+Current bias: LONG / SHORT / NEUTRAL
+
+The value must come from the strategy rather than being hard-coded.
+
+### Proposed trade details
+
+When enough conditions are met to create a trade setup, show:
+
+- Proposed entry price
+- Stop-loss
+- Take-profit
+- Risk amount in GBP
+- Potential reward in GBP
+- Risk/reward ratio
+- Position size
+
+For the existing £100 paper account and 1% risk setting, the risk calculation should continue to respect the existing risk-management system.
+
+### When a position is open
+
+Change the status to:
+
+POSITION OPEN
+
+Then show:
+
+- LONG or SHORT
+- Entry price
+- Current price
+- Stop-loss
+- Take-profit
+- Unrealised P&L
+- Percentage move
+- Time in trade
+
+### Market scanning information
+
+At the bottom of the card show:
+
+- Last strategy check time
+- Next strategy check / scan countdown if applicable
+- Market-data status
+
+Example:
+
+Last checked: 14:42:10  
+Next scan: 48 seconds  
+Market data: Live
+
+### Important
+
+The Strategy Status display must use the exact same indicators and conditions that the automated paper-trading engine uses.
+
+Do not create a separate fake strategy just for the dashboard.
+
+If the trading engine currently uses different indicators from the five listed above, display the indicators actually used by the trading engine instead.
+
+The dashboard must always explain the real reason a trade has or has not been entered.
+
+### Mobile design
+
+Keep the existing clean visual style from the current dashboard.
+
+It must work well on an iPhone screen.
+
+Use compact rows/cards so I do not need excessive horizontal scrolling.
+
+Use green for passed conditions, red for failed conditions and amber/orange for waiting or neutral conditions, while keeping the existing dashboard styling consistent.
+
+Do not remove or redesign the existing:
+
+- Live BTC/GBP price
+- Virtual balance
+- P&L
+- ROI
+- Paper Trading Only warning
+- Risk Guardrails
+- Recent Simulated Trades
+- History tab
+- Reset Account function
+
+After making the changes, run the app and fix any errors.
+
+Do not change the strategy's trading thresholds purely to force a trade. I want to see whether the real strategy conditions are being met.

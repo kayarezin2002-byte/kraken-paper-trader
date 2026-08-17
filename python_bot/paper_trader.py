@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Kraken BTC/GBP paper trader.
+"""Kraken multi-coin paper trader.
 
-This process uses Kraken's public market-data endpoints only. It never
-authenticates with Kraken and never submits orders.
+Uses Kraken's public market-data endpoints only.
+Never authenticates with Kraken and never submits real orders.
+Paper trading only — all trades are simulated.
 """
 
 from __future__ import annotations
@@ -19,20 +20,33 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
-PAIR = "XXBTZGBP"
-DISPLAY_PAIR = "BTC/GBP"
-STARTING_BALANCE = 100.0
-RISK_PER_TRADE = 0.01
-DAILY_LOSS_LIMIT = 0.03
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
+COINS: dict[str, dict[str, str]] = {
+    "BTC": {"pair": "XXBTZGBP", "display": "BTC/GBP"},
+    "ETH": {"pair": "XETHZGBP", "display": "ETH/GBP"},
+    "SOL": {"pair": "SOLGBP",   "display": "SOL/GBP"},
+    "XRP": {"pair": "XRPGBP",   "display": "XRP/GBP"},
+}
+STARTING_BALANCE    = 100.0
+RISK_PER_TRADE      = 0.01     # 1 %
+DAILY_LOSS_LIMIT    = 0.03     # 3 % of starting balance
 MAX_CONSECUTIVE_LOSSES = 3
-REWARD_TO_RISK = 2.0
-ATR_MULTIPLIER = 1.5
-POLLING_SECONDS = 60
+REWARD_TO_RISK      = 2.0
+ATR_MULTIPLIER      = 1.5
+POLLING_SECONDS     = 60
 DB_PATH = os.environ.get(
     "PAPER_TRADER_DB",
     os.path.join(os.path.dirname(__file__), "paper_trader.sqlite3"),
 )
+ACTIVITY_KEEP = 200  # rows to retain in the activity log
 
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -51,105 +65,224 @@ def safe_float(value: Any) -> float | None:
 
 
 def round_price(value: float | None) -> float | None:
-    return round(value, 2) if value is not None else None
+    return round(value, 6) if value is not None else None
 
 
 def round_amount(value: float | None) -> float | None:
     return round(value, 8) if value is not None else None
 
 
+# ---------------------------------------------------------------------------
+# Database
+# ---------------------------------------------------------------------------
+
 def db() -> sqlite3.Connection:
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
     connection.row_factory = sqlite3.Row
     return connection
 
 
 def init_db(connection: sqlite3.Connection) -> None:
+    """Create tables and migrate any pre-multi-coin BTC state."""
     connection.executescript(
         """
-        CREATE TABLE IF NOT EXISTS bot_state (
-            id INTEGER PRIMARY KEY CHECK (id = 1),
+        CREATE TABLE IF NOT EXISTS coin_state (
+            coin            TEXT PRIMARY KEY,
             starting_balance REAL NOT NULL,
-            balance REAL NOT NULL,
-            open_position TEXT,
-            last_candle_at TEXT,
-            day_key TEXT NOT NULL,
-            peak_balance REAL NOT NULL,
-            updated_at TEXT NOT NULL,
-            snapshot TEXT,
-            message TEXT NOT NULL
+            balance         REAL NOT NULL,
+            open_position   TEXT,
+            last_candle_at  TEXT,
+            day_key         TEXT NOT NULL,
+            updated_at      TEXT NOT NULL,
+            snapshot        TEXT,
+            message         TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS trades (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            opened_at TEXT NOT NULL,
-            closed_at TEXT NOT NULL,
-            direction TEXT NOT NULL,
-            entry REAL NOT NULL,
-            exit REAL NOT NULL,
-            stop_loss REAL NOT NULL,
-            take_profit REAL NOT NULL,
-            rsi REAL,
-            macd REAL,
-            atr REAL,
-            trend_4h TEXT NOT NULL,
-            profit_loss REAL NOT NULL,
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            coin            TEXT NOT NULL DEFAULT 'BTC',
+            opened_at       TEXT NOT NULL,
+            closed_at       TEXT NOT NULL,
+            direction       TEXT NOT NULL,
+            entry           REAL NOT NULL,
+            exit            REAL NOT NULL,
+            stop_loss       REAL NOT NULL,
+            take_profit     REAL NOT NULL,
+            rsi             REAL,
+            macd            REAL,
+            atr             REAL,
+            trend_4h        TEXT NOT NULL,
+            profit_loss     REAL NOT NULL,
             account_balance REAL NOT NULL,
-            exit_reason TEXT NOT NULL
+            exit_reason     TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS activity_log (
+            id      INTEGER PRIMARY KEY AUTOINCREMENT,
+            coin    TEXT NOT NULL,
+            event   TEXT NOT NULL,
+            message TEXT NOT NULL,
+            ts      TEXT NOT NULL
         );
         """
     )
-    row = connection.execute("SELECT id FROM bot_state WHERE id = 1").fetchone()
-    if row is None:
-        reset_state(connection, STARTING_BALANCE, clear_trades=False)
+    # Migrate: add coin column to trades if it doesn't exist yet
+    trades_cols = [row[1] for row in connection.execute("PRAGMA table_info(trades)").fetchall()]
+    if "coin" not in trades_cols:
+        connection.execute("ALTER TABLE trades ADD COLUMN coin TEXT NOT NULL DEFAULT 'BTC'")
+    # Migrate old single-coin bot_state if present
+    has_old = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='bot_state'"
+    ).fetchone()
+    if has_old:
+        btc_row = connection.execute("SELECT * FROM bot_state WHERE id = 1").fetchone()
+        if btc_row:
+            exists = connection.execute(
+                "SELECT coin FROM coin_state WHERE coin = 'BTC'"
+            ).fetchone()
+            if not exists:
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO coin_state
+                        (coin, starting_balance, balance, open_position,
+                         last_candle_at, day_key, updated_at, snapshot, message)
+                    VALUES ('BTC', ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        btc_row["starting_balance"],
+                        btc_row["balance"],
+                        btc_row["open_position"],
+                        btc_row["last_candle_at"],
+                        btc_row["day_key"],
+                        btc_row["updated_at"],
+                        btc_row["snapshot"],
+                        btc_row["message"],
+                    ),
+                )
+            # migrate old trades
+            old_trades = connection.execute("SELECT * FROM trades WHERE true").fetchall()
+            for t in old_trades:
+                # only migrate if they have no 'coin' column (old schema)
+                try:
+                    _ = t["coin"]
+                except IndexError:
+                    connection.execute(
+                        """
+                        INSERT INTO trades
+                            (coin, opened_at, closed_at, direction, entry, exit,
+                             stop_loss, take_profit, rsi, macd, atr, trend_4h,
+                             profit_loss, account_balance, exit_reason)
+                        VALUES ('BTC', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            t["opened_at"], t["closed_at"], t["direction"],
+                            t["entry"], t["exit"], t["stop_loss"], t["take_profit"],
+                            t["rsi"], t["macd"], t["atr"], t["trend_4h"],
+                            t["profit_loss"], t["account_balance"], t["exit_reason"],
+                        ),
+                    )
+        connection.execute("DROP TABLE IF EXISTS bot_state")
+
+    # Ensure each coin has a state row
+    for coin in COINS:
+        existing = connection.execute(
+            "SELECT coin FROM coin_state WHERE coin = ?", (coin,)
+        ).fetchone()
+        if not existing:
+            _insert_default_state(connection, coin, STARTING_BALANCE)
+
     connection.commit()
 
 
-def reset_state(
+def _insert_default_state(
     connection: sqlite3.Connection,
+    coin: str,
+    starting_balance: float,
+) -> None:
+    connection.execute(
+        """
+        INSERT OR REPLACE INTO coin_state
+            (coin, starting_balance, balance, open_position,
+             last_candle_at, day_key, updated_at, snapshot, message)
+        VALUES (?, ?, ?, NULL, NULL, ?, ?, NULL, ?)
+        """,
+        (
+            coin,
+            starting_balance,
+            starting_balance,
+            date_key(),
+            now_iso(),
+            f"Paper account ready. Waiting for Kraken market data.",
+        ),
+    )
+
+
+def load_coin_state(connection: sqlite3.Connection, coin: str) -> sqlite3.Row:
+    row = connection.execute(
+        "SELECT * FROM coin_state WHERE coin = ?", (coin,)
+    ).fetchone()
+    if row is None:
+        _insert_default_state(connection, coin, STARTING_BALANCE)
+        connection.commit()
+        row = connection.execute(
+            "SELECT * FROM coin_state WHERE coin = ?", (coin,)
+        ).fetchone()
+    assert row is not None
+    return row
+
+
+def reset_coin(
+    connection: sqlite3.Connection,
+    coin: str,
     starting_balance: float = STARTING_BALANCE,
     clear_trades: bool = True,
 ) -> None:
     starting_balance = max(0.0, float(starting_balance))
     if clear_trades:
-        connection.execute("DELETE FROM trades")
+        connection.execute("DELETE FROM trades WHERE coin = ?", (coin,))
     connection.execute(
         """
-        INSERT INTO bot_state (
-            id, starting_balance, balance, open_position, last_candle_at,
-            day_key, peak_balance, updated_at, snapshot, message
-        ) VALUES (1, ?, ?, NULL, NULL, ?, ?, ?, NULL, ?)
-        ON CONFLICT(id) DO UPDATE SET
-            starting_balance = excluded.starting_balance,
-            balance = excluded.balance,
-            open_position = NULL,
-            last_candle_at = NULL,
-            day_key = excluded.day_key,
-            peak_balance = excluded.peak_balance,
-            updated_at = excluded.updated_at,
-            snapshot = NULL,
-            message = excluded.message
+        INSERT OR REPLACE INTO coin_state
+            (coin, starting_balance, balance, open_position,
+             last_candle_at, day_key, updated_at, snapshot, message)
+        VALUES (?, ?, ?, NULL, NULL, ?, ?, NULL, ?)
         """,
         (
+            coin,
             starting_balance,
             starting_balance,
             date_key(),
-            starting_balance,
             now_iso(),
-            "Paper account reset. Waiting for public Kraken market data.",
+            f"Paper account reset. Waiting for Kraken market data.",
         ),
     )
+    add_activity(connection, coin, "ACCOUNT_RESET", f"Paper account reset to £{starting_balance:.2f}")
     connection.commit()
 
 
-def load_state(connection: sqlite3.Connection) -> sqlite3.Row:
-    row = connection.execute("SELECT * FROM bot_state WHERE id = 1").fetchone()
-    if row is None:
-        reset_state(connection, STARTING_BALANCE, clear_trades=False)
-        row = connection.execute("SELECT * FROM bot_state WHERE id = 1").fetchone()
-    assert row is not None
-    return row
+def add_activity(
+    connection: sqlite3.Connection,
+    coin: str,
+    event: str,
+    message: str,
+) -> None:
+    connection.execute(
+        "INSERT INTO activity_log (coin, event, message, ts) VALUES (?, ?, ?, ?)",
+        (coin, event, message, now_iso()),
+    )
+    # Prune old rows
+    connection.execute(
+        """
+        DELETE FROM activity_log WHERE id NOT IN (
+            SELECT id FROM activity_log ORDER BY id DESC LIMIT ?
+        )
+        """,
+        (ACTIVITY_KEEP,),
+    )
 
+
+# ---------------------------------------------------------------------------
+# Kraken public API
+# ---------------------------------------------------------------------------
 
 def fetch_json(url: str) -> dict[str, Any]:
     request = Request(
@@ -163,43 +296,42 @@ def fetch_json(url: str) -> dict[str, Any]:
         with urlopen(request, timeout=15) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except (HTTPError, URLError, TimeoutError, ValueError) as error:
-        raise RuntimeError(f"Kraken public API request failed: {error}") from error
+        raise RuntimeError(f"Kraken public API error: {error}") from error
     errors = payload.get("error", [])
     if errors:
-        raise RuntimeError("Kraken public API error: " + ", ".join(map(str, errors)))
+        raise RuntimeError("Kraken error: " + ", ".join(map(str, errors)))
     return payload.get("result", {})
 
 
-def fetch_market_data() -> tuple[float, list[list[Any]], list[list[Any]]]:
-    ticker_result = fetch_json(
-        f"https://api.kraken.com/0/public/Ticker?pair={PAIR}"
-    )
-    ticker = ticker_result.get(PAIR) or next(iter(ticker_result.values()), None)
+def fetch_market_data(pair: str) -> tuple[float, list[list[Any]], list[list[Any]]]:
+    ticker_result = fetch_json(f"https://api.kraken.com/0/public/Ticker?pair={pair}")
+    ticker = ticker_result.get(pair) or next(iter(ticker_result.values()), None)
     if not ticker or not ticker.get("c"):
-        raise RuntimeError("Kraken returned no BTC/GBP ticker data")
+        raise RuntimeError(f"No ticker data for {pair}")
     current_price = safe_float(ticker["c"][0])
     if current_price is None:
-        raise RuntimeError("Kraken returned an invalid BTC/GBP price")
+        raise RuntimeError(f"Invalid price for {pair}")
 
     one_hour_result = fetch_json(
-        f"https://api.kraken.com/0/public/OHLC?pair={PAIR}&interval=60"
+        f"https://api.kraken.com/0/public/OHLC?pair={pair}&interval=60"
     )
     four_hour_result = fetch_json(
-        f"https://api.kraken.com/0/public/OHLC?pair={PAIR}&interval=240"
-    )
-    one_hour = one_hour_result.get(PAIR) or next(
-        (value for key, value in one_hour_result.items() if key != "last"), []
-    )
-    four_hour = four_hour_result.get(PAIR) or next(
-        (value for key, value in four_hour_result.items() if key != "last"), []
+        f"https://api.kraken.com/0/public/OHLC?pair={pair}&interval=240"
     )
     cutoff = time.time()
 
-    def completed(rows: list[list[Any]]) -> list[list[Any]]:
-        return [row for row in rows if len(row) >= 8 and float(row[0]) < cutoff][:-1]
+    def ohlc_rows(result: dict[str, Any]) -> list[list[Any]]:
+        rows = result.get(pair) or next(
+            (v for k, v in result.items() if k != "last"), []
+        )
+        return [r for r in rows if len(r) >= 8 and float(r[0]) < cutoff][:-1]
 
-    return current_price, completed(one_hour), completed(four_hour)
+    return current_price, ohlc_rows(one_hour_result), ohlc_rows(four_hour_result)
 
+
+# ---------------------------------------------------------------------------
+# Indicators
+# ---------------------------------------------------------------------------
 
 def ema_series(values: list[float], period: int) -> list[float | None]:
     result: list[float | None] = [None] * len(values)
@@ -207,10 +339,10 @@ def ema_series(values: list[float], period: int) -> list[float | None]:
         return result
     current = sum(values[:period]) / period
     result[period - 1] = current
-    multiplier = 2 / (period + 1)
-    for index in range(period, len(values)):
-        current = (values[index] - current) * multiplier + current
-        result[index] = current
+    mult = 2 / (period + 1)
+    for i in range(period, len(values)):
+        current = (values[i] - current) * mult + current
+        result[i] = current
     return result
 
 
@@ -218,471 +350,829 @@ def rsi_series(values: list[float], period: int = 14) -> list[float | None]:
     result: list[float | None] = [None] * len(values)
     if len(values) <= period:
         return result
-    gains = [max(values[index] - values[index - 1], 0.0) for index in range(1, len(values))]
-    losses = [max(values[index - 1] - values[index], 0.0) for index in range(1, len(values))]
-    average_gain = sum(gains[:period]) / period
-    average_loss = sum(losses[:period]) / period
+    gains = [max(values[i] - values[i - 1], 0.0) for i in range(1, len(values))]
+    losses = [max(values[i - 1] - values[i], 0.0) for i in range(1, len(values))]
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
 
-    def value() -> float:
-        if average_loss == 0:
+    def rsi_val() -> float:
+        if avg_loss == 0:
             return 100.0
-        relative_strength = average_gain / average_loss
-        return 100 - (100 / (1 + relative_strength))
+        rs = avg_gain / avg_loss
+        return 100 - (100 / (1 + rs))
 
-    result[period] = value()
-    for index in range(period, len(gains)):
-        average_gain = ((average_gain * (period - 1)) + gains[index]) / period
-        average_loss = ((average_loss * (period - 1)) + losses[index]) / period
-        result[index + 1] = value()
+    result[period] = rsi_val()
+    for i in range(period, len(gains)):
+        avg_gain = ((avg_gain * (period - 1)) + gains[i]) / period
+        avg_loss = ((avg_loss * (period - 1)) + losses[i]) / period
+        result[i + 1] = rsi_val()
     return result
 
 
 def indicator_snapshot(rows: list[list[Any]]) -> dict[str, float | None]:
-    closes = [float(row[4]) for row in rows]
-    volumes = [float(row[6]) for row in rows]
-    ema20 = ema_series(closes, 20)
-    ema50 = ema_series(closes, 50)
-    ema12 = ema_series(closes, 12)
-    ema26 = ema_series(closes, 26)
+    closes  = [float(r[4]) for r in rows]
+    volumes = [float(r[6]) for r in rows]
+    ema20   = ema_series(closes, 20)
+    ema50   = ema_series(closes, 50)
+    ema12   = ema_series(closes, 12)
+    ema26   = ema_series(closes, 26)
     macd = [
-        (fast - slow) if fast is not None and slow is not None else None
-        for fast, slow in zip(ema12, ema26)
+        (f - s) if f is not None and s is not None else None
+        for f, s in zip(ema12, ema26)
     ]
-    macd_values = [value for value in macd if value is not None]
-    signal_values = ema_series(macd_values, 9)
+    macd_vals = [v for v in macd if v is not None]
+    sig_vals  = ema_series(macd_vals, 9)
     macd_signal: list[float | None] = [None] * len(macd)
-    signal_index = 0
-    for index, value in enumerate(macd):
-        if value is not None:
-            macd_signal[index] = signal_values[signal_index]
-            signal_index += 1
+    si = 0
+    for idx, v in enumerate(macd):
+        if v is not None:
+            macd_signal[idx] = sig_vals[si]
+            si += 1
     true_ranges: list[float] = []
-    for index, row in enumerate(rows):
-        high = float(row[2])
-        low = float(row[3])
-        previous_close = float(rows[index - 1][4]) if index else float(row[4])
-        true_ranges.append(max(high - low, abs(high - previous_close), abs(low - previous_close)))
+    for i, row in enumerate(rows):
+        high = float(row[2]); low = float(row[3])
+        prev_close = float(rows[i - 1][4]) if i else float(row[4])
+        true_ranges.append(max(high - low, abs(high - prev_close), abs(low - prev_close)))
     atr = ema_series(true_ranges, 14)
     rsi = rsi_series(closes)
-    latest = len(rows) - 1
+    L = len(rows) - 1
 
-    def latest_value(series: list[float | None]) -> float | None:
-        return series[latest] if series and latest >= 0 else None
+    def lv(series: list[float | None]) -> float | None:
+        return series[L] if series and L >= 0 else None
 
     return {
-        "rsi": latest_value(rsi),
-        "macd": latest_value(macd),
-        "macdSignal": latest_value(macd_signal),
-        "atr": latest_value(atr),
-        "ema20": latest_value(ema20),
-        "ema50": latest_value(ema50),
+        "rsi": lv(rsi),
+        "macd": lv(macd),
+        "macdSignal": lv(macd_signal),
+        "atr": lv(atr),
+        "ema20": lv(ema20),
+        "ema50": lv(ema50),
         "volume": volumes[-1] if volumes else None,
+        "_avg_volume": sum(volumes[-20:]) / min(20, len(volumes)) if volumes else None,
     }
 
 
 def trend_for(rows: list[list[Any]]) -> str:
     if len(rows) < 55:
         return "NEUTRAL"
-    snapshot = indicator_snapshot(rows)
+    snap = indicator_snapshot(rows)
     close = float(rows[-1][4])
-    ema20 = snapshot["ema20"]
-    ema50 = snapshot["ema50"]
-    macd = snapshot["macd"]
-    macd_signal = snapshot["macdSignal"]
-    if (
-        ema20 is not None
-        and ema50 is not None
-        and macd is not None
-        and macd_signal is not None
-    ):
-        if close > ema20 > ema50 and macd > macd_signal:
+    e20, e50, macd, sig = snap["ema20"], snap["ema50"], snap["macd"], snap["macdSignal"]
+    if e20 is not None and e50 is not None and macd is not None and sig is not None:
+        if close > e20 > e50 and macd > sig:
             return "BULLISH"
-        if close < ema20 < ema50 and macd < macd_signal:
+        if close < e20 < e50 and macd < sig:
             return "BEARISH"
     return "NEUTRAL"
 
 
-def signal_for(rows: list[list[Any]]) -> tuple[str, str, dict[str, float | None]]:
-    if len(rows) < 55:
-        return "NO_TRADE", "NEUTRAL", indicator_snapshot(rows)
-    snapshot = indicator_snapshot(rows)
-    close = float(rows[-1][4])
-    trend = trend_for(rows)
-    average_volume = sum(float(row[6]) for row in rows[-20:]) / min(20, len(rows))
-    volume = snapshot["volume"] or 0.0
-    bullish = (
-        trend == "BULLISH"
-        and snapshot["rsi"] is not None
-        and snapshot["rsi"] >= 50
-        and snapshot["macd"] is not None
-        and snapshot["macdSignal"] is not None
-        and snapshot["macd"] > snapshot["macdSignal"]
-        and volume >= average_volume * 0.7
-        and snapshot["ema20"] is not None
-        and snapshot["ema50"] is not None
-        and close > snapshot["ema20"] > snapshot["ema50"]
-    )
-    bearish = (
-        trend == "BEARISH"
-        and snapshot["rsi"] is not None
-        and snapshot["rsi"] <= 50
-        and snapshot["macd"] is not None
-        and snapshot["macdSignal"] is not None
-        and snapshot["macd"] < snapshot["macdSignal"]
-        and volume >= average_volume * 0.7
-        and snapshot["ema20"] is not None
-        and snapshot["ema50"] is not None
-        and close < snapshot["ema20"] < snapshot["ema50"]
-    )
-    return ("LONG" if bullish else "SHORT" if bearish else "NO_TRADE"), trend, snapshot
+# ---------------------------------------------------------------------------
+# Strategy evaluation — exposed conditions for the dashboard
+# ---------------------------------------------------------------------------
 
+def evaluate_conditions(
+    one_hour: list[list[Any]],
+    four_hour: list[list[Any]],
+) -> dict[str, Any]:
+    """
+    Evaluate the exact same strategy conditions used by the engine.
+    Returns a structured conditions breakdown for the dashboard.
+    """
+    if len(one_hour) < 55 or len(four_hour) < 55:
+        return {
+            "conditions": [],
+            "passCount": 0,
+            "totalCount": 0,
+            "bias": "NEUTRAL",
+            "signal": "NO_TRADE",
+            "oneHourTrend": "NEUTRAL",
+            "fourHourTrend": "NEUTRAL",
+            "indicators": {
+                "rsi": None, "macd": None, "macdSignal": None,
+                "atr": None, "ema20": None, "ema50": None, "volume": None,
+            },
+        }
 
-def trade_from_row(row: sqlite3.Row) -> dict[str, Any]:
+    snap  = indicator_snapshot(one_hour)
+    close = float(one_hour[-1][4])
+    avg_vol = snap.get("_avg_volume") or 0.0
+    volume  = snap["volume"] or 0.0
+
+    one_hour_trend  = trend_for(one_hour)
+    four_hour_trend = trend_for(four_hour)
+
+    # Decide which direction we're evaluating
+    # (bearish conditions are the mirror of bullish)
+    if one_hour_trend == "BULLISH" or four_hour_trend == "BULLISH":
+        direction = "LONG"
+    elif one_hour_trend == "BEARISH" or four_hour_trend == "BEARISH":
+        direction = "SHORT"
+    else:
+        direction = "NEUTRAL"
+
+    def c(name: str, current_val: str, required_val: str, passed: bool) -> dict[str, Any]:
+        return {
+            "name": name,
+            "currentValue": current_val,
+            "requiredValue": required_val,
+            "pass": passed,
+        }
+
+    rsi_val  = snap["rsi"]
+    macd_val = snap["macd"]
+    sig_val  = snap["macdSignal"]
+    e20      = snap["ema20"]
+    e50      = snap["ema50"]
+
+    if direction == "LONG":
+        cond_4h    = four_hour_trend == "BULLISH"
+        cond_1h    = one_hour_trend == "BULLISH"
+        cond_rsi   = rsi_val is not None and rsi_val >= 50
+        cond_macd  = macd_val is not None and sig_val is not None and macd_val > sig_val
+        cond_price = e20 is not None and e50 is not None and close > e20 > e50
+        cond_vol   = avg_vol > 0 and volume >= avg_vol * 0.7
+
+        conds = [
+            c("4h Trend",     four_hour_trend,
+              "BULLISH",      cond_4h),
+            c("1h Trend",     one_hour_trend,
+              "BULLISH",      cond_1h),
+            c("RSI",          f"{rsi_val:.1f}" if rsi_val is not None else "—",
+              "≥ 50",         cond_rsi),
+            c("MACD Momentum",
+              f"{macd_val:.4f} > {sig_val:.4f}" if (macd_val is not None and sig_val is not None) else "—",
+              "MACD above signal", cond_macd),
+            c("Price vs MA",
+              f"{close:.2f} > EMA20 {e20:.2f}" if e20 else "—",
+              "Price > EMA20 > EMA50", cond_price),
+            c("Volume",
+              f"{volume:.4f}",
+              f"≥ {avg_vol * 0.7:.4f} (70% avg)", cond_vol),
+        ]
+
+    elif direction == "SHORT":
+        cond_4h    = four_hour_trend == "BEARISH"
+        cond_1h    = one_hour_trend == "BEARISH"
+        cond_rsi   = rsi_val is not None and rsi_val <= 50
+        cond_macd  = macd_val is not None and sig_val is not None and macd_val < sig_val
+        cond_price = e20 is not None and e50 is not None and close < e20 < e50
+        cond_vol   = avg_vol > 0 and volume >= avg_vol * 0.7
+
+        conds = [
+            c("4h Trend",     four_hour_trend,
+              "BEARISH",      cond_4h),
+            c("1h Trend",     one_hour_trend,
+              "BEARISH",      cond_1h),
+            c("RSI",          f"{rsi_val:.1f}" if rsi_val is not None else "—",
+              "≤ 50",         cond_rsi),
+            c("MACD Momentum",
+              f"{macd_val:.4f} < {sig_val:.4f}" if (macd_val is not None and sig_val is not None) else "—",
+              "MACD below signal", cond_macd),
+            c("Price vs MA",
+              f"{close:.2f} < EMA20 {e20:.2f}" if e20 else "—",
+              "Price < EMA20 < EMA50", cond_price),
+            c("Volume",
+              f"{volume:.4f}",
+              f"≥ {avg_vol * 0.7:.4f} (70% avg)", cond_vol),
+        ]
+
+    else:
+        conds = [
+            c("4h Trend",     four_hour_trend, "BULLISH or BEARISH", False),
+            c("1h Trend",     one_hour_trend,  "BULLISH or BEARISH", False),
+            c("RSI",          f"{rsi_val:.1f}" if rsi_val is not None else "—",
+              "≥ 50 (long) or ≤ 50 (short)", False),
+            c("MACD Momentum", "—", "MACD above/below signal", False),
+            c("Price vs MA",   "—", "Price aligned with EMA20/50", False),
+            c("Volume",        f"{volume:.4f}", "≥ 70% of 20-period average", False),
+        ]
+
+    pass_count = sum(1 for cd in conds if cd["pass"])
+
+    # Overall signal (same dual-timeframe rule as refresh())
+    if all(cd["pass"] for cd in conds):
+        if direction == "LONG":
+            signal = "LONG"
+        elif direction == "SHORT":
+            signal = "SHORT"
+        else:
+            signal = "NO_TRADE"
+    else:
+        signal = "NO_TRADE"
+
+    indicators = {k: v for k, v in snap.items() if not k.startswith("_")}
+
     return {
-        "id": int(row["id"]),
-        "openedAt": row["opened_at"],
-        "closedAt": row["closed_at"],
-        "direction": row["direction"],
-        "entry": row["entry"],
-        "exit": row["exit"],
-        "stopLoss": row["stop_loss"],
-        "takeProfit": row["take_profit"],
-        "rsi": row["rsi"],
-        "macd": row["macd"],
-        "atr": row["atr"],
-        "trend4h": row["trend_4h"],
-        "profitLoss": row["profit_loss"],
-        "accountBalance": row["account_balance"],
-        "exitReason": row["exit_reason"],
+        "conditions": conds,
+        "passCount": pass_count,
+        "totalCount": len(conds),
+        "bias": direction,
+        "signal": signal,
+        "oneHourTrend": one_hour_trend,
+        "fourHourTrend": four_hour_trend,
+        "indicators": indicators,
     }
 
 
-def metrics(connection: sqlite3.Connection, state: sqlite3.Row) -> dict[str, float]:
+def proposed_trade(
+    signal: str,
+    current_price: float,
+    indicators: dict[str, Any],
+    balance: float,
+) -> dict[str, Any] | None:
+    """Compute what the trade would look like at current price, without opening it."""
+    if signal not in ("LONG", "SHORT"):
+        return None
+    atr = indicators.get("atr")
+    if not atr or atr <= 0:
+        return None
+    stop_distance = float(atr) * ATR_MULTIPLIER
+    risk_amount   = balance * RISK_PER_TRADE
+    quantity = min(
+        risk_amount / stop_distance,
+        balance / current_price if current_price > 0 else 0,
+    )
+    if quantity <= 0:
+        return None
+    stop_loss = (
+        current_price - stop_distance if signal == "LONG"
+        else current_price + stop_distance
+    )
+    take_profit = (
+        current_price + stop_distance * REWARD_TO_RISK if signal == "LONG"
+        else current_price - stop_distance * REWARD_TO_RISK
+    )
+    reward_amount = stop_distance * REWARD_TO_RISK * quantity
+    return {
+        "direction":    signal,
+        "entry":        round_price(current_price),
+        "stopLoss":     round_price(stop_loss),
+        "takeProfit":   round_price(take_profit),
+        "riskAmount":   round(risk_amount, 2),
+        "rewardAmount": round(reward_amount, 2),
+        "rrRatio":      round(REWARD_TO_RISK, 2),
+        "quantity":     round_amount(quantity),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Metrics
+# ---------------------------------------------------------------------------
+
+def coin_metrics(connection: sqlite3.Connection, coin: str, state: sqlite3.Row) -> dict[str, float]:
     trades = connection.execute(
-        "SELECT profit_loss, account_balance, closed_at FROM trades ORDER BY id"
+        "SELECT profit_loss, account_balance, closed_at FROM trades WHERE coin = ? ORDER BY id",
+        (coin,),
     ).fetchall()
-    profits = [float(row["profit_loss"]) for row in trades if float(row["profit_loss"]) > 0]
-    losses = [float(row["profit_loss"]) for row in trades if float(row["profit_loss"]) < 0]
-    balance = max(0.0, float(state["balance"]))
-    starting = float(state["starting_balance"])
-    total = balance - starting
-    wins = len(profits)
-    loss_count = len(losses)
+    profits    = [float(r["profit_loss"]) for r in trades if float(r["profit_loss"]) > 0]
+    losses     = [float(r["profit_loss"]) for r in trades if float(r["profit_loss"]) < 0]
+    balance    = max(0.0, float(state["balance"]))
+    starting   = float(state["starting_balance"])
+    total_pnl  = balance - starting
     gross_profit = sum(profits)
-    gross_loss = abs(sum(losses))
-    equity = [starting] + [float(row["account_balance"]) for row in trades]
+    gross_loss   = abs(sum(losses))
+    equity = [starting] + [float(r["account_balance"]) for r in trades]
     peak = starting
-    max_drawdown = 0.0
-    for value in equity:
-        peak = max(peak, value)
+    max_dd = 0.0
+    for val in equity:
+        peak = max(peak, val)
         if peak > 0:
-            max_drawdown = max(max_drawdown, (peak - value) / peak * 100)
+            max_dd = max(max_dd, (peak - val) / peak * 100)
     today = date_key()
     daily_loss = sum(
-        abs(float(row["profit_loss"]))
-        for row in trades
-        if row["closed_at"].startswith(today) and float(row["profit_loss"]) < 0
+        abs(float(r["profit_loss"]))
+        for r in trades
+        if r["closed_at"].startswith(today) and float(r["profit_loss"]) < 0
     )
     consecutive = 0
-    for row in reversed(trades):
-        if float(row["profit_loss"]) < 0:
+    for r in reversed(trades):
+        if float(r["profit_loss"]) < 0:
             consecutive += 1
         else:
             break
     return {
-        "virtualBalance": balance,
-        "startingBalance": starting,
-        "totalProfitLoss": total,
-        "roi": (total / starting * 100) if starting else 0.0,
-        "numberOfTrades": len(trades),
-        "wins": wins,
-        "losses": loss_count,
-        "winRate": (wins / len(trades) * 100) if trades else 0.0,
-        "profitFactor": (gross_profit / gross_loss) if gross_loss else 0.0,
-        "maximumDrawdown": max_drawdown,
-        "dailyLoss": daily_loss,
-        "consecutiveLosses": consecutive,
+        "virtualBalance":     balance,
+        "startingBalance":    starting,
+        "totalProfitLoss":    total_pnl,
+        "roi":                (total_pnl / starting * 100) if starting else 0.0,
+        "numberOfTrades":     len(trades),
+        "wins":               len(profits),
+        "losses":             len(losses),
+        "winRate":            (len(profits) / len(trades) * 100) if trades else 0.0,
+        "profitFactor":       (gross_profit / gross_loss) if gross_loss else 0.0,
+        "maximumDrawdown":    max_dd,
+        "dailyLoss":          daily_loss,
+        "consecutiveLosses":  consecutive,
     }
 
 
-def build_state(
+# ---------------------------------------------------------------------------
+# State builder
+# ---------------------------------------------------------------------------
+
+def trade_from_row(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id":             int(row["id"]),
+        "coin":           row["coin"],
+        "openedAt":       row["opened_at"],
+        "closedAt":       row["closed_at"],
+        "direction":      row["direction"],
+        "entry":          row["entry"],
+        "exit":           row["exit"],
+        "stopLoss":       row["stop_loss"],
+        "takeProfit":     row["take_profit"],
+        "rsi":            row["rsi"],
+        "macd":           row["macd"],
+        "atr":            row["atr"],
+        "trend4h":        row["trend_4h"],
+        "profitLoss":     row["profit_loss"],
+        "accountBalance": row["account_balance"],
+        "exitReason":     row["exit_reason"],
+    }
+
+
+def build_coin_state(
     connection: sqlite3.Connection,
+    coin: str,
     snapshot: dict[str, Any] | None = None,
     message: str | None = None,
     status: str = "WAITING_FOR_DATA",
 ) -> dict[str, Any]:
-    state = load_state(connection)
-    stored_snapshot = json.loads(state["snapshot"]) if state["snapshot"] else {}
-    data = snapshot or stored_snapshot
+    state = load_coin_state(connection, coin)
+    stored = json.loads(state["snapshot"]) if state["snapshot"] else {}
+    data = snapshot or stored
     open_position = json.loads(state["open_position"]) if state["open_position"] else None
-    latest_trades = connection.execute(
-        "SELECT * FROM trades ORDER BY id DESC LIMIT 50"
+    recent_trades = connection.execute(
+        "SELECT * FROM trades WHERE coin = ? ORDER BY id DESC LIMIT 50", (coin,)
     ).fetchall()
     current_message = message or state["message"]
     if data.get("currentPrice") is not None:
         status = data.get("botStatus", status)
+    metrics = coin_metrics(connection, coin, state)
+
+    # Compute unrealised PnL for open position
+    if open_position and data.get("currentPrice"):
+        price = data["currentPrice"]
+        entry = float(open_position["entry"])
+        qty   = float(open_position["quantity"])
+        if open_position["direction"] == "LONG":
+            open_position["unrealisedPnl"] = round((price - entry) * qty, 2)
+            open_position["unrealisedPct"] = round((price - entry) / entry * 100, 3) if entry else 0.0
+        else:
+            open_position["unrealisedPnl"] = round((entry - price) * qty, 2)
+            open_position["unrealisedPct"] = round((entry - price) / entry * 100, 3) if entry else 0.0
+        open_position["currentPrice"] = price
+
     return {
+        "coin":          coin,
         "market": {
-            "pair": DISPLAY_PAIR,
-            "currentPrice": data.get("currentPrice"),
-            "updatedAt": data.get("updatedAt", state["updated_at"]),
+            "pair":                 COINS[coin]["display"],
+            "currentPrice":         data.get("currentPrice"),
+            "updatedAt":            data.get("updatedAt", state["updated_at"]),
             "lastCompletedCandleAt": data.get("lastCompletedCandleAt"),
         },
-        "signal": data.get("signal", "NO_TRADE"),
-        "oneHourTrend": data.get("oneHourTrend", "NEUTRAL"),
+        "signal":        data.get("signal", "NO_TRADE"),
+        "oneHourTrend":  data.get("oneHourTrend", "NEUTRAL"),
         "fourHourTrend": data.get("fourHourTrend", "NEUTRAL"),
-        "indicators": data.get(
-            "indicators",
-            {"rsi": None, "macd": None, "macdSignal": None, "atr": None, "ema20": None, "ema50": None, "volume": None},
-        ),
-        "position": open_position,
-        "metrics": metrics(connection, state),
+        "indicators":    data.get("indicators", {
+            "rsi": None, "macd": None, "macdSignal": None,
+            "atr": None, "ema20": None, "ema50": None, "volume": None,
+        }),
+        "strategyConditions": data.get("strategyConditions"),
+        "proposedTrade":      data.get("proposedTrade"),
+        "position":           open_position,
+        "metrics":            metrics,
         "risk": {
-            "dailyLossLimit": float(state["starting_balance"]) * DAILY_LOSS_LIMIT,
+            "dailyLossLimit":           float(state["starting_balance"]) * DAILY_LOSS_LIMIT,
             "maximumConsecutiveLosses": MAX_CONSECUTIVE_LOSSES,
-            "riskPerTrade": RISK_PER_TRADE * 100,
-            "rewardToRisk": REWARD_TO_RISK,
-            "pollingSeconds": POLLING_SECONDS,
+            "riskPerTrade":            RISK_PER_TRADE * 100,
+            "rewardToRisk":            REWARD_TO_RISK,
+            "pollingSeconds":          POLLING_SECONDS,
         },
-        "recentTrades": [trade_from_row(row) for row in latest_trades],
-        "botStatus": status,
-        "message": current_message,
+        "recentTrades":  [trade_from_row(r) for r in recent_trades],
+        "botStatus":     status,
+        "message":       current_message,
     }
 
 
+# ---------------------------------------------------------------------------
+# Position management
+# ---------------------------------------------------------------------------
+
 def close_position(
     connection: sqlite3.Connection,
+    coin: str,
     state: sqlite3.Row,
     position: dict[str, Any],
     exit_price: float,
     reason: str,
 ) -> None:
     direction = position["direction"]
-    quantity = float(position["quantity"])
-    entry = float(position["entry"])
+    quantity  = float(position["quantity"])
+    entry     = float(position["entry"])
     pnl = (
-        (exit_price - entry) * quantity
-        if direction == "LONG"
+        (exit_price - entry) * quantity if direction == "LONG"
         else (entry - exit_price) * quantity
     )
     balance = max(0.0, float(state["balance"]) + pnl)
     connection.execute(
         """
-        INSERT INTO trades (
-            opened_at, closed_at, direction, entry, exit, stop_loss, take_profit,
-            rsi, macd, atr, trend_4h, profit_loss, account_balance, exit_reason
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO trades
+            (coin, opened_at, closed_at, direction, entry, exit,
+             stop_loss, take_profit, rsi, macd, atr, trend_4h,
+             profit_loss, account_balance, exit_reason)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            position["openedAt"],
-            now_iso(),
-            direction,
-            entry,
-            exit_price,
-            position["stopLoss"],
-            position["takeProfit"],
-            position.get("entryRsi"),
-            position.get("entryMacd"),
-            position.get("entryAtr"),
-            position["trend4h"],
-            pnl,
-            balance,
-            reason,
+            coin, position["openedAt"], now_iso(), direction,
+            entry, exit_price, position["stopLoss"], position["takeProfit"],
+            position.get("entryRsi"), position.get("entryMacd"), position.get("entryAtr"),
+            position["trend4h"], pnl, balance, reason,
         ),
     )
     connection.execute(
-        "UPDATE bot_state SET balance = ?, open_position = NULL, updated_at = ? WHERE id = 1",
-        (balance, now_iso()),
+        "UPDATE coin_state SET balance = ?, open_position = NULL, updated_at = ? WHERE coin = ?",
+        (balance, now_iso(), coin),
+    )
+    result_word = "WIN" if pnl > 0 else "LOSS"
+    pnl_str = f"+£{pnl:.2f}" if pnl >= 0 else f"-£{abs(pnl):.2f}"
+    add_activity(
+        connection, coin,
+        "TRADE_CLOSED" if reason == "TAKE_PROFIT" else "TRADE_CLOSED",
+        f"{direction} position closed ({reason.replace('_',' ')}) | P&L {pnl_str} | {result_word} | balance £{balance:.2f}",
     )
     connection.commit()
 
 
-def refresh() -> dict[str, Any]:
-    connection = db()
-    init_db(connection)
+# ---------------------------------------------------------------------------
+# Core refresh — one coin
+# ---------------------------------------------------------------------------
+
+def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
+    pair = COINS[coin]["pair"]
     try:
-        current_price, one_hour, four_hour = fetch_market_data()
-        if len(one_hour) < 55 or len(four_hour) < 55:
-            return build_state(
-                connection,
-                message="Waiting for enough completed Kraken candles to calculate all indicators.",
-                status="WAITING_FOR_DATA",
-            )
-        one_hour_signal, one_hour_trend, indicators = signal_for(one_hour)
-        four_hour_trend = trend_for(four_hour)
-        signal = (
-            one_hour_signal
-            if one_hour_signal == ("LONG" if four_hour_trend == "BULLISH" else "SHORT" if four_hour_trend == "BEARISH" else "")
-            else "NO_TRADE"
+        current_price, one_hour, four_hour = fetch_market_data(pair)
+        add_activity(connection, coin, "MARKET_DATA_UPDATED",
+                     f"Price: £{current_price:,.2f}")
+    except Exception as error:
+        add_activity(connection, coin, "API_ERROR", str(error))
+        connection.commit()
+        return build_coin_state(connection, coin, message=str(error), status="API_ERROR")
+
+    if len(one_hour) < 55 or len(four_hour) < 55:
+        connection.commit()
+        return build_coin_state(
+            connection, coin,
+            message=f"Waiting for enough candles ({len(one_hour)}/55 1h, {len(four_hour)}/55 4h).",
+            status="WAITING_FOR_DATA",
         )
-        completed_candle_at = datetime.fromtimestamp(
-            float(one_hour[-1][0]), timezone.utc
-        ).isoformat()
-        state = load_state(connection)
-        if state["day_key"] != date_key():
-            connection.execute(
-                "UPDATE bot_state SET day_key = ?, updated_at = ? WHERE id = 1",
-                (date_key(), now_iso()),
-            )
-            connection.commit()
-            state = load_state(connection)
 
-        open_position = json.loads(state["open_position"]) if state["open_position"] else None
-        if open_position:
-            hit_stop = (
-                current_price <= open_position["stopLoss"]
-                if open_position["direction"] == "LONG"
-                else current_price >= open_position["stopLoss"]
-            )
-            hit_target = (
-                current_price >= open_position["takeProfit"]
-                if open_position["direction"] == "LONG"
-                else current_price <= open_position["takeProfit"]
-            )
-            if hit_stop or hit_target:
-                exit_price = (
-                    open_position["stopLoss"] if hit_stop else open_position["takeProfit"]
-                )
-                close_position(
-                    connection,
-                    state,
-                    open_position,
-                    exit_price,
-                    "STOP_LOSS" if hit_stop else "TAKE_PROFIT",
-                )
-                state = load_state(connection)
-                open_position = None
+    cond_eval    = evaluate_conditions(one_hour, four_hour)
+    one_hour_trend  = cond_eval["oneHourTrend"]
+    four_hour_trend = cond_eval["fourHourTrend"]
+    signal          = cond_eval["signal"]
+    indicators      = cond_eval["indicators"]
 
-        is_new_candle = completed_candle_at != state["last_candle_at"]
-        if is_new_candle and open_position is None:
-            current_metrics = metrics(connection, state)
-            daily_limit = float(state["starting_balance"]) * DAILY_LOSS_LIMIT
-            risk_paused = (
-                current_metrics["dailyLoss"] >= daily_limit
-                or current_metrics["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES
-                or float(state["balance"]) <= 0
-            )
-            if (
-                not risk_paused
-                and signal in ("LONG", "SHORT")
-                and signal == ("LONG" if four_hour_trend == "BULLISH" else "SHORT" if four_hour_trend == "BEARISH" else "")
-                and indicators["atr"] is not None
-                and indicators["atr"] > 0
-            ):
-                entry = current_price
-                stop_distance = float(indicators["atr"]) * ATR_MULTIPLIER
-                risk_amount = float(state["balance"]) * RISK_PER_TRADE
-                quantity = min(
-                    risk_amount / stop_distance,
-                    float(state["balance"]) / entry if entry > 0 else 0,
-                )
-                if quantity > 0 and stop_distance > 0:
-                    stop_loss = entry - stop_distance if signal == "LONG" else entry + stop_distance
-                    take_profit = (
-                        entry + stop_distance * REWARD_TO_RISK
-                        if signal == "LONG"
-                        else entry - stop_distance * REWARD_TO_RISK
-                    )
-                    position = {
-                        "direction": signal,
-                        "entry": round_price(entry),
-                        "stopLoss": round_price(stop_loss),
-                        "takeProfit": round_price(take_profit),
-                        "quantity": round_amount(quantity),
-                        "riskAmount": round(risk_amount, 2),
-                        "openedAt": now_iso(),
-                        "entryRsi": indicators["rsi"],
-                        "entryMacd": indicators["macd"],
-                        "entryAtr": indicators["atr"],
-                        "trend4h": four_hour_trend,
-                    }
-                    connection.execute(
-                        "UPDATE bot_state SET open_position = ?, updated_at = ? WHERE id = 1",
-                        (json.dumps(position), now_iso()),
-                    )
-        current_metrics = metrics(connection, load_state(connection))
-        status = "READY"
-        if current_metrics["dailyLoss"] >= float(state["starting_balance"]) * DAILY_LOSS_LIMIT or current_metrics["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES:
-            status = "RISK_PAUSED"
-        snapshot = {
-            "currentPrice": round_price(current_price),
-            "updatedAt": now_iso(),
-            "lastCompletedCandleAt": completed_candle_at,
-            "signal": signal,
-            "oneHourTrend": one_hour_trend,
-            "fourHourTrend": four_hour_trend,
-            "indicators": indicators,
-            "botStatus": status,
-        }
+    completed_candle_at = datetime.fromtimestamp(
+        float(one_hour[-1][0]), timezone.utc
+    ).isoformat()
+
+    _rsi_str = f"{indicators['rsi']:.1f}" if indicators.get("rsi") is not None else "—"
+    add_activity(connection, coin, "STRATEGY_EVALUATED",
+                 f"Signal: {signal} | 1h: {one_hour_trend} | 4h: {four_hour_trend} | RSI: {_rsi_str}")
+
+    state = load_coin_state(connection, coin)
+    if state["day_key"] != date_key():
         connection.execute(
-            "UPDATE bot_state SET last_candle_at = ?, snapshot = ?, updated_at = ?, message = ? WHERE id = 1",
-            (
-                completed_candle_at,
-                json.dumps(snapshot),
-                now_iso(),
-                "Watching completed 1-hour candles. No real orders are sent.",
-            ),
+            "UPDATE coin_state SET day_key = ?, updated_at = ? WHERE coin = ?",
+            (date_key(), now_iso(), coin),
         )
         connection.commit()
-        return build_state(connection, snapshot, status=status)
-    except Exception as error:
-        return build_state(
-            connection,
-            message=str(error),
-            status="API_ERROR",
+        state = load_coin_state(connection, coin)
+
+    open_position = json.loads(state["open_position"]) if state["open_position"] else None
+
+    # --- Check stop/target on existing position ---
+    if open_position:
+        hit_stop = (
+            current_price <= open_position["stopLoss"]
+            if open_position["direction"] == "LONG"
+            else current_price >= open_position["stopLoss"]
         )
+        hit_target = (
+            current_price >= open_position["takeProfit"]
+            if open_position["direction"] == "LONG"
+            else current_price <= open_position["takeProfit"]
+        )
+        if hit_stop or hit_target:
+            exit_price = open_position["stopLoss"] if hit_stop else open_position["takeProfit"]
+            close_position(
+                connection, coin, state, open_position, exit_price,
+                "STOP_LOSS" if hit_stop else "TAKE_PROFIT",
+            )
+            state = load_coin_state(connection, coin)
+            open_position = None
+
+    # --- Evaluate new entry on completed candle ---
+    is_new_candle = completed_candle_at != state["last_candle_at"]
+    prop_trade: dict[str, Any] | None = None
+
+    if is_new_candle and open_position is None:
+        m = coin_metrics(connection, coin, state)
+        daily_limit = float(state["starting_balance"]) * DAILY_LOSS_LIMIT
+        risk_paused = (
+            m["dailyLoss"] >= daily_limit
+            or m["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES
+            or float(state["balance"]) <= 0
+        )
+        if risk_paused:
+            add_activity(connection, coin, "RISK_LIMIT_REACHED",
+                         f"Daily loss £{m['dailyLoss']:.2f}/{daily_limit:.2f} or streak {m['consecutiveLosses']}")
+
+        if (
+            not risk_paused
+            and signal in ("LONG", "SHORT")
+            and indicators.get("atr") is not None
+            and indicators["atr"] > 0
+        ):
+            atr_val      = float(indicators["atr"])
+            stop_dist    = atr_val * ATR_MULTIPLIER
+            risk_amount  = float(state["balance"]) * RISK_PER_TRADE
+            quantity     = min(
+                risk_amount / stop_dist,
+                float(state["balance"]) / current_price if current_price > 0 else 0,
+            )
+            if quantity > 0:
+                stop_loss   = current_price - stop_dist if signal == "LONG" else current_price + stop_dist
+                take_profit = (
+                    current_price + stop_dist * REWARD_TO_RISK if signal == "LONG"
+                    else current_price - stop_dist * REWARD_TO_RISK
+                )
+                position = {
+                    "direction":  signal,
+                    "entry":      round_price(current_price),
+                    "stopLoss":   round_price(stop_loss),
+                    "takeProfit": round_price(take_profit),
+                    "quantity":   round_amount(quantity),
+                    "riskAmount": round(risk_amount, 2),
+                    "openedAt":   now_iso(),
+                    "entryRsi":   indicators.get("rsi"),
+                    "entryMacd":  indicators.get("macd"),
+                    "entryAtr":   indicators.get("atr"),
+                    "trend4h":    four_hour_trend,
+                }
+                connection.execute(
+                    "UPDATE coin_state SET open_position = ?, updated_at = ? WHERE coin = ?",
+                    (json.dumps(position), now_iso(), coin),
+                )
+                add_activity(connection, coin, "TRADE_OPENED",
+                             f"{signal} opened at £{current_price:,.2f} | SL £{stop_loss:,.2f} | TP £{take_profit:,.2f}")
+        else:
+            # Compute proposed trade if signal is directional but no entry fired
+            if signal in ("LONG", "SHORT") and open_position is None:
+                prop_trade = proposed_trade(signal, current_price, indicators, float(state["balance"]))
+
+    else:
+        # Between candles: show proposed trade if there's a live signal
+        if signal in ("LONG", "SHORT") and open_position is None:
+            prop_trade = proposed_trade(signal, current_price, indicators, float(state["balance"]))
+
+    # --- Update snapshot (re-read state after any writes above) ---
+    current_m = coin_metrics(connection, coin, load_coin_state(connection, coin))
+    status = "READY"
+    if current_m["dailyLoss"] >= float(state["starting_balance"]) * DAILY_LOSS_LIMIT or \
+       current_m["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES:
+        status = "RISK_PAUSED"
+
+    snapshot: dict[str, Any] = {
+        "currentPrice":           round_price(current_price),
+        "updatedAt":              now_iso(),
+        "lastCompletedCandleAt":  completed_candle_at,
+        "signal":                 signal,
+        "oneHourTrend":           one_hour_trend,
+        "fourHourTrend":          four_hour_trend,
+        "indicators":             indicators,
+        "strategyConditions":     cond_eval,
+        "proposedTrade":          prop_trade,
+        "botStatus":              status,
+    }
+    connection.execute(
+        """
+        UPDATE coin_state
+        SET last_candle_at = ?, snapshot = ?, updated_at = ?, message = ?
+        WHERE coin = ?
+        """,
+        (
+            completed_candle_at,
+            json.dumps(snapshot),
+            now_iso(),
+            "Watching completed 1h candles. No real orders are sent.",
+            coin,
+        ),
+    )
+    connection.commit()
+    return build_coin_state(connection, coin, snapshot, status=status)
+
+
+# ---------------------------------------------------------------------------
+# Public commands
+# ---------------------------------------------------------------------------
+
+def multi_refresh() -> dict[str, Any]:
+    connection = db()
+    init_db(connection)
+    try:
+        result: dict[str, Any] = {}
+        for coin in COINS:
+            result[coin] = refresh_coin(connection, coin)
+        return result
     finally:
         connection.close()
 
 
-def state_command() -> dict[str, Any]:
+def multi_state() -> dict[str, Any]:
     connection = db()
     init_db(connection)
     try:
-        return build_state(connection)
+        result: dict[str, Any] = {}
+        for coin in COINS:
+            result[coin] = build_coin_state(connection, coin)
+        return result
     finally:
         connection.close()
 
 
-def trades_command(limit: int) -> list[dict[str, Any]]:
+def portfolio_summary() -> dict[str, Any]:
     connection = db()
     init_db(connection)
     try:
-        bounded = max(1, min(100, int(limit)))
+        coins_summary: dict[str, Any] = {}
+        total_starting = 0.0
+        total_balance  = 0.0
+        total_trades   = 0
+        total_wins     = 0
+        for coin in COINS:
+            state = load_coin_state(connection, coin)
+            m = coin_metrics(connection, coin, state)
+            coins_summary[coin] = m
+            total_starting += m["startingBalance"]
+            total_balance  += m["virtualBalance"]
+            total_trades   += int(m["numberOfTrades"])
+            total_wins     += int(m["wins"])
+        total_pnl  = total_balance - total_starting
+        total_roi  = (total_pnl / total_starting * 100) if total_starting else 0.0
+        total_losses = total_trades - total_wins
+        win_rate = (total_wins / total_trades * 100) if total_trades else 0.0
+        return {
+            "totalStarting":  total_starting,
+            "totalBalance":   total_balance,
+            "totalPnl":       total_pnl,
+            "totalRoi":       total_roi,
+            "totalTrades":    total_trades,
+            "totalWins":      total_wins,
+            "totalLosses":    total_losses,
+            "overallWinRate": win_rate,
+            "coins":          coins_summary,
+        }
+    finally:
+        connection.close()
+
+
+def coin_trades(coin: str, limit: int = 100) -> list[dict[str, Any]]:
+    connection = db()
+    init_db(connection)
+    try:
+        bounded = max(1, min(200, int(limit)))
+        rows = connection.execute(
+            "SELECT * FROM trades WHERE coin = ? ORDER BY id DESC LIMIT ?",
+            (coin, bounded),
+        ).fetchall()
+        return [trade_from_row(r) for r in rows]
+    finally:
+        connection.close()
+
+
+def all_trades(limit: int = 200) -> list[dict[str, Any]]:
+    connection = db()
+    init_db(connection)
+    try:
+        bounded = max(1, min(500, int(limit)))
         rows = connection.execute(
             "SELECT * FROM trades ORDER BY id DESC LIMIT ?", (bounded,)
         ).fetchall()
-        return [trade_from_row(row) for row in rows]
+        return [trade_from_row(r) for r in rows]
     finally:
         connection.close()
 
 
-def reset_command(payload: str | None) -> dict[str, Any]:
+def activity_log(limit: int = 50) -> list[dict[str, Any]]:
     connection = db()
     init_db(connection)
     try:
-        starting_balance = STARTING_BALANCE
+        bounded = max(1, min(200, int(limit)))
+        rows = connection.execute(
+            "SELECT * FROM activity_log ORDER BY id DESC LIMIT ?", (bounded,)
+        ).fetchall()
+        return [
+            {"id": int(r["id"]), "coin": r["coin"], "event": r["event"],
+             "message": r["message"], "ts": r["ts"]}
+            for r in rows
+        ]
+    finally:
+        connection.close()
+
+
+def reset_all_command(payload: str | None = None) -> dict[str, Any]:
+    connection = db()
+    init_db(connection)
+    try:
+        starting = STARTING_BALANCE
         if payload:
             decoded = json.loads(payload)
             requested = safe_float(decoded.get("startingBalance"))
             if requested is not None:
-                starting_balance = requested
-        reset_state(connection, starting_balance)
-        return build_state(connection)
+                starting = max(0.0, requested)
+        for coin in COINS:
+            reset_coin(connection, coin, starting)
+        # return portfolio summary after reset
+        coins_summary: dict[str, Any] = {}
+        for coin in COINS:
+            state = load_coin_state(connection, coin)
+            coins_summary[coin] = build_coin_state(connection, coin)
+        return coins_summary
     finally:
         connection.close()
 
 
+def reset_coin_command(coin: str, payload: str | None = None) -> dict[str, Any]:
+    if coin not in COINS:
+        raise ValueError(f"Unknown coin: {coin}")
+    connection = db()
+    init_db(connection)
+    try:
+        starting = STARTING_BALANCE
+        if payload:
+            decoded = json.loads(payload)
+            requested = safe_float(decoded.get("startingBalance"))
+            if requested is not None:
+                starting = max(0.0, requested)
+        reset_coin(connection, coin, starting)
+        return build_coin_state(connection, coin)
+    finally:
+        connection.close()
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
 def main() -> None:
-    command = sys.argv[1] if len(sys.argv) > 1 else "state"
-    if command == "refresh":
-        result: Any = refresh()
+    command = sys.argv[1] if len(sys.argv) > 1 else "multi-state"
+
+    if command == "multi-refresh":
+        result: Any = multi_refresh()
+    elif command == "multi-state":
+        result = multi_state()
+    elif command == "portfolio":
+        result = portfolio_summary()
+    elif command == "activity":
+        limit = int(sys.argv[2]) if len(sys.argv) > 2 else 50
+        result = activity_log(limit)
+    elif command == "coin-trades":
+        coin  = sys.argv[2] if len(sys.argv) > 2 else "BTC"
+        limit = int(sys.argv[3]) if len(sys.argv) > 3 else 100
+        result = coin_trades(coin, limit)
+    elif command == "all-trades":
+        limit = int(sys.argv[2]) if len(sys.argv) > 2 else 200
+        result = all_trades(limit)
+    elif command == "reset-all":
+        payload = sys.argv[2] if len(sys.argv) > 2 else None
+        result = reset_all_command(payload)
+    elif command == "reset-coin":
+        coin    = sys.argv[2] if len(sys.argv) > 2 else "BTC"
+        payload = sys.argv[3] if len(sys.argv) > 3 else None
+        result  = reset_coin_command(coin, payload)
+    # --- Legacy BTC-only commands (backward compat) ---
+    elif command == "refresh":
+        connection = db(); init_db(connection)
+        try:
+            result = refresh_coin(connection, "BTC")
+        finally:
+            connection.close()
+    elif command == "state":
+        connection = db(); init_db(connection)
+        try:
+            result = build_coin_state(connection, "BTC")
+        finally:
+            connection.close()
     elif command == "trades":
-        result = trades_command(int(sys.argv[2]) if len(sys.argv) > 2 else 50)
+        limit = int(sys.argv[2]) if len(sys.argv) > 2 else 50
+        result = coin_trades("BTC", limit)
     elif command == "reset":
-        result = reset_command(sys.argv[2] if len(sys.argv) > 2 else None)
+        result = reset_coin_command("BTC", sys.argv[2] if len(sys.argv) > 2 else None)
     else:
-        result = state_command()
+        result = multi_state()
+
     print(json.dumps(result, allow_nan=False, separators=(",", ":")))
 
 

@@ -30,6 +30,79 @@ export interface IndicatorSnapshot {
   volume: number | null;
 }
 
+export interface StrategyCondition {
+  name: string;
+  currentValue: string;
+  requiredValue: string;
+  pass: boolean;
+}
+
+export type StrategyConditionsBias = typeof StrategyConditionsBias[keyof typeof StrategyConditionsBias];
+
+
+export const StrategyConditionsBias = {
+  LONG: 'LONG',
+  SHORT: 'SHORT',
+  NEUTRAL: 'NEUTRAL',
+} as const;
+
+export type StrategyConditionsSignal = typeof StrategyConditionsSignal[keyof typeof StrategyConditionsSignal];
+
+
+export const StrategyConditionsSignal = {
+  LONG: 'LONG',
+  SHORT: 'SHORT',
+  NO_TRADE: 'NO_TRADE',
+} as const;
+
+export type StrategyConditionsOneHourTrend = typeof StrategyConditionsOneHourTrend[keyof typeof StrategyConditionsOneHourTrend];
+
+
+export const StrategyConditionsOneHourTrend = {
+  BULLISH: 'BULLISH',
+  BEARISH: 'BEARISH',
+  NEUTRAL: 'NEUTRAL',
+} as const;
+
+export type StrategyConditionsFourHourTrend = typeof StrategyConditionsFourHourTrend[keyof typeof StrategyConditionsFourHourTrend];
+
+
+export const StrategyConditionsFourHourTrend = {
+  BULLISH: 'BULLISH',
+  BEARISH: 'BEARISH',
+  NEUTRAL: 'NEUTRAL',
+} as const;
+
+export interface StrategyConditions {
+  conditions: StrategyCondition[];
+  passCount: number;
+  totalCount: number;
+  bias: StrategyConditionsBias;
+  signal: StrategyConditionsSignal;
+  oneHourTrend: StrategyConditionsOneHourTrend;
+  fourHourTrend: StrategyConditionsFourHourTrend;
+  indicators: IndicatorSnapshot;
+}
+
+export type ProposedTradeDirection = typeof ProposedTradeDirection[keyof typeof ProposedTradeDirection];
+
+
+export const ProposedTradeDirection = {
+  LONG: 'LONG',
+  SHORT: 'SHORT',
+} as const;
+
+export interface ProposedTrade {
+  direction: ProposedTradeDirection;
+  entry: number;
+  stopLoss: number;
+  takeProfit: number;
+  riskAmount: number;
+  rewardAmount: number;
+  rrRatio: number;
+  quantity: number;
+}
+
 export type OpenPositionDirection = typeof OpenPositionDirection[keyof typeof OpenPositionDirection];
 
 
@@ -62,6 +135,12 @@ export interface OpenPosition {
   /** @nullable */
   entryAtr: number | null;
   trend4h: OpenPositionTrend4h;
+  /** @nullable */
+  unrealisedPnl?: number | null;
+  /** @nullable */
+  unrealisedPct?: number | null;
+  /** @nullable */
+  currentPrice?: number | null;
 }
 
 export type PaperTradeDirection = typeof PaperTradeDirection[keyof typeof PaperTradeDirection];
@@ -93,6 +172,7 @@ export const PaperTradeExitReason = {
 
 export interface PaperTrade {
   id: number;
+  coin: string;
   openedAt: string;
   closedAt: string;
   direction: PaperTradeDirection;
@@ -182,17 +262,49 @@ export const PaperTraderStateBotStatus = {
 } as const;
 
 export interface PaperTraderState {
+  coin: string;
   market: PaperTraderStateMarket;
   signal: PaperTraderStateSignal;
   oneHourTrend: PaperTraderStateOneHourTrend;
   fourHourTrend: PaperTraderStateFourHourTrend;
   indicators: IndicatorSnapshot;
+  strategyConditions?: StrategyConditions | null;
+  proposedTrade?: ProposedTrade | null;
   position: OpenPosition | null;
   metrics: PaperTraderMetrics;
   risk: PaperTraderStateRisk;
   recentTrades: PaperTrade[];
   botStatus: PaperTraderStateBotStatus;
   message: string;
+}
+
+export interface MultiCoinState {
+  BTC: PaperTraderState;
+  ETH: PaperTraderState;
+  SOL: PaperTraderState;
+  XRP: PaperTraderState;
+}
+
+export type PortfolioSummaryCoins = {[key: string]: PaperTraderMetrics};
+
+export interface PortfolioSummary {
+  totalStarting: number;
+  totalBalance: number;
+  totalPnl: number;
+  totalRoi: number;
+  totalTrades: number;
+  totalWins: number;
+  totalLosses: number;
+  overallWinRate: number;
+  coins: PortfolioSummaryCoins;
+}
+
+export interface ActivityEvent {
+  id: number;
+  coin: string;
+  event: string;
+  message: string;
+  ts: string;
 }
 
 export interface ResetPaperTraderInput {
@@ -203,7 +315,23 @@ export interface ResetPaperTraderInput {
 export type ListPaperTradesParams = {
 /**
  * @minimum 1
- * @maximum 100
+ * @maximum 200
+ */
+limit?: number;
+};
+
+export type ListActivityLogParams = {
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+};
+
+export type ListAllTradesParams = {
+/**
+ * @minimum 1
+ * @maximum 500
  */
 limit?: number;
 };

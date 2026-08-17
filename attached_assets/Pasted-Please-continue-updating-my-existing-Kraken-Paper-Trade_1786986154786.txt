@@ -1,0 +1,303 @@
+Please continue updating my existing Kraken Paper Trader project.
+
+IMPORTANT:
+- Keep this PAPER TRADING ONLY.
+- Do NOT connect the app to real Kraken trading.
+- Do NOT place real orders.
+- Do NOT add API functionality that could execute real trades.
+- Preserve all existing working features and styling unless a change below requires otherwise.
+
+GOAL:
+Turn the current dashboard into a working live paper-trading simulator where the strategy engine calculates signals and the dashboard displays the actual results produced by the Python backend.
+
+1. STRATEGY STATUS SECTION
+
+Add a clear “Strategy Status” section/card for:
+
+- Bitcoin (BTC)
+- Ethereum (ETH)
+- Solana (SOL)
+- XRP
+
+For each coin show:
+
+- Current price
+- Strategy state: BUY / SELL / WAIT
+- Signal strength or confidence if available
+- Entry price
+- Stop-loss
+- Take-profit
+- Risk/reward ratio
+- Suggested paper position size
+- Reason for the signal
+- Time the strategy was last checked
+
+Do NOT create a separate frontend-only strategy.
+
+The Strategy Status card must use the SAME calculations and rules used by the Python trading/backtesting engine.
+
+2. LIVE MARKET DATA
+
+Use Kraken public market data to obtain current prices and candle data.
+
+No Kraken private API keys should be required.
+
+The system should regularly refresh market information so the strategy can evaluate current conditions.
+
+Display when prices/data were last updated.
+
+If data cannot be retrieved:
+- show an error/status message
+- do not invent prices
+- do not place a simulated trade using stale/invalid data
+
+3. PAPER TRADING ENGINE
+
+Create or finish the live paper-trading simulation.
+
+The app should simulate trades when the strategy generates a valid trade signal.
+
+Starting paper balance:
+
+BTC: £100
+ETH: £100
+SOL: £100
+XRP: £100
+
+Each coin should have its own separate £100 paper account.
+
+Never combine balances between coins.
+
+The engine should:
+
+- Detect a valid entry
+- Calculate entry price
+- Calculate stop-loss
+- Calculate take-profit
+- Calculate risk/reward
+- Calculate position size
+- Open the simulated position
+- Monitor the simulated position
+- Close it when stop-loss or take-profit is reached
+- Update the balance after the trade closes
+- Record the result
+
+4. OPEN POSITIONS
+
+Add an “Open Positions” section.
+
+For every open paper trade show:
+
+- Coin
+- Direction
+- Entry price
+- Current price
+- Position size
+- Stop-loss
+- Take-profit
+- Unrealised £ profit/loss
+- Unrealised % profit/loss
+- Risk/reward
+- Time opened
+
+If there are no open positions, clearly show:
+
+“No open paper positions.”
+
+5. TRADE HISTORY
+
+Create a trade history section.
+
+For each completed paper trade record:
+
+- Coin
+- Direction
+- Entry price
+- Exit price
+- Stop-loss
+- Take-profit
+- Position size
+- Profit/loss in £
+- Profit/loss %
+- Trade result: WIN / LOSS
+- Date/time opened
+- Date/time closed
+- Reason for exit
+
+Keep the trade history persistent so it does not disappear when the app restarts.
+
+6. PERFORMANCE STATISTICS
+
+For each coin display:
+
+- Starting balance
+- Current balance
+- Total profit/loss £
+- ROI %
+- Number of trades
+- Wins
+- Losses
+- Win rate %
+- Profit factor
+- Maximum drawdown
+
+Also create a combined portfolio summary showing:
+
+- Total starting balance: £400
+- Current combined balance
+- Overall profit/loss
+- Overall ROI
+- Total trades
+- Overall win rate
+
+7. RISK MANAGEMENT
+
+Use the existing strategy/risk-management rules from the Python engine.
+
+Do not invent different risk rules on the frontend.
+
+Before opening a paper position verify:
+
+- entry is valid
+- stop-loss is valid
+- take-profit is valid
+- risk/reward meets the strategy requirements
+- calculated position size is valid
+- sufficient paper balance exists
+
+The app should reject invalid trades rather than force them through.
+
+8. DUPLICATE TRADE PROTECTION
+
+Prevent the simulator repeatedly opening the same trade every time the page refreshes.
+
+There should only be one active trade for a coin unless the strategy explicitly supports multiple concurrent positions.
+
+A page refresh must NOT create another copy of an existing trade.
+
+9. PERSISTENT STATE
+
+Persist:
+
+- balances
+- open positions
+- trade history
+- performance statistics
+
+Restarting Replit or refreshing the webpage should not reset the paper accounts back to £100 unless I deliberately press a reset button.
+
+10. RESET PAPER ACCOUNT
+
+Add a button:
+
+“Reset Paper Trading Account”
+
+It should require confirmation before resetting.
+
+When confirmed it should:
+
+- reset BTC to £100
+- reset ETH to £100
+- reset SOL to £100
+- reset XRP to £100
+- clear open positions
+- clear trade history
+- reset statistics
+
+Do not make this button too easy to press accidentally.
+
+11. STRATEGY EVALUATION
+
+Show clearly when the strategy is evaluating the market.
+
+For example:
+
+BTC — WAIT
+Reason: Entry conditions not currently met
+
+or
+
+BTC — BUY
+Entry: £XX,XXX
+Stop: £XX,XXX
+Target: £XX,XXX
+Risk/Reward: 1:X
+
+The dashboard should help me understand WHY it is waiting or proposing a trade.
+
+12. PROGRESS / ACTIVITY
+
+Add a small activity/status area showing things such as:
+
+- Market data updated
+- Strategy evaluated
+- Signal detected
+- Paper trade opened
+- Stop-loss hit
+- Take-profit hit
+- Trade closed
+- Balance updated
+
+Include timestamps.
+
+13. MOBILE DESIGN
+
+The majority of my use will be on an iPhone.
+
+Make sure:
+
+- cards fit properly on mobile
+- text does not overlap
+- tables can scroll horizontally if necessary
+- BUY/SELL/WAIT states are easy to identify
+- important figures are readable without zooming
+- buttons are large enough to press
+- no content is cut off
+
+14. SAFETY
+
+This project MUST remain a simulator.
+
+Do not:
+
+- place real Kraken orders
+- request withdrawal permissions
+- request trading API permissions
+- add real-order endpoints
+- silently convert simulated trades into live trades
+
+Kraken should only be used as a source of public market information.
+
+15. TEST EVERYTHING
+
+After implementing the changes, test the project.
+
+Verify specifically:
+
+- BTC data loads
+- ETH data loads
+- SOL data loads
+- XRP data loads
+- strategy states appear
+- BUY/SELL/WAIT values come from the Python strategy engine
+- proposed trade calculations are correct
+- open positions display correctly
+- P/L calculations are correct
+- balances update correctly after simulated trades
+- trade history persists
+- refresh does not duplicate trades
+- restart does not wipe the account
+- reset button works
+- mobile layout works
+
+If something is broken, fix it before considering the task finished.
+
+Finally, give me a short summary explaining:
+
+1. What you changed
+2. Which files you changed
+3. How the live paper-trading loop works
+4. How often the strategy checks the market
+5. Where balances and trade history are stored
+6. How duplicate trades are prevented
+7. Confirmation that no real Kraken trading functionality was added

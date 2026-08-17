@@ -20,11 +20,16 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ActivityEvent,
   ErrorResponse,
   HealthStatus,
+  ListActivityLogParams,
+  ListAllTradesParams,
   ListPaperTradesParams,
+  MultiCoinState,
   PaperTrade,
   PaperTraderState,
+  PortfolioSummary,
   ResetPaperTraderInput
 } from './api.schemas';
 
@@ -142,8 +147,7 @@ export const getGetPaperTraderStateUrl = () => {
 }
 
 /**
- * Returns current market data, indicators, simulated account metrics, risk state, and any open position.
- * @summary Get the current paper trading state
+ * @summary Get current BTC paper trading state
  */
 export const getPaperTraderState = async ( options?: Parameters<typeof customFetch>[1]): Promise<PaperTraderState> => {
 
@@ -190,7 +194,7 @@ export type GetPaperTraderStateQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Get the current paper trading state
+ * @summary Get current BTC paper trading state
  */
 
 export function useGetPaperTraderState<TData = Awaited<ReturnType<typeof getPaperTraderState>>, TError = ErrorType<unknown>>(
@@ -220,8 +224,7 @@ export const getRefreshPaperTraderUrl = () => {
 }
 
 /**
- * Fetches public Kraken data, evaluates only newly completed hourly candles, updates any simulated position, and returns the latest state.
- * @summary Refresh market data and evaluate the paper strategy
+ * @summary Refresh BTC market data and evaluate strategy
  */
 export const refreshPaperTrader = async ( options?: Parameters<typeof customFetch>[1]): Promise<PaperTraderState> => {
 
@@ -270,7 +273,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type RefreshPaperTraderMutationError = ErrorType<ErrorResponse>
 
     /**
- * @summary Refresh market data and evaluate the paper strategy
+ * @summary Refresh BTC market data and evaluate strategy
  */
 export const useRefreshPaperTrader = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshPaperTrader>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -299,7 +302,7 @@ export const getListPaperTradesUrl = (params?: ListPaperTradesParams,) => {
 }
 
 /**
- * @summary List simulated trades
+ * @summary List simulated BTC trades
  */
 export const listPaperTrades = async (params?: ListPaperTradesParams, options?: Parameters<typeof customFetch>[1]): Promise<PaperTrade[]> => {
 
@@ -346,7 +349,7 @@ export type ListPaperTradesQueryError = ErrorType<unknown>
 
 
 /**
- * @summary List simulated trades
+ * @summary List simulated BTC trades
  */
 
 export function useListPaperTrades<TData = Awaited<ReturnType<typeof listPaperTrades>>, TError = ErrorType<unknown>>(
@@ -376,7 +379,7 @@ export const getResetPaperTraderUrl = () => {
 }
 
 /**
- * @summary Reset the virtual account and simulated history
+ * @summary Reset the BTC virtual account
  */
 export const resetPaperTrader = async (resetPaperTraderInput?: ResetPaperTraderInput, options?: Parameters<typeof customFetch>[1]): Promise<PaperTraderState> => {
 
@@ -425,7 +428,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type ResetPaperTraderMutationError = ErrorType<unknown>
 
     /**
- * @summary Reset the virtual account and simulated history
+ * @summary Reset the BTC virtual account
  */
 export const useResetPaperTrader = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetPaperTrader>>, TError,{data?: BodyType<ResetPaperTraderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -436,5 +439,472 @@ export const useResetPaperTrader = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getResetPaperTraderMutationOptions(options));
+    }
+
+export const getGetMultiCoinStateUrl = () => {
+
+
+
+
+  return `/api/paper-trader/multi-state`
+}
+
+/**
+ * Returns BTC, ETH, SOL, and XRP paper trading states in one call.
+ * @summary Get paper trading state for all four coins
+ */
+export const getMultiCoinState = async ( options?: Parameters<typeof customFetch>[1]): Promise<MultiCoinState> => {
+
+  return customFetch<MultiCoinState>(getGetMultiCoinStateUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMultiCoinStateQueryKey = () => {
+    return [
+    `/api/paper-trader/multi-state`
+    ] as const;
+    }
+
+
+export const getGetMultiCoinStateQueryOptions = <TData = Awaited<ReturnType<typeof getMultiCoinState>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMultiCoinState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMultiCoinStateQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMultiCoinState>>> = ({ signal }) => getMultiCoinState({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMultiCoinState>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMultiCoinStateQueryResult = NonNullable<Awaited<ReturnType<typeof getMultiCoinState>>>
+export type GetMultiCoinStateQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get paper trading state for all four coins
+ */
+
+export function useGetMultiCoinState<TData = Awaited<ReturnType<typeof getMultiCoinState>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMultiCoinState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMultiCoinStateQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRefreshMultiCoinUrl = () => {
+
+
+
+
+  return `/api/paper-trader/multi-refresh`
+}
+
+/**
+ * Fetches Kraken public data for BTC, ETH, SOL, and XRP and evaluates each strategy.
+ * @summary Refresh market data and strategy for all four coins
+ */
+export const refreshMultiCoin = async ( options?: Parameters<typeof customFetch>[1]): Promise<MultiCoinState> => {
+
+  return customFetch<MultiCoinState>(getRefreshMultiCoinUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRefreshMultiCoinMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshMultiCoin>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof refreshMultiCoin>>, TError,void, TContext> => {
+
+const mutationKey = ['refreshMultiCoin'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshMultiCoin>>, void> = () => {
+
+
+          return  refreshMultiCoin(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RefreshMultiCoinMutationResult = NonNullable<Awaited<ReturnType<typeof refreshMultiCoin>>>
+
+    export type RefreshMultiCoinMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Refresh market data and strategy for all four coins
+ */
+export const useRefreshMultiCoin = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshMultiCoin>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof refreshMultiCoin>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRefreshMultiCoinMutationOptions(options));
+    }
+
+export const getGetPortfolioSummaryUrl = () => {
+
+
+
+
+  return `/api/paper-trader/portfolio`
+}
+
+/**
+ * @summary Get combined portfolio summary across all four coins
+ */
+export const getPortfolioSummary = async ( options?: Parameters<typeof customFetch>[1]): Promise<PortfolioSummary> => {
+
+  return customFetch<PortfolioSummary>(getGetPortfolioSummaryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortfolioSummaryQueryKey = () => {
+    return [
+    `/api/paper-trader/portfolio`
+    ] as const;
+    }
+
+
+export const getGetPortfolioSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getPortfolioSummary>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortfolioSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortfolioSummaryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortfolioSummary>>> = ({ signal }) => getPortfolioSummary({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortfolioSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortfolioSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getPortfolioSummary>>>
+export type GetPortfolioSummaryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get combined portfolio summary across all four coins
+ */
+
+export function useGetPortfolioSummary<TData = Awaited<ReturnType<typeof getPortfolioSummary>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortfolioSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortfolioSummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListActivityLogUrl = (params?: ListActivityLogParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/paper-trader/activity?${stringifiedParams}` : `/api/paper-trader/activity`
+}
+
+/**
+ * @summary Get the recent activity log
+ */
+export const listActivityLog = async (params?: ListActivityLogParams, options?: Parameters<typeof customFetch>[1]): Promise<ActivityEvent[]> => {
+
+  return customFetch<ActivityEvent[]>(getListActivityLogUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListActivityLogQueryKey = (params?: ListActivityLogParams,) => {
+    return [
+    `/api/paper-trader/activity`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListActivityLogQueryOptions = <TData = Awaited<ReturnType<typeof listActivityLog>>, TError = ErrorType<unknown>>(params?: ListActivityLogParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listActivityLog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListActivityLogQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listActivityLog>>> = ({ signal }) => listActivityLog(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listActivityLog>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListActivityLogQueryResult = NonNullable<Awaited<ReturnType<typeof listActivityLog>>>
+export type ListActivityLogQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the recent activity log
+ */
+
+export function useListActivityLog<TData = Awaited<ReturnType<typeof listActivityLog>>, TError = ErrorType<unknown>>(
+ params?: ListActivityLogParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listActivityLog>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListActivityLogQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListAllTradesUrl = (params?: ListAllTradesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/paper-trader/all-trades?${stringifiedParams}` : `/api/paper-trader/all-trades`
+}
+
+/**
+ * @summary List simulated trades for all coins
+ */
+export const listAllTrades = async (params?: ListAllTradesParams, options?: Parameters<typeof customFetch>[1]): Promise<PaperTrade[]> => {
+
+  return customFetch<PaperTrade[]>(getListAllTradesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAllTradesQueryKey = (params?: ListAllTradesParams,) => {
+    return [
+    `/api/paper-trader/all-trades`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListAllTradesQueryOptions = <TData = Awaited<ReturnType<typeof listAllTrades>>, TError = ErrorType<unknown>>(params?: ListAllTradesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAllTrades>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAllTradesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAllTrades>>> = ({ signal }) => listAllTrades(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAllTrades>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAllTradesQueryResult = NonNullable<Awaited<ReturnType<typeof listAllTrades>>>
+export type ListAllTradesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List simulated trades for all coins
+ */
+
+export function useListAllTrades<TData = Awaited<ReturnType<typeof listAllTrades>>, TError = ErrorType<unknown>>(
+ params?: ListAllTradesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAllTrades>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAllTradesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getResetAllCoinsUrl = () => {
+
+
+
+
+  return `/api/paper-trader/reset-all`
+}
+
+/**
+ * Resets BTC, ETH, SOL, and XRP accounts to starting balance and clears history.
+ * @summary Reset all four virtual accounts
+ */
+export const resetAllCoins = async (resetPaperTraderInput?: ResetPaperTraderInput, options?: Parameters<typeof customFetch>[1]): Promise<MultiCoinState> => {
+
+  return customFetch<MultiCoinState>(getResetAllCoinsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(resetPaperTraderInput)
+  }
+);}
+
+
+
+
+
+export const getResetAllCoinsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetAllCoins>>, TError,{data?: BodyType<ResetPaperTraderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resetAllCoins>>, TError,{data?: BodyType<ResetPaperTraderInput>}, TContext> => {
+
+const mutationKey = ['resetAllCoins'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetAllCoins>>, {data?: BodyType<ResetPaperTraderInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  resetAllCoins(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetAllCoinsMutationResult = NonNullable<Awaited<ReturnType<typeof resetAllCoins>>>
+    export type ResetAllCoinsMutationBody = BodyType<ResetPaperTraderInput> | undefined
+    export type ResetAllCoinsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Reset all four virtual accounts
+ */
+export const useResetAllCoins = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetAllCoins>>, TError,{data?: BodyType<ResetPaperTraderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resetAllCoins>>,
+        TError,
+        {data?: BodyType<ResetPaperTraderInput>},
+        TContext
+      > => {
+      return useMutation(getResetAllCoinsMutationOptions(options));
     }
 

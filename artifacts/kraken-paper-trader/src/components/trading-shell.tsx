@@ -1,4 +1,4 @@
-import { Activity, BarChart3, BookOpen, CircleHelp, Gauge, History, ShieldCheck, Waves } from 'lucide-react';
+import { Activity, BookOpen, CircleHelp, Gauge, History, ShieldCheck, Waves, Zap } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useHealthCheck } from '@workspace/api-client-react';
 import type { ReactNode } from 'react';
@@ -10,6 +10,12 @@ type TradingShellProps = {
   subtitle: string;
 };
 
+const NAV_LINKS = [
+  { href: '/',         label: 'Dashboard',    Icon: Gauge,   testId: 'link-dashboard'  },
+  { href: '/history',  label: 'Trade history', Icon: History,  testId: 'link-history'   },
+  { href: '/activity', label: 'Activity log',  Icon: Zap,      testId: 'link-activity'  },
+];
+
 export function TradingShell({ children, eyebrow, title, subtitle }: TradingShellProps) {
   const [location] = useLocation();
   const health = useHealthCheck({
@@ -19,6 +25,7 @@ export function TradingShell({ children, eyebrow, title, subtitle }: TradingShel
 
   return (
     <div className="noise-overlay min-h-[100dvh] bg-background text-foreground">
+      {/* ─── Desktop sidebar ────────────────────────────────────────────── */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[246px] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
         <div className="flex h-[86px] items-center gap-3 border-b border-sidebar-border px-6">
           <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
@@ -26,21 +33,27 @@ export function TradingShell({ children, eyebrow, title, subtitle }: TradingShel
             <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-sidebar bg-accent" />
           </div>
           <div>
-            <p className="text-[15px] font-extrabold tracking-tight text-white">TIDE / BTC</p>
-            <p className="font-mono-data text-[9px] uppercase tracking-[0.18em] text-sidebar-foreground/55">learning cockpit</p>
+            <p className="text-[15px] font-extrabold tracking-tight text-white">TIDE</p>
+            <p className="font-mono-data text-[9px] uppercase tracking-[0.18em] text-sidebar-foreground/55">4-coin learning cockpit</p>
           </div>
         </div>
         <div className="px-4 pt-8">
           <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/45">Workspace</p>
           <nav className="space-y-1">
-            <Link href="/" data-testid="link-dashboard" className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${location === '/' ? 'bg-sidebar-accent text-white' : 'text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-white'}`}>
-              <Gauge size={17} /> Dashboard
-              {location === '/' && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
-            </Link>
-            <Link href="/history" data-testid="link-history" className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${location === '/history' ? 'bg-sidebar-accent text-white' : 'text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-white'}`}>
-              <History size={17} /> Trade history
-              {location === '/history' && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
-            </Link>
+            {NAV_LINKS.map(({ href, label, Icon, testId }) => {
+              const active = location === href;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  data-testid={testId}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${active ? 'bg-sidebar-accent text-white' : 'text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-white'}`}
+                >
+                  <Icon size={17} /> {label}
+                  {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
+                </Link>
+              );
+            })}
           </nav>
         </div>
         <div className="mt-auto px-4 pb-5">
@@ -58,6 +71,7 @@ export function TradingShell({ children, eyebrow, title, subtitle }: TradingShel
         </div>
       </aside>
 
+      {/* ─── Main content ────────────────────────────────────────────────── */}
       <div className="lg:pl-[246px]">
         <header className="sticky top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-xl">
           <div className="mx-auto flex min-h-[86px] max-w-[1480px] items-center justify-between gap-4 px-5 py-4 sm:px-8 xl:px-10">
@@ -88,13 +102,21 @@ export function TradingShell({ children, eyebrow, title, subtitle }: TradingShel
               Paper trading only <span className="font-medium normal-case tracking-normal text-muted-foreground">— no real money is being traded</span>
             </div>
           </div>
-          <nav className="flex border-t border-border/70 bg-card px-5 py-2 lg:hidden" aria-label="Mobile workspace navigation">
-            <Link href="/" data-testid="link-mobile-dashboard" className={`flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-xs font-bold ${location === '/' ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}>
-              <Gauge size={14} /> Dashboard
-            </Link>
-            <Link href="/history" data-testid="link-mobile-history" className={`flex flex-1 items-center justify-center gap-2 rounded-md py-2 text-xs font-bold ${location === '/history' ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}>
-              <History size={14} /> History
-            </Link>
+          {/* Mobile nav */}
+          <nav className="flex border-t border-border/70 bg-card px-1 py-1 lg:hidden" aria-label="Mobile workspace navigation">
+            {NAV_LINKS.map(({ href, label, Icon, testId }) => {
+              const active = location === href;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  data-testid={`link-mobile-${testId}`}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-xs font-bold ${active ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
+                >
+                  <Icon size={13} /> {label}
+                </Link>
+              );
+            })}
           </nav>
         </header>
 

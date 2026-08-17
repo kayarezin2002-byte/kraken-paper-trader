@@ -6,10 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ListPaperTradesParams = {
-/**
- * @minimum 1
- * @maximum 200
- */
-limit?: number;
-};
+export interface StrategyCondition {
+  name: string;
+  currentValue: string;
+  requiredValue: string;
+  pass: boolean;
+}

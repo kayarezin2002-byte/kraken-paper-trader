@@ -11,6 +11,7 @@ import type { PaperTradeTrend4h } from './paperTradeTrend4h';
 
 export interface PaperTrade {
   id: number;
+  coin: string;
   openedAt: string;
   closedAt: string;
   direction: PaperTradeDirection;

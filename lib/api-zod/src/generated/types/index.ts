@@ -6,10 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './activityEvent';
 export * from './errorResponse';
 export * from './healthStatus';
 export * from './indicatorSnapshot';
+export * from './listActivityLogParams';
+export * from './listAllTradesParams';
 export * from './listPaperTradesParams';
+export * from './multiCoinState';
 export * from './openPosition';
 export * from './openPositionDirection';
 export * from './openPositionTrend4h';
@@ -25,4 +29,14 @@ export * from './paperTraderStateOneHourTrend';
 export * from './paperTraderStateRisk';
 export * from './paperTraderStateSignal';
 export * from './paperTradeTrend4h';
+export * from './portfolioSummary';
+export * from './portfolioSummaryCoins';
+export * from './proposedTrade';
+export * from './proposedTradeDirection';
 export * from './resetPaperTraderInput';
+export * from './strategyCondition';
+export * from './strategyConditions';
+export * from './strategyConditionsBias';
+export * from './strategyConditionsFourHourTrend';
+export * from './strategyConditionsOneHourTrend';
+export * from './strategyConditionsSignal';
