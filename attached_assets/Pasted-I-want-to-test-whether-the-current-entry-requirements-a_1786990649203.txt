@@ -1,0 +1,131 @@
+I want to test whether the current entry requirements are too restrictive.
+
+Do NOT change the live paper-trading strategy yet. The live bot must continue using its existing settings while this comparison is performed.
+
+Please run a side-by-side historical backtest comparing:
+
+Strategy A — Current
+- Requires 6/6 entry conditions to pass.
+
+Strategy B — Test
+- Requires at least 5/6 entry conditions to pass.
+
+Use the EXACT SAME:
+- Indicators
+- Indicator parameters
+- Timeframes
+- LONG/SHORT logic
+- Stop loss
+- Take profit
+- Position sizing
+- Risk management
+- Fees/slippage assumptions
+- Starting balance
+- Market data
+
+The only difference between Strategy A and Strategy B should be the entry requirement of 6/6 versus 5/6.
+
+Run the comparison separately for:
+
+- BTC
+- ETH
+- SOL
+- XRP
+
+Use the same historical testing period we previously used where possible. If that data is unavailable, use as much reliable Kraken historical data as reasonably available and clearly state the testing period.
+
+For EACH coin and EACH strategy report:
+
+- Starting balance
+- Final balance
+- Net profit/loss
+- ROI %
+- Total trades
+- Winning trades
+- Losing trades
+- Win rate
+- Average winning trade
+- Average losing trade
+- Profit factor
+- Maximum drawdown
+- Largest win
+- Largest loss
+- Average trade duration
+- LONG trades
+- SHORT trades
+- LONG win rate
+- SHORT win rate
+
+Also calculate:
+
+Expectancy per trade
+
+and, if enough data exists:
+
+Sharpe ratio
+
+Then create a comparison table:
+
+| Coin | 6/6 ROI | 5/6 ROI | 6/6 Trades | 5/6 Trades | 6/6 Win Rate | 5/6 Win Rate | 6/6 Profit Factor | 5/6 Profit Factor | 6/6 Max DD | 5/6 Max DD |
+
+I also want an analysis of the trades that Strategy B (5/6) entered but Strategy A (6/6) rejected.
+
+For those additional trades, identify which condition was missing most often:
+
+- 4h Trend
+- 1h Trend
+- RSI
+- MACD Momentum
+- Price vs MA/EMA
+- Volume
+
+Show the performance of trades grouped by the missing condition.
+
+For example:
+
+5/6 trades where only 4h Trend failed
+- Number of trades
+- Wins
+- Losses
+- Win rate
+- ROI/P&L
+- Profit factor
+
+This is particularly important because the live diagnostics currently show BTC, ETH and SOL reaching 5/6, with the 4h Trend being the only failed condition.
+
+I want to know whether historically allowing an entry when the 4h trend is still NEUTRAL would have been profitable.
+
+Also test a third variation if possible:
+
+Strategy C — 5/6 with mandatory trend protection
+
+Allow 5/6 entries, BUT:
+- 1h trend must agree with the trade direction.
+- 4h trend may be NEUTRAL.
+- Do NOT enter if the 4h trend is explicitly opposite the trade direction.
+
+Example for LONG:
+- 1h BULLISH = required
+- 4h BULLISH = ideal
+- 4h NEUTRAL = allowed
+- 4h BEARISH = block trade
+
+Reverse this logic for SHORT trades.
+
+Compare Strategy C against both normal 6/6 and unrestricted 5/6.
+
+Do not optimise parameters based on the backtest results and do not modify the live bot.
+
+The purpose is to determine whether 6/6 is unnecessarily restrictive without overfitting the strategy.
+
+At the end, tell me which of the three strategies performed best for each coin based primarily on:
+
+1. Profit factor
+2. ROI
+3. Maximum drawdown
+4. Number of trades/sample size
+5. Win rate
+
+Do not automatically recommend the strategy with the highest ROI if it achieved that ROI with substantially higher drawdown or too few trades.
+
+Keep all live paper-trading settings unchanged until I explicitly approve a change.
