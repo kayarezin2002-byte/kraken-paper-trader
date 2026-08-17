@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: paper-trader
+    description: Paper trading dashboard and simulation operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,79 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /paper-trader/state:
+    get:
+      operationId: getPaperTraderState
+      tags: [paper-trader]
+      summary: Get the current paper trading state
+      description: Returns current market data, indicators, simulated account metrics, risk state, and any open position.
+      responses:
+        "200":
+          description: Current paper trading state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaperTraderState"
+  /paper-trader/refresh:
+    post:
+      operationId: refreshPaperTrader
+      tags: [paper-trader]
+      summary: Refresh market data and evaluate the paper strategy
+      description: Fetches public Kraken data, evaluates only newly completed hourly candles, updates any simulated position, and returns the latest state.
+      responses:
+        "200":
+          description: Refreshed paper trading state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaperTraderState"
+        "502":
+          description: Kraken public API unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /paper-trader/trades:
+    get:
+      operationId: listPaperTrades
+      tags: [paper-trader]
+      summary: List simulated trades
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Simulated trade history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PaperTrade"
+  /paper-trader/reset:
+    post:
+      operationId: resetPaperTrader
+      tags: [paper-trader]
+      summary: Reset the virtual account and simulated history
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPaperTraderInput"
+      responses:
+        "200":
+          description: Reset paper trading state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaperTraderState"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +108,184 @@ components:
           type: string
       required:
         - status
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    IndicatorSnapshot:
+      type: object
+      properties:
+        rsi:
+          type: ["number", "null"]
+        macd:
+          type: ["number", "null"]
+        macdSignal:
+          type: ["number", "null"]
+        atr:
+          type: ["number", "null"]
+        ema20:
+          type: ["number", "null"]
+        ema50:
+          type: ["number", "null"]
+        volume:
+          type: ["number", "null"]
+      required: [rsi, macd, macdSignal, atr, ema20, ema50, volume]
+    OpenPosition:
+      type: object
+      properties:
+        direction:
+          type: string
+          enum: [LONG, SHORT]
+        entry:
+          type: number
+        stopLoss:
+          type: number
+        takeProfit:
+          type: number
+        quantity:
+          type: number
+        riskAmount:
+          type: number
+        openedAt:
+          type: string
+        entryRsi:
+          type: ["number", "null"]
+        entryMacd:
+          type: ["number", "null"]
+        entryAtr:
+          type: ["number", "null"]
+        trend4h:
+          type: string
+          enum: [BULLISH, BEARISH, NEUTRAL]
+      required: [direction, entry, stopLoss, takeProfit, quantity, riskAmount, openedAt, entryRsi, entryMacd, entryAtr, trend4h]
+    PaperTrade:
+      type: object
+      properties:
+        id:
+          type: number
+        openedAt:
+          type: string
+        closedAt:
+          type: string
+        direction:
+          type: string
+          enum: [LONG, SHORT]
+        entry:
+          type: number
+        exit:
+          type: number
+        stopLoss:
+          type: number
+        takeProfit:
+          type: number
+        rsi:
+          type: ["number", "null"]
+        macd:
+          type: ["number", "null"]
+        atr:
+          type: ["number", "null"]
+        trend4h:
+          type: string
+          enum: [BULLISH, BEARISH, NEUTRAL]
+        profitLoss:
+          type: number
+        accountBalance:
+          type: number
+        exitReason:
+          type: string
+          enum: [TAKE_PROFIT, STOP_LOSS, SIGNAL_REVERSAL, MANUAL]
+      required: [id, openedAt, closedAt, direction, entry, exit, stopLoss, takeProfit, rsi, macd, atr, trend4h, profitLoss, accountBalance, exitReason]
+    PaperTraderMetrics:
+      type: object
+      properties:
+        virtualBalance:
+          type: number
+        startingBalance:
+          type: number
+        totalProfitLoss:
+          type: number
+        roi:
+          type: number
+        numberOfTrades:
+          type: number
+        wins:
+          type: number
+        losses:
+          type: number
+        winRate:
+          type: number
+        profitFactor:
+          type: number
+        maximumDrawdown:
+          type: number
+        dailyLoss:
+          type: number
+        consecutiveLosses:
+          type: number
+      required: [virtualBalance, startingBalance, totalProfitLoss, roi, numberOfTrades, wins, losses, winRate, profitFactor, maximumDrawdown, dailyLoss, consecutiveLosses]
+    PaperTraderState:
+      type: object
+      properties:
+        market:
+          type: object
+          properties:
+            pair:
+              type: string
+            currentPrice:
+              type: ["number", "null"]
+            updatedAt:
+              type: string
+            lastCompletedCandleAt:
+              type: ["string", "null"]
+          required: [pair, currentPrice, updatedAt, lastCompletedCandleAt]
+        signal:
+          type: string
+          enum: [LONG, SHORT, NO_TRADE]
+        oneHourTrend:
+          type: string
+          enum: [BULLISH, BEARISH, NEUTRAL]
+        fourHourTrend:
+          type: string
+          enum: [BULLISH, BEARISH, NEUTRAL]
+        indicators:
+          $ref: "#/components/schemas/IndicatorSnapshot"
+        position:
+          oneOf:
+            - $ref: "#/components/schemas/OpenPosition"
+            - type: "null"
+        metrics:
+          $ref: "#/components/schemas/PaperTraderMetrics"
+        risk:
+          type: object
+          properties:
+            dailyLossLimit:
+              type: number
+            maximumConsecutiveLosses:
+              type: number
+            riskPerTrade:
+              type: number
+            rewardToRisk:
+              type: number
+            pollingSeconds:
+              type: number
+          required: [dailyLossLimit, maximumConsecutiveLosses, riskPerTrade, rewardToRisk, pollingSeconds]
+        recentTrades:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaperTrade"
+        botStatus:
+          type: string
+          enum: [READY, WAITING_FOR_DATA, RISK_PAUSED, API_ERROR]
+        message:
+          type: string
+      required: [market, signal, oneHourTrend, fourHourTrend, indicators, position, metrics, risk, recentTrades, botStatus, message]
+    ResetPaperTraderInput:
+      type: object
+      properties:
+        startingBalance:
+          type: number
+          minimum: 0
 

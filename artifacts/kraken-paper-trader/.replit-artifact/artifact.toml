@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Kraken Paper Trader"
+description = "A mobile-friendly BTC/GBP paper-trading dashboard powered by Kraken public market data, with multi-timeframe signals, risk controls, persistent simulated trade history, and no real-money trading."
+version = "1.0.0"
+id = "artifacts/kraken-paper-trader"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22180
+
+[services.development]
+run = "pnpm --filter @workspace/kraken-paper-trader run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/kraken-paper-trader", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/kraken-paper-trader/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22180"
+BASE_PATH = "/"

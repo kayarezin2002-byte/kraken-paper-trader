@@ -1,0 +1,46 @@
+import { useMemo } from 'react';
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, BookOpen, Filter, History as HistoryIcon, TrendingDown, TrendingUp } from 'lucide-react';
+import { getGetPaperTraderStateQueryKey, getListPaperTradesQueryKey, useGetPaperTraderState, useListPaperTrades } from '@workspace/api-client-react';
+import { TradingShell } from '@/components/trading-shell';
+
+const money = (value: number | null | undefined) => value == null ? '—' : `£${value.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const number = (value: number | null | undefined, digits = 2) => value == null ? '—' : value.toLocaleString('en-GB', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+const dateTime = (value?: string | null) => value ? new Date(value).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+
+function History() {
+  const stateQuery = useGetPaperTraderState({ query: { queryKey: getGetPaperTraderStateQueryKey() } });
+  const tradesQuery = useListPaperTrades({ limit: 100 }, { query: { queryKey: getListPaperTradesQueryKey({ limit: 100 }) } });
+  const trades = tradesQuery.data ?? [];
+  const orderedTrades = useMemo(() => [...trades].sort((a, b) => new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime()), [trades]);
+  const profitable = trades.filter((trade) => trade.profitLoss > 0).length;
+  const total = trades.reduce((sum, trade) => sum + trade.profitLoss, 0);
+  const metrics = stateQuery.data?.metrics;
+
+  return <TradingShell eyebrow="Review desk" title="Trade history" subtitle="Study the decisions, not just the outcome.">
+    <div className="space-y-6">
+      <section className="rise-in rounded-2xl border border-border/80 bg-card p-5 shadow-[0_10px_32px_hsl(215_35%_13%_/_0.05)] sm:p-6">
+        <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+          <div><div className="flex items-center gap-2 text-primary"><BookOpen size={17} /><span className="font-mono-data text-[10px] font-medium uppercase tracking-[0.18em]">Performance review</span></div><h2 className="mt-2 text-2xl font-extrabold tracking-[-0.04em]">Evidence over instinct.</h2><p className="mt-1 max-w-xl text-sm leading-relaxed text-muted-foreground">Every closed position is a note from the market. Use this record to find repeatable behavior in your process.</p></div>
+          <div className="flex items-center gap-2 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-xs font-bold text-primary-foreground"><Filter size={14} /> Last 100 trades</div>
+        </div>
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl bg-background p-4"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Review P&L</p><p data-testid="history-total-pnl" className={`mt-2 font-mono-data text-xl ${total >= 0 ? 'text-accent' : 'text-destructive'}`}>{total >= 0 ? '+' : ''}{money(total)}</p><p className="mt-1 text-[11px] text-muted-foreground">from loaded trade record</p></div>
+          <div className="rounded-xl bg-background p-4"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Closed positions</p><p data-testid="history-trade-count" className="mt-2 font-mono-data text-xl">{trades.length}</p><p className="mt-1 text-[11px] text-muted-foreground">{profitable} profitable outcomes</p></div>
+          <div className="rounded-xl bg-background p-4"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Account ROI</p><p data-testid="history-roi" className={`mt-2 font-mono-data text-xl ${(metrics?.roi ?? 0) >= 0 ? 'text-accent' : 'text-destructive'}`}>{metrics ? `${metrics.roi >= 0 ? '+' : ''}${number(metrics.roi)}%` : '—'}</p><p className="mt-1 text-[11px] text-muted-foreground">current virtual account</p></div>
+        </div>
+      </section>
+
+      <section className="rise-in rise-in-delay-1 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_10px_32px_hsl(215_35%_13%_/_0.05)]">
+        <div className="flex items-center justify-between border-b border-border/70 px-5 py-4 sm:px-6"><div><div className="flex items-center gap-2"><HistoryIcon size={16} className="text-primary" /><h2 className="text-sm font-extrabold">Closed positions</h2></div><p className="mt-1 text-xs text-muted-foreground">Execution, context, and the reason each position ended.</p></div><span className="font-mono-data text-[10px] uppercase tracking-wider text-muted-foreground">{tradesQuery.isLoading ? 'loading' : `${trades.length} records`}</span></div>
+        {tradesQuery.isLoading ? <div className="space-y-3 p-5 sm:p-6">{[1, 2, 3, 4].map((item) => <div key={item} className="h-12 rounded-lg skeleton-shimmer" />)}</div> : tradesQuery.isError ? <div className="flex flex-col items-center px-5 py-16 text-center"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-destructive/10 text-destructive"><AlertTriangle size={20} /></div><p className="mt-3 text-sm font-bold">History unavailable</p><p className="mt-1 text-xs text-muted-foreground">The trade record could not be loaded. Return to the dashboard and try again.</p></div> : orderedTrades.length === 0 ? <div data-testid="empty-trade-history" className="flex flex-col items-center px-5 py-16 text-center"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground"><HistoryIcon size={22} /></div><p className="mt-3 text-sm font-bold">Your record starts here</p><p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">No simulated positions have closed yet. Keep watching the market dashboard; the first review appears after a position exits.</p></div> : <div className="overflow-x-auto"><table className="w-full min-w-[940px] text-left"><thead><tr className="border-b border-border/70 text-[10px] uppercase tracking-[0.13em] text-muted-foreground"><th className="px-5 py-3 font-bold sm:px-6">Closed / opened</th><th className="px-3 py-3 font-bold">Side</th><th className="px-3 py-3 font-bold">Entry → exit</th><th className="px-3 py-3 font-bold">Protection</th><th className="px-3 py-3 font-bold">Context</th><th className="px-3 py-3 font-bold">Exit reason</th><th className="px-5 py-3 text-right font-bold sm:px-6">P&L</th></tr></thead><tbody>{orderedTrades.map((trade) => <tr key={trade.id} data-testid={`row-history-trade-${trade.id}`} className="border-b border-border/50 last:border-0 transition-colors hover:bg-muted/35"><td className="px-5 py-4 sm:px-6"><p className="font-mono-data text-xs">{dateTime(trade.closedAt)}</p><p className="mt-1 text-[10px] text-muted-foreground">opened {dateTime(trade.openedAt)}</p></td><td className="px-3 py-4"><span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-mono-data text-[10px] font-medium ${trade.direction === 'LONG' ? 'bg-accent/10 text-accent' : 'bg-destructive/10 text-destructive'}`}>{trade.direction === 'LONG' ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}{trade.direction}</span></td><td className="px-3 py-4 font-mono-data text-xs">{money(trade.entry)} <span className="text-muted-foreground">→</span> {money(trade.exit)}</td><td className="px-3 py-4"><p className="font-mono-data text-[11px] text-destructive">{money(trade.stopLoss)}</p><p className="mt-1 font-mono-data text-[11px] text-accent">{money(trade.takeProfit)}</p></td><td className="px-3 py-4"><p className="font-mono-data text-[11px]">RSI {number(trade.rsi, 1)}</p><p className="mt-1 text-[10px] text-muted-foreground">{trade.trend4h} · MACD {number(trade.macd, 3)}</p></td><td className="px-3 py-4 text-xs text-muted-foreground">{trade.exitReason.replaceAll('_', ' ')}</td><td className={`px-5 py-4 text-right font-mono-data text-xs font-medium sm:px-6 ${trade.profitLoss >= 0 ? 'text-accent' : 'text-destructive'}`}>{trade.profitLoss >= 0 ? '+' : ''}{money(trade.profitLoss)}<p className="mt-1 text-[10px] font-normal text-muted-foreground">{money(trade.accountBalance)} balance</p></td></tr>)}</tbody></table></div>}
+      </section>
+
+      <section className="grid gap-5 md:grid-cols-2">
+        <div className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6"><div className="flex items-center gap-2"><TrendingUp size={16} className="text-accent" /><h2 className="text-sm font-extrabold">What to look for</h2></div><p className="mt-3 text-sm leading-relaxed text-muted-foreground">Do winning positions share a trend, RSI range, or exit reason? Review the setup before judging the result.</p></div>
+        <div className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6"><div className="flex items-center gap-2"><TrendingDown size={16} className="text-destructive" /><h2 className="text-sm font-extrabold">Protect the process</h2></div><p className="mt-3 text-sm leading-relaxed text-muted-foreground">A losing trade is data. The risk desk exists to keep one outcome from becoming a pattern.</p></div>
+      </section>
+    </div>
+  </TradingShell>;
+}
+
+export default History;

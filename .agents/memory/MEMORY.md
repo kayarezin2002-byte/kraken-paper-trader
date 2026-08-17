@@ -1,0 +1,1 @@
+- [OpenAPI/Zod compatibility](openapi-zod-compatibility.md) — use numeric schemas for generated count/limit fields until the workspace Zod runtime supports integer helpers.
