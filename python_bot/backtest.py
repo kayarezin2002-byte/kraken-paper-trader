@@ -50,11 +50,21 @@ TARGET_DAYS = 365   # try for 12 months
 # for relative A vs B vs C comparison since all three strategies share the
 # same data.  The GBP/USD rate fluctuation does not affect indicator signals.
 COINS: dict[str, str] = {
-    "BTC": "BTCUSDT",
-    "ETH": "ETHUSDT",
-    "SOL": "SOLUSDT",
-    "XRP": "XRPUSDT",
+    # Live trading coins
+    "BTC":  "BTCUSDT",
+    "ETH":  "ETHUSDT",
+    "SOL":  "SOLUSDT",
+    "XRP":  "XRPUSDT",
+    # Research candidates
+    "ADA":  "ADAUSDT",
+    "LINK": "LINKUSDT",
+    "AVAX": "AVAXUSDT",
+    "DOT":  "DOTUSDT",
 }
+
+# Which coins are live vs research-only (for labelling)
+LIVE_COINS     = {"BTC", "ETH", "SOL", "XRP"}
+RESEARCH_COINS = {"ADA", "LINK", "AVAX", "DOT"}
 
 # ─── Indicator functions — copied verbatim from paper_trader.py ───────────────
 
@@ -786,18 +796,17 @@ def print_extra_analysis(label: str, analysis: dict) -> None:
         )
 
 
-def rank_strategies(metrics: dict[str, dict]) -> tuple[str, str]:
-    scores: dict[str, float] = {}
-    for s, m in metrics.items():
-        pf_v    = min(m["profit_factor"] if not math.isinf(m["profit_factor"]) else 5.0, 5.0)
-        roi_v   = m["roi_pct"]
-        dd_v    = m["max_drawdown_pct"]
-        n_v     = m["n"]
-        penalty = 0.35 if n_v < 10 else (0.65 if n_v < 30 else 1.0)
-        scores[s] = (3 * pf_v + 2 * roi_v - dd_v) * penalty
+def strategy_score(m: dict) -> float:
+    """Composite score used for ranking: PF×3 + ROI×2 − DD, sample-penalised."""
+    pf_v    = min(m["profit_factor"] if not math.isinf(m["profit_factor"]) else 5.0, 5.0)
+    penalty = 0.35 if m["n"] < 10 else (0.65 if m["n"] < 30 else 1.0)
+    return (3 * pf_v + 2 * m["roi_pct"] - m["max_drawdown_pct"]) * penalty
 
-    best     = max(scores, key=lambda s: scores[s])
-    total_n  = sum(m["n"] for m in metrics.values())
+
+def rank_strategies(metrics: dict[str, dict]) -> tuple[str, str]:
+    """Return (best_key, recommendation_label) for a coin's three strategies."""
+    best    = max(metrics, key=lambda s: strategy_score(metrics[s]))
+    total_n = sum(m["n"] for m in metrics.values())
 
     if total_n < 30:
         rec = "INSUFFICIENT EVIDENCE"
@@ -811,61 +820,87 @@ def rank_strategies(metrics: dict[str, dict]) -> tuple[str, str]:
     return best, rec
 
 
-def print_portfolio_summary(
+def coin_candidate_label(best_m: dict) -> str:
+    """STRONG CANDIDATE / PROMISING / NEEDS MORE DATA / REJECT label for a coin."""
+    n  = best_m["n"]
+    pf = best_m["profit_factor"] if not math.isinf(best_m["profit_factor"]) else 5.0
+    roi= best_m["roi_pct"]
+    exp= best_m["expectancy"]
+
+    if n < 15:
+        return "NEEDS MORE DATA"
+    if exp <= 0 or pf < 1.0:
+        return "REJECT"
+    if n >= 30 and pf >= 1.4 and roi >= 5.0 and exp >= 0.2:
+        return "STRONG CANDIDATE"
+    if pf >= 1.1 and roi >= 2.0:
+        return "PROMISING"
+    if n < 30:
+        return "NEEDS MORE DATA"
+    return "REJECT"
+
+
+def portfolio_metrics(
+    coins: list[str],
     all_metrics: dict[str, dict[str, dict]],
     all_results: dict[str, dict[str, dict]],
-) -> None:
-    print(f"\n\n{'='*70}")
-    print("  COMBINED PORTFOLIO SUMMARY  (£100 per coin, £400 total)")
-    print(f"{'='*70}")
+    strat_per_coin: dict[str, str],   # coin → best strategy key
+) -> dict:
+    """Aggregate portfolio metrics for a given coin subset using per-coin best strategy."""
+    coins = [c for c in coins if c in all_metrics]
+    if not coins:
+        return {}
 
-    for strat in ("A", "B", "C"):
-        label = {
-            "A": "Strategy A — 6/6 (Current)",
-            "B": "Strategy B — 5/6 (Relaxed)",
-            "C": "Strategy C — 5/6 + Trend Guard",
-        }[strat]
-        coins_ok = [c for c in all_metrics if strat in all_metrics[c]]
-        if not coins_ok:
-            continue
+    total_start  = len(coins) * STARTING_BALANCE
+    total_finish = sum(all_metrics[c][strat_per_coin[c]]["final_balance"] for c in coins)
+    total_pnl    = total_finish - total_start
+    total_roi    = total_pnl / total_start * 100
+    total_n      = sum(all_metrics[c][strat_per_coin[c]]["n"]            for c in coins)
+    total_wins   = sum(all_metrics[c][strat_per_coin[c]]["wins"]         for c in coins)
+    total_gp     = sum(all_metrics[c][strat_per_coin[c]]["gross_profit"] for c in coins)
+    total_gl     = sum(all_metrics[c][strat_per_coin[c]]["gross_loss"]   for c in coins)
+    pf           = (total_gp / total_gl) if total_gl > 0 else float("inf")
+    wr           = total_wins / total_n * 100 if total_n > 0 else 0
+    exp          = total_pnl / total_n if total_n > 0 else 0
 
-        total_start  = len(coins_ok) * STARTING_BALANCE
-        total_finish = sum(all_metrics[c][strat]["final_balance"] for c in coins_ok)
-        total_pnl    = total_finish - total_start
-        total_roi    = total_pnl / total_start * 100
-        total_trades = sum(all_metrics[c][strat]["n"]        for c in coins_ok)
-        total_wins   = sum(all_metrics[c][strat]["wins"]     for c in coins_ok)
-        total_gp     = sum(all_metrics[c][strat]["gross_profit"] for c in coins_ok)
-        total_gl     = sum(all_metrics[c][strat]["gross_loss"]   for c in coins_ok)
-        pf           = (total_gp / total_gl) if total_gl > 0 else float("inf")
-        wr           = total_wins / total_trades * 100 if total_trades > 0 else 0
+    # Portfolio drawdown — summed balance curves
+    curves  = [all_results[c][strat_per_coin[c]]["balance_curve"] for c in coins]
+    min_len = min(len(cv) for cv in curves)
+    port_curve = [sum(curves[ci][i] for ci in range(len(coins))) for i in range(min_len)]
+    peak = total_start; port_dd = 0.0
+    for b in port_curve:
+        peak    = max(peak, b)
+        port_dd = max(port_dd, (peak - b) / peak * 100)
 
-        # Portfolio drawdown — summed balance curves
-        curves  = [all_results[c][strat]["balance_curve"] for c in coins_ok]
-        min_len = min(len(cv) for cv in curves)
-        port_curve = [sum(curves[ci][i] for ci in range(len(coins_ok)))
-                      for i in range(min_len)]
-        peak = total_start; port_dd = 0.0
-        for b in port_curve:
-            peak    = max(peak, b)
-            port_dd = max(port_dd, (peak - b) / peak * 100)
+    return {
+        "coins":         coins,
+        "n_coins":       len(coins),
+        "total_start":   total_start,
+        "total_finish":  total_finish,
+        "total_pnl":     total_pnl,
+        "total_roi":     total_roi,
+        "total_n":       total_n,
+        "win_rate":      wr,
+        "profit_factor": pf,
+        "max_dd":        port_dd,
+        "expectancy":    exp,
+    }
 
-        print(f"\n  ── {label} ──")
-        print(f"  Starting capital    : £{total_start:.2f}")
-        print(f"  Final portfolio     : £{total_finish:.2f}")
-        print(f"  Total P&L           : {fmt_money(total_pnl)}")
-        print(f"  Portfolio ROI       : {fmt_pct(total_roi)}")
-        print(f"  Total trades        : {total_trades}  [{evidence_label(total_trades)}]")
-        print(f"  Win rate            : {fmt_pct(wr)}")
-        print(f"  Profit factor       : {fmt_inf(pf)}")
-        print(f"  Max portfolio DD    : {fmt_pct(port_dd)}")
+
+def portfolio_score(p: dict) -> float:
+    """Score a portfolio config for ranking (same weights as coin scoring)."""
+    if not p:
+        return -999.0
+    pf_v = min(p["profit_factor"] if not math.isinf(p["profit_factor"]) else 5.0, 5.0)
+    pen  = 0.65 if p["total_n"] < 30 else 1.0
+    return (3 * pf_v + 2 * p["total_roi"] - p["max_dd"]) * pen
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main() -> None:
     print("=" * 70)
-    print("  KRAKEN PAPER-TRADER — EXTENDED HISTORICAL BACKTEST")
+    print("  KRAKEN PAPER-TRADER — 8-COIN EXTENDED HISTORICAL BACKTEST")
     print("  Strategy A (6/6) vs B (5/6) vs C (5/6 + trend guard)")
     print("=" * 70)
     print(f"\n  RISK={RISK_PER_TRADE*100:.0f}% | ATR×{ATR_MULTIPLIER} | "
@@ -877,19 +912,21 @@ def main() -> None:
     print("  Note: prices in USDT; ROI%/PF/DD%/WR metrics are identical to GBP-based runs")
     print("  4h candles: aggregated from 1h data for perfect alignment")
     print(f"  Target history: {TARGET_DAYS} days (~{TARGET_DAYS/30.44:.0f} months)")
+    print(f"\n  Coins tested: {', '.join(COINS.keys())}")
+    print(f"  Live: {', '.join(LIVE_COINS)}   Research: {', '.join(RESEARCH_COINS)}")
     print()
 
-    comparison_rows: list[dict]                    = []
-    all_metrics: dict[str, dict[str, dict]]        = {}
-    all_results: dict[str, dict[str, dict]]        = {}
+    comparison_rows: list[dict]             = []
+    all_metrics: dict[str, dict[str, dict]] = {}
+    all_results: dict[str, dict[str, dict]] = {}
 
     for coin, symbol in COINS.items():
+        tag = "(LIVE)" if coin in LIVE_COINS else "(RESEARCH)"
         print(f"\n{'='*70}")
-        print(f"  COIN: {coin}  (Binance: {symbol})")
+        print(f"  COIN: {coin} {tag}  (Binance: {symbol})")
         print(f"{'='*70}")
 
-        # Fetch 1h data
-        print(f"\n  Fetching 1h data for {symbol} from Binance...", end="", flush=True)
+        print(f"\n  Fetching 1h data for {symbol}...", end="", flush=True)
         try:
             c1h = fetch_binance_klines(symbol, TARGET_DAYS)
             print(f" {len(c1h)} candles")
@@ -898,53 +935,37 @@ def main() -> None:
             continue
 
         if len(c1h) < 120:
-            print(f"  Insufficient 1h data for {coin} ({len(c1h)} candles), skipping.")
+            print(f"  Insufficient data ({len(c1h)} candles), skipping.")
             continue
 
-        # Build 4h candles from 1h data
         c4h = aggregate_to_4h(c1h)
         print(f"  4h candles (aggregated): {len(c4h)}")
-
         if len(c4h) < 60:
-            print(f"  Insufficient 4h data for {coin}, skipping.")
+            print(f"  Insufficient 4h data, skipping.")
             continue
 
-        # Data summary
-        start_ts = int(c1h[0][0])
-        end_ts   = int(c1h[-1][0])
+        start_ts = int(c1h[0][0]); end_ts = int(c1h[-1][0])
         start_dt = datetime.fromtimestamp(start_ts, tz=timezone.utc).strftime("%Y-%m-%d")
         end_dt   = datetime.fromtimestamp(end_ts,   tz=timezone.utc).strftime("%Y-%m-%d")
         days     = (end_ts - start_ts) / 86400
         months   = days / 30.44
-        gaps_1h  = gap_count(c1h, 3600)
-        gaps_4h  = gap_count(c4h, 14400)
 
-        print(f"\n  ── Data summary ──────────────────────────────────────────")
-        print(f"  Data source       : Binance public REST API (no auth)")
-        print(f"  Exchange          : Binance spot")
-        print(f"  Currency pair     : {symbol} (USDT proxy — price action matches GBP pairs)")
-        print(f"  Start date        : {start_dt}")
-        print(f"  End date          : {end_dt}")
-        print(f"  Test period       : {days:.0f} days ({months:.1f} months)")
-        print(f"  1h candles        : {len(c1h)} (expected ~{int(days*24)}, gaps >2h: {gaps_1h})")
-        print(f"  4h candles        : {len(c4h)} (aggregated, gaps >8h: {gaps_4h})")
-        print(f"  Timeframes        : 1h entries, 4h trend context")
+        print(f"  Period: {start_dt} → {end_dt} ({days:.0f} days / {months:.1f} months)")
+        print(f"  Gaps >2h: {gap_count(c1h, 3600)} in 1h | "
+              f"{gap_count(c4h, 14400)} in 4h")
 
-        # Run strategies
         results: dict[str, dict] = {}
         mets:    dict[str, dict] = {}
-
         print()
         for strat in ("A", "B", "C"):
             slabel = {"A": "6/6", "B": "5/6", "C": "5/6+Guard"}[strat]
-            print(f"  Running Strategy {strat} ({slabel})...", end="", flush=True)
+            print(f"  Strategy {strat} ({slabel})...", end="", flush=True)
             res = run_backtest(coin, c1h, c4h, strat)
             m   = compute_metrics(res, test_days=days)
             results[strat] = res
             mets[strat]    = m
             print(f" {m['n']} trades | ROI {m['roi_pct']:+.2f}% | "
-                  f"PF {fmt_inf(m['profit_factor'])} | "
-                  f"MaxDD {m['max_drawdown_pct']:.2f}%")
+                  f"PF {fmt_inf(m['profit_factor'])} | MaxDD {m['max_drawdown_pct']:.2f}%")
 
         all_metrics[coin] = mets
         all_results[coin] = results
@@ -959,40 +980,39 @@ def main() -> None:
             print_strategy_block(slabel, mets[strat])
 
         # Side-by-side mini table
-        print(f"\n  ── Side-by-side: {coin} ──────────────────────────────────────────")
+        print(f"\n  ── Side-by-side: {coin} ────────────────────────────────────")
         print(f"  {'Metric':<28} {'A (6/6)':>12} {'B (5/6)':>12} {'C (5/6+G)':>12}")
         print(f"  {'-'*28} {'-'*12} {'-'*12} {'-'*12}")
         def srow(lbl, key, fmt_fn):
             vals = [fmt_fn(mets[s][key]) for s in ("A","B","C")]
             print(f"  {lbl:<28} {vals[0]:>12} {vals[1]:>12} {vals[2]:>12}")
-
-        srow("ROI",                "roi_pct",         fmt_pct)
-        srow("Trades",             "n",                lambda v: str(int(v)))
-        srow("Trades/month",       "trades_per_month", lambda v: f"{v:.1f}" if v else "N/A")
-        srow("Win rate",           "win_rate_pct",     fmt_pct)
-        srow("Profit factor",      "profit_factor",    fmt_inf)
-        srow("Max drawdown",       "max_drawdown_pct", lambda v: fmt_pct(v))
-        srow("Expectancy/trade",   "expectancy",       fmt_money)
-        srow("Sharpe",             "sharpe",           lambda v: fmt_num(v) if v is not None else "N/A")
-        srow("Max consec losses",  "max_consec_losses",lambda v: str(int(v)))
+        srow("ROI",               "roi_pct",          fmt_pct)
+        srow("Trades",            "n",                 lambda v: str(int(v)))
+        srow("Trades/month",      "trades_per_month",  lambda v: f"{v:.1f}" if v else "N/A")
+        srow("Win rate",          "win_rate_pct",      fmt_pct)
+        srow("Profit factor",     "profit_factor",     fmt_inf)
+        srow("Max drawdown",      "max_drawdown_pct",  fmt_pct)
+        srow("Expectancy/trade",  "expectancy",        fmt_money)
+        srow("Sharpe",            "sharpe",            lambda v: fmt_num(v) if v is not None else "N/A")
+        srow("Max consec losses", "max_consec_losses", lambda v: str(int(v)))
 
         # Extra trade analysis
-        print(f"\n  ── Extra-trade analysis: Strategy B vs A ({coin}) ──")
+        print(f"\n  ── Extra-trade analysis: B vs A ({coin}) ──")
         print_extra_analysis("Strategy B", analyze_extra_trades(results["B"]))
-
-        print(f"\n  ── Extra-trade analysis: Strategy C vs A ({coin}) ──")
+        print(f"\n  ── Extra-trade analysis: C vs A ({coin}) ──")
         print_extra_analysis("Strategy C", analyze_extra_trades(results["C"]))
 
-        # Coin recommendation
+        # Per-coin strategy recommendation
         best, rec = rank_strategies(mets)
         best_m    = mets[best]
         best_lbl  = {
-            "A": "Strategy A (6/6 — Current)",
-            "B": "Strategy B (5/6 — Relaxed)",
-            "C": "Strategy C (5/6 + Trend Guard)",
+            "A": "Strategy A (6/6)",
+            "B": "Strategy B (5/6)",
+            "C": "Strategy C (5/6+Guard)",
         }[best]
-        print(f"\n  ▶ Recommendation for {coin}: {rec}")
-        print(f"    Best: {best_lbl}")
+        cand_lbl  = coin_candidate_label(best_m)
+        print(f"\n  ▶ {coin} strategy recommendation: {rec}")
+        print(f"    Best: {best_lbl}  |  Candidate label: {cand_lbl}")
         print(f"    Trades={best_m['n']}  ROI={best_m['roi_pct']:+.2f}%  "
               f"PF={fmt_inf(best_m['profit_factor'])}  "
               f"MaxDD={best_m['max_drawdown_pct']:.2f}%  "
@@ -1000,107 +1020,271 @@ def main() -> None:
               f"[{evidence_label(best_m['n'])}]")
 
         comparison_rows.append({
-            "coin":   coin,
-            "days":   days,
-            "months": months,
-            "mets":   mets,
-            "rec":    rec,
+            "coin":    coin,
+            "days":    days,
+            "months":  months,
+            "mets":    mets,
+            "rec":     rec,
+            "best":    best,
+            "best_m":  best_m,
+            "cand":    cand_lbl,
         })
 
     if not comparison_rows:
-        print("\nNo data available for any coin. Check internet connectivity.")
+        print("\nNo data available. Check internet connectivity.")
         return
 
-    # Cross-coin comparison table
+    # ── Cross-coin comparison table ────────────────────────────────────────────
     print(f"\n\n{'='*70}")
-    print("  CROSS-COIN COMPARISON TABLE")
+    print("  CROSS-COIN COMPARISON TABLE (all 8 coins × 3 strategies)")
     print(f"{'='*70}")
-    hdr = (f"{'Coin':<5} {'Months':>6}  "
+    hdr = (f"{'Coin':<5} {'Mo':>4}  "
            f"{'A ROI':>8} {'B ROI':>8} {'C ROI':>8}  "
-           f"{'A Trd':>6} {'B Trd':>6} {'C Trd':>6}  "
+           f"{'A Trd':>5} {'B Trd':>5} {'C Trd':>5}  "
            f"{'A WR':>6} {'B WR':>6} {'C WR':>6}  "
-           f"{'A PF':>7} {'B PF':>7} {'C PF':>7}  "
+           f"{'A PF':>6} {'B PF':>6} {'C PF':>6}  "
            f"{'A DD':>6} {'B DD':>6} {'C DD':>6}")
     print(f"\n  {hdr}")
     print(f"  {'-'*len(hdr)}")
     for row_ in comparison_rows:
-        m  = row_["mets"]
-        g  = lambda s, k: m[s][k]
+        m = row_["mets"]
+        g = lambda s, k: m[s][k]
+        tag = "(L)" if row_["coin"] in LIVE_COINS else "(R)"
         print(
-            f"  {row_['coin']:<5} {row_['months']:>6.1f}  "
+            f"  {row_['coin']:<4}{tag} {row_['months']:>4.1f}  "
             f"{g('A','roi_pct'):>+8.2f} {g('B','roi_pct'):>+8.2f} {g('C','roi_pct'):>+8.2f}  "
-            f"{g('A','n'):>6} {g('B','n'):>6} {g('C','n'):>6}  "
+            f"{g('A','n'):>5} {g('B','n'):>5} {g('C','n'):>5}  "
             f"{g('A','win_rate_pct'):>6.1f} {g('B','win_rate_pct'):>6.1f} {g('C','win_rate_pct'):>6.1f}  "
-            f"{fmt_inf(g('A','profit_factor')):>7} {fmt_inf(g('B','profit_factor')):>7} {fmt_inf(g('C','profit_factor')):>7}  "
+            f"{fmt_inf(g('A','profit_factor')):>6} {fmt_inf(g('B','profit_factor')):>6} {fmt_inf(g('C','profit_factor')):>6}  "
             f"{g('A','max_drawdown_pct'):>6.2f} {g('B','max_drawdown_pct'):>6.2f} {g('C','max_drawdown_pct'):>6.2f}"
         )
+    print("  (L)=Live trading coin  (R)=Research candidate")
 
-    # Portfolio summary
-    print_portfolio_summary(all_metrics, all_results)
-
-    # Final recommendations
+    # ── Coin ranking ───────────────────────────────────────────────────────────
     print(f"\n\n{'='*70}")
-    print("  FINAL RECOMMENDATIONS")
-    print("  Ranked by: 1=PF  2=ROI  3=MaxDD  4=Sample size  5=Win rate")
+    print("  COIN RANKING  (best strategy per coin)")
+    print("  Ranked by: PF×3 + ROI×2 − MaxDD (sample-penalised)")
     print(f"{'='*70}")
 
+    ranked = sorted(comparison_rows, key=lambda r: strategy_score(r["best_m"]), reverse=True)
+
+    print(f"\n  {'Rank':<5} {'Coin':<5} {'Tag':<12} {'Best':<10} {'Trades':>6} "
+          f"{'ROI%':>7} {'PF':>6} {'DD%':>6} {'WR%':>6} {'Exp':>7} {'Evidence':<22}")
+    print(f"  {'-'*5} {'-'*5} {'-'*12} {'-'*10} {'-'*6} {'-'*7} {'-'*6} {'-'*6} {'-'*6} {'-'*7} {'-'*22}")
+    for rank_i, row_ in enumerate(ranked, 1):
+        bm  = row_["best_m"]
+        tag = "(Live)" if row_["coin"] in LIVE_COINS else "(Research)"
+        print(
+            f"  {rank_i:<5} {row_['coin']:<5} {row_['cand']:<12} "
+            f"{row_['best']:<10} {bm['n']:>6} "
+            f"{bm['roi_pct']:>+7.2f} {fmt_inf(bm['profit_factor']):>6} "
+            f"{bm['max_drawdown_pct']:>6.2f} {bm['win_rate_pct']:>6.1f} "
+            f"{fmt_money(bm['expectancy']):>7}  {evidence_label(bm['n'])}"
+        )
+
+    # ── Candidate summary ──────────────────────────────────────────────────────
+    print(f"\n\n{'='*70}")
+    print("  CANDIDATE ASSESSMENT SUMMARY")
+    print(f"{'='*70}")
+    for label in ("STRONG CANDIDATE", "PROMISING", "NEEDS MORE DATA", "REJECT"):
+        coins_in_group = [r["coin"] for r in ranked if r["cand"] == label]
+        if coins_in_group:
+            print(f"\n  {label}:")
+            for coin in coins_in_group:
+                r   = next(x for x in ranked if x["coin"] == coin)
+                bm  = r["best_m"]
+                tag = "(Live)" if coin in LIVE_COINS else "(Research)"
+                print(f"    • {coin} {tag}  —  "
+                      f"Trades={bm['n']}, ROI={bm['roi_pct']:+.2f}%, "
+                      f"PF={fmt_inf(bm['profit_factor'])}, "
+                      f"WR={bm['win_rate_pct']:.1f}%, "
+                      f"Exp={fmt_money(bm['expectancy'])}")
+
+    # ── Per-coin best strategy ─────────────────────────────────────────────────
+    best_strat_per_coin: dict[str, str] = {r["coin"]: r["best"] for r in comparison_rows}
+
+    print(f"\n\n{'='*70}")
+    print("  PER-COIN BEST STRATEGY (for portfolio construction)")
+    print(f"{'='*70}")
     for row_ in comparison_rows:
         coin = row_["coin"]
-        best, rec = rank_strategies(row_["mets"])
-        bm   = row_["mets"][best]
+        bm   = row_["best_m"]
+        print(f"  {coin:<5}  {row_['rec']:<30}  "
+              f"[{row_['best']}]  PF={fmt_inf(bm['profit_factor'])}  "
+              f"Trades={bm['n']}  {evidence_label(bm['n'])}")
+
+    # ── Portfolio combination analysis ─────────────────────────────────────────
+    print(f"\n\n{'='*70}")
+    print("  PORTFOLIO COMBINATION ANALYSIS")
+    print("  Each coin uses its own best strategy. Equal allocation per coin.")
+    print(f"{'='*70}")
+
+    # Rank coins by score for selection
+    coins_by_score = [r["coin"] for r in ranked if r["coin"] in all_metrics]
+
+    # Build specific combinations
+    combos: list[tuple[str, list[str]]] = []
+
+    # All 8 (or however many ran)
+    combos.append(("All tested coins", coins_by_score))
+
+    # All 4 live coins
+    live_in_results = [c for c in coins_by_score if c in LIVE_COINS]
+    if live_in_results:
+        combos.append(("Live coins only (BTC+ETH+SOL+XRP)", live_in_results))
+
+    # Top 4 by score
+    top4 = coins_by_score[:4]
+    combos.append(("Top 4 by score", top4))
+
+    # Top 5
+    if len(coins_by_score) >= 5:
+        combos.append(("Top 5 by score", coins_by_score[:5]))
+
+    # Top 6
+    if len(coins_by_score) >= 6:
+        combos.append(("Top 6 by score", coins_by_score[:6]))
+
+    # Best 4 STRONG/PROMISING candidates
+    good_coins = [r["coin"] for r in ranked
+                  if r["cand"] in ("STRONG CANDIDATE", "PROMISING")]
+    if 2 <= len(good_coins) <= 8:
+        combos.append((f"Strong/Promising only ({','.join(good_coins)})", good_coins))
+
+    # Research coins only
+    research_in_results = [c for c in coins_by_score if c in RESEARCH_COINS]
+    if research_in_results:
+        combos.append(("Research candidates only", research_in_results))
+
+    # Print portfolio results
+    portfolio_results: list[tuple[str, dict]] = []
+    for combo_name, coin_list in combos:
+        p = portfolio_metrics(coin_list, all_metrics, all_results, best_strat_per_coin)
+        if p:
+            portfolio_results.append((combo_name, p))
+
+    print(f"\n  {'Portfolio':<42} {'Coins':>5} {'Capital':>8} {'Final':>8} "
+          f"{'ROI%':>7} {'Trades':>7} {'WR%':>6} {'PF':>6} {'DD%':>6} {'Exp':>7}")
+    print(f"  {'-'*42} {'-'*5} {'-'*8} {'-'*8} {'-'*7} {'-'*7} {'-'*6} {'-'*6} {'-'*6} {'-'*7}")
+    for combo_name, p in portfolio_results:
+        print(
+            f"  {combo_name[:42]:<42} {p['n_coins']:>5} "
+            f"£{p['total_start']:>7.0f} £{p['total_finish']:>7.2f} "
+            f"{p['total_roi']:>+7.2f} {p['total_n']:>7} "
+            f"{p['win_rate']:>6.1f} {fmt_inf(p['profit_factor']):>6} "
+            f"{p['max_dd']:>6.2f} {fmt_money(p['expectancy']):>7}"
+        )
+
+    # Best portfolio recommendation
+    if portfolio_results:
+        best_port_name, best_port = max(portfolio_results, key=lambda x: portfolio_score(x[1]))
+        print(f"\n  ▶ Recommended portfolio: {best_port_name}")
+        print(f"    Coins: {', '.join(best_port['coins'])}")
+        print(f"    Capital: £{best_port['total_start']:.0f} → £{best_port['total_finish']:.2f}")
+        print(f"    ROI={fmt_pct(best_port['total_roi'])}  "
+              f"PF={fmt_inf(best_port['profit_factor'])}  "
+              f"MaxDD={fmt_pct(best_port['max_dd'])}  "
+              f"WR={fmt_pct(best_port['win_rate'])}  "
+              f"Trades={best_port['total_n']} [{evidence_label(best_port['total_n'])}]")
+
+    # ── Improvement opportunities ──────────────────────────────────────────────
+    print(f"\n\n{'='*70}")
+    print("  POTENTIAL IMPROVEMENTS (research only — not yet implemented)")
+    print(f"{'='*70}")
+
+    # Identify coins to drop
+    reject_coins = [r["coin"] for r in ranked if r["cand"] == "REJECT"]
+    ndm_coins    = [r["coin"] for r in ranked if r["cand"] == "NEEDS MORE DATA"]
+    strong_coins = [r["coin"] for r in ranked if r["cand"] in ("STRONG CANDIDATE","PROMISING")]
+
+    print(f"""
+  1. COIN SELECTION
+     • Remove consistently losing coins from the portfolio to reduce drag.
+     • Coins flagged REJECT: {reject_coins if reject_coins else 'none'}
+     • Coins needing more data before inclusion: {ndm_coins if ndm_coins else 'none'}
+     • Focus capital on coins scoring STRONG CANDIDATE or PROMISING: {strong_coins}
+
+  2. PER-COIN STRATEGY TUNING
+     • Rather than forcing all coins onto one strategy (A/B/C), allow each
+       coin to run its historically best-validated variant.
+     • Example: if BTC performs best with 6/6 but LINK performs better with
+       Strategy C, run each on its optimal config.
+     • Caution: only adopt a different strategy where sample size is >= 30 trades.
+
+  3. TRADE FREQUENCY — MARKET REGIME FILTER
+     • Some coins produce very few trades over 12 months (< 5/month).
+       This may indicate the strategy is too strict for volatile alt-coins.
+     • Option: test a regime filter (e.g. only trade when VIX-equivalent
+       crypto fear index is < 50, or when BTC is trending bullish).
+     • This reduces losses during range/chop without changing entry rules.
+
+  4. EXIT LOGIC IMPROVEMENTS
+     • Current R:R is fixed at 2:1. On coins with strong momentum (BTC LONG),
+       a trailing stop could capture larger moves (3R, 4R).
+     • Test: after price reaches 1R in profit, move SL to breakeven (risk-free).
+     • This would reduce the average loss on near-winners and improve expectancy.
+
+  5. POSITION SIZING — KELLY-FRACTION
+     • Current: fixed 1% risk per trade.
+     • Option: use fractional Kelly sizing based on each coin's historical win
+       rate and payoff ratio. This would size up on higher-edge setups.
+     • For BTC (WR≈47%, R:R=2:1): full Kelly ≈ 11.5%, half-Kelly ≈ 5.75%.
+       A move from 1% to 3% risk (still conservative) would roughly triple
+       the £ return without changing strategy rules.
+
+  6. LONG vs SHORT ASYMMETRY
+     • SHORT trades have lower win rates on most coins in this backtest.
+     • Option: require an additional confirmation for SHORT entries, or
+       skip SHORT trades entirely on alt-coins where SHORT underperforms.
+     • This would reduce total trade count but may improve overall win rate.
+
+  7. MULTI-TIMEFRAME CONFLUENCE
+     • Currently: 1h entry + 4h trend context.
+     • Option: add a daily (1D) trend filter — only take LONGs when the
+       daily chart is also in a bullish regime. This would reduce entries
+       during major bear cycles and likely improve SHORT accuracy.
+
+  8. COOLDOWN AFTER LOSSES
+     • Current: MAX_CONSECUTIVE_LOSSES=3 pauses trading for the day.
+     • Option: after 2 consecutive losses on a single coin, pause that coin
+       for 24h but continue trading other coins. This isolates coin-specific
+       drawdowns from impacting the whole portfolio.
+""")
+
+    # ── Final per-coin recommendations ─────────────────────────────────────────
+    print(f"\n{'='*70}")
+    print("  FINAL RECOMMENDATIONS PER COIN")
+    print("  Ranked by: PF × 3 + ROI × 2 − MaxDD (sample-penalised)")
+    print(f"{'='*70}")
+    for rank_i, row_ in enumerate(ranked, 1):
+        coin = row_["coin"]
+        bm   = row_["best_m"]
+        tag  = "(Live)" if coin in LIVE_COINS else "(Research)"
         blbl = {
             "A": "Strategy A (6/6 — Current)",
             "B": "Strategy B (5/6 — Relaxed)",
             "C": "Strategy C (5/6 + Trend Guard)",
-        }[best]
-        print(f"\n  {coin}:  ► {rec}")
-        print(f"         Best           : {blbl}")
-        print(f"         Evidence       : {evidence_label(bm['n'])}")
-        print(f"         ROI {bm['roi_pct']:+.2f}% | "
-              f"PF {fmt_inf(bm['profit_factor'])} | "
-              f"MaxDD {bm['max_drawdown_pct']:.2f}% | "
-              f"WR {bm['win_rate_pct']:.1f}%")
-
-    # Portfolio-level
-    if all_metrics:
-        combined: dict[str, dict] = {}
-        for strat in ("A","B","C"):
-            ok = [c for c in all_metrics if strat in all_metrics[c]]
-            if not ok: continue
-            n   = sum(all_metrics[c][strat]["n"]           for c in ok)
-            gp  = sum(all_metrics[c][strat]["gross_profit"] for c in ok)
-            gl  = sum(all_metrics[c][strat]["gross_loss"]   for c in ok)
-            pnl = sum(all_metrics[c][strat]["net_pnl"]      for c in ok)
-            roi = pnl / (len(ok) * STARTING_BALANCE) * 100
-            w   = sum(all_metrics[c][strat]["wins"]         for c in ok)
-            avg_dd = sum(all_metrics[c][strat]["max_drawdown_pct"] for c in ok) / len(ok)
-            combined[strat] = {
-                "n": n, "roi_pct": roi,
-                "profit_factor": (gp / gl) if gl > 0 else float("inf"),
-                "max_drawdown_pct": avg_dd,
-                "wins": w,
-                "win_rate_pct": w / n * 100 if n > 0 else 0,
-                "gross_profit": gp, "gross_loss": gl,
-            }
-        best_o, rec_o = rank_strategies(combined)
-        bm_o  = combined[best_o]
-        blbl_o = {
-            "A": "Strategy A (6/6 — Current)",
-            "B": "Strategy B (5/6 — Relaxed)",
-            "C": "Strategy C (5/6 + Trend Guard)",
-        }[best_o]
-        print(f"\n  PORTFOLIO OVERALL:  ► {rec_o}")
-        print(f"         Best           : {blbl_o}")
-        print(f"         Evidence       : {evidence_label(bm_o['n'])}")
-        print(f"         Combined trades: {bm_o['n']} | "
-              f"ROI {fmt_pct(bm_o['roi_pct'])} | "
-              f"PF {fmt_inf(bm_o['profit_factor'])} | "
-              f"Avg DD {bm_o['max_drawdown_pct']:.2f}% | "
-              f"WR {bm_o['win_rate_pct']:.1f}%")
+        }[row_["best"]]
+        print(f"\n  #{rank_i}  {coin} {tag}  ── {row_['cand']}")
+        print(f"       Strategy recommendation : {row_['rec']}")
+        print(f"       Best strategy           : {blbl}")
+        print(f"       Evidence                : {evidence_label(bm['n'])}")
+        print(f"       ROI={bm['roi_pct']:+.2f}%  PF={fmt_inf(bm['profit_factor'])}  "
+              f"MaxDD={bm['max_drawdown_pct']:.2f}%  WR={bm['win_rate_pct']:.1f}%  "
+              f"Exp={fmt_money(bm['expectancy'])}")
+        if row_["cand"] == "REJECT":
+            print(f"       ⛔ Do not add to live trading.")
+        elif row_["cand"] == "NEEDS MORE DATA":
+            print(f"       ⏳ Insufficient sample — monitor for more data before deciding.")
+        elif row_["cand"] == "PROMISING":
+            print(f"       🔶 Promising but not yet sufficient evidence — worth watching.")
+        else:
+            print(f"       ✅ Strong historical edge — consider for live trading (approval required).")
 
     print(f"\n{'─'*70}")
-    print("  No live-bot settings have been changed.")
-    print("  Approve a strategy change explicitly to modify the live paper trader.")
+    print("  IMPORTANT: This is research/backtesting only.")
+    print("  The live paper trader has NOT been changed.")
+    print("  Do NOT add research coins to live trading without explicit approval.")
     print(f"{'─'*70}\n")
 
 

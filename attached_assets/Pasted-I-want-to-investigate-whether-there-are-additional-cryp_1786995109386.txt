@@ -1,0 +1,197 @@
+I want to investigate whether there are additional cryptocurrencies that could improve the profitability of the Kraken Paper Trader.
+
+Do NOT add any new coins to live paper trading yet and do NOT change the existing live strategy.
+
+Keep BTC, ETH, SOL and XRP exactly as they currently are.
+
+### 1. Add these coins to the research/backtesting system
+
+Please test:
+
+- ADA — Cardano
+- LINK — Chainlink
+- AVAX — Avalanche
+- DOT — Polkadot
+
+If Kraken supports other highly liquid major cryptocurrencies that appear particularly suitable for this strategy, you may identify them as additional candidates, but do not automatically add them to live trading.
+
+Avoid very low-liquidity coins and highly speculative/meme coins for now.
+
+### 2. Use the longer historical dataset
+
+Use approximately 6–12 months of historical data where possible.
+
+For each coin, run the same three strategy variations we're testing on BTC, ETH, SOL and XRP:
+
+Strategy A
+Current strict 6/6 confirmation.
+
+Strategy B
+Unrestricted 5/6 confirmation.
+
+Strategy C
+5/6 with trend protection:
+- 1h trend must agree with trade direction.
+- 4h trend may be NEUTRAL.
+- 4h trend must NOT oppose the trade direction.
+
+Do not optimise indicator parameters yet.
+
+Keep the same:
+
+- RSI
+- MACD
+- EMA/MA
+- volume rules
+- trend calculations
+- stop loss
+- take profit
+- position sizing
+- fees
+- slippage
+- risk management
+- LONG/SHORT rules
+
+This should be a fair comparison.
+
+### 3. Compare all eight coins
+
+Compare:
+
+BTC  
+ETH  
+SOL  
+XRP  
+ADA  
+LINK  
+AVAX  
+DOT
+
+For every coin and strategy report:
+
+- ROI %
+- Final balance from £100
+- Net profit/loss
+- Total trades
+- Trades per month
+- Wins
+- Losses
+- Win rate
+- Profit factor
+- Maximum drawdown
+- Expectancy per trade
+- Average win
+- Average loss
+- Largest win
+- Largest loss
+- LONG performance
+- SHORT performance
+- Sharpe ratio where meaningful
+- Maximum consecutive losses
+
+### 4. Rank the coins
+
+Create an overall ranking of all eight coins.
+
+Do NOT rank purely by ROI.
+
+Give greater importance to:
+
+1. Profit factor
+2. ROI
+3. Maximum drawdown
+4. Expectancy
+5. Number of trades/sample size
+6. Consistency
+7. Win rate
+
+Identify which coins appear to have a genuine historical edge with this trading system.
+
+Label each:
+
+STRONG CANDIDATE  
+PROMISING  
+NEEDS MORE DATA  
+REJECT
+
+### 5. Investigate higher returns safely
+
+I also want to determine whether the system can achieve better returns without simply increasing risk.
+
+Do NOT increase leverage or dramatically increase position sizes just to produce a higher ROI.
+
+Instead investigate whether returns could reasonably be improved through:
+
+- selecting only the best-performing coins
+- removing consistently unprofitable coins
+- better entry quality
+- improved exit logic
+- avoiding poor market regimes
+- allowing profitable trades to run longer
+- reducing unnecessary losing trades
+- different strategy variants for different coins
+
+Do not implement these changes yet.
+
+Report which improvements appear worth testing.
+
+### 6. Per-coin strategies
+
+Do not assume every cryptocurrency should eventually use identical rules.
+
+Analyse whether different coins perform better with different strategy configurations.
+
+For example, if BTC clearly performs best with 6/6 but another coin performs substantially better using Strategy C, report that.
+
+The eventual system should be allowed to use the best validated strategy for each coin rather than forcing every coin onto one configuration.
+
+However, be careful about overfitting.
+
+Do not select a strategy based on a tiny number of trades.
+
+Flag:
+
+- Under 30 trades = weak evidence
+- 30–100 = moderate evidence
+- 100+ = stronger evidence
+
+### 7. Portfolio selection
+
+Finally, determine which combination of coins would historically have produced the strongest diversified portfolio.
+
+Test sensible combinations such as:
+
+- Best 4 coins
+- Best 5 coins
+- Best 6 coins
+- All qualifying coins
+
+Assume equal starting allocation per selected coin.
+
+Compare:
+
+- Portfolio ROI
+- Profit factor
+- Maximum drawdown
+- Total trades
+- Win rate
+- Expectancy
+- Consistency across months
+
+Recommend the portfolio that provides the best balance between return and risk, rather than simply the highest backtested return.
+
+### IMPORTANT
+
+This is research/backtesting only.
+
+Do not change the live paper trader.
+
+Do not add ADA, LINK, AVAX or DOT to live paper trading.
+
+Do not change BTC, ETH, SOL or XRP.
+
+Do not increase risk.
+
+Do not optimise the strategy specifically to fit historical data.
+
+Wait for my approval after presenting the results.
