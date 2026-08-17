@@ -1,0 +1,245 @@
+I want to expand the Kraken Paper Trader project into a broader multi-market trading research system, while keeping all current live paper-trading settings unchanged.
+
+DO NOT make any changes to the live trading strategy yet.
+
+There are TWO research tasks I want completed.
+
+# TASK 1 — Improve and validate the BTC strategy
+
+BTC is currently our strongest result:
+
+- Strategy: 6/6
+- 12-month ROI: +9.83%
+- Profit factor: 1.705
+- Maximum drawdown: 2.97%
+- Trades: 32
+- Win rate: 46.9%
+
+Keep the existing BTC 6/6 entry conditions completely unchanged.
+
+## A. Test alternative BTC exit strategies
+
+Compare:
+
+Exit A — Current
+Current stop-loss and take-profit rules.
+
+Exit B — Breakeven at +0.75R
+Once the trade reaches +0.75R unrealised profit, move the stop to entry price.
+
+Exit C — Breakeven at +1R
+Once the trade reaches +1R unrealised profit, move the stop to entry price.
+
+Exit D — Trailing stop
+Test a sensible ATR-based trailing stop while keeping the original initial stop.
+
+Do not optimise dozens of trailing-stop parameters. Use one or two sensible predetermined variants to avoid overfitting.
+
+For each exit system report:
+
+- ROI
+- Net P&L
+- Total trades
+- Win rate
+- Profit factor
+- Maximum drawdown
+- Expectancy
+- Average win
+- Average loss
+- Largest win/loss
+- Sharpe ratio
+- Average trade duration
+
+For the breakeven systems specifically report:
+
+- Number of losing trades converted to breakeven
+- Number of eventual winning trades stopped at breakeven prematurely
+- Net effect on P&L
+- Net effect on profit factor
+- Net effect on maximum drawdown
+
+## B. Extend BTC historical validation
+
+Obtain approximately 3 years of BTC historical data, if reliable data is available.
+
+Test the existing 6/6 strategy separately by:
+
+- Year
+- Bullish periods
+- Bearish periods
+- Sideways/ranging periods
+
+I want to know whether the BTC edge persists across different market conditions rather than being dependent on the last 12 months.
+
+Report the full-period performance AND individual yearly performance.
+
+Do not optimise the entry strategy using these results.
+
+# TASK 2 — Research non-crypto markets
+
+I want to investigate adding:
+
+## Precious metals
+
+- XAU/USD — Gold
+- XAG/USD — Silver
+
+## Foreign exchange
+
+- EUR/USD
+- GBP/USD
+- USD/JPY
+
+These are research/backtest instruments only.
+
+Do NOT add them to live paper trading yet.
+
+Use a reliable historical data source and clearly state:
+
+- Data provider
+- Exact testing period
+- Timeframe
+- Number of candles
+- Missing-data/gap information
+- Spread assumptions
+- Commission assumptions
+- Slippage assumptions
+
+Account appropriately for the fact that FX/metals do not trade exactly like 24/7 crypto markets.
+
+Do not treat weekend market closures as missing-data errors.
+
+## Initial strategy test
+
+First test the existing core strategy logic on each market to establish a baseline.
+
+Test:
+
+A — Strict 6/6
+
+and
+
+C — Trend-guard version
+
+However, do NOT assume crypto-specific parameters are automatically appropriate for FX or metals.
+
+The purpose of the first run is to establish whether the underlying concepts of:
+
+- multi-timeframe trend
+- RSI
+- MACD momentum
+- price vs EMA
+- volume/momentum confirmation
+
+show any useful edge.
+
+If reliable centralised volume is unavailable for FX, do NOT invent volume data.
+
+Clearly identify this limitation and test an appropriate market-data-supported alternative separately if necessary.
+
+# Risk and return objectives
+
+The objective is to improve returns while maintaining controlled risk.
+
+DO NOT:
+
+- increase leverage simply to make ROI look better
+- increase risk per trade during these tests
+- optimise dozens of parameters until historical results look good
+- cherry-pick dates
+- remove losing trades
+- introduce look-ahead bias
+
+Keep risk at the existing conservative level for fair comparisons.
+
+I care about risk-adjusted returns, not simply the highest ROI.
+
+For every market report:
+
+- ROI
+- Annualised return where appropriate
+- Total trades
+- Trades/month
+- Win rate
+- Profit factor
+- Maximum drawdown
+- Expectancy per trade
+- Sharpe ratio
+- LONG performance
+- SHORT performance
+- Maximum consecutive losses
+
+# Minimum evidence requirements
+
+Classify results as:
+
+UNDER 30 trades — WEAK EVIDENCE
+
+30–100 trades — MODERATE EVIDENCE
+
+100+ trades — STRONGER EVIDENCE
+
+Do not recommend deploying a strategy based on a handful of profitable trades.
+
+# Cross-market portfolio
+
+After completing the tests, investigate whether combining independently profitable markets improves the overall system.
+
+Potential portfolio could eventually include instruments such as:
+
+BTC  
+Gold  
+Silver  
+EUR/USD  
+GBP/USD  
+USD/JPY
+
+Only include an instrument in the candidate portfolio if its individual backtest demonstrates positive expectancy and an acceptable profit factor.
+
+Calculate:
+
+- Combined ROI
+- Annualised return
+- Portfolio maximum drawdown
+- Profit factor
+- Total trades
+- Trades/month
+- Sharpe ratio
+- Worst month
+- Best month
+- Percentage of profitable months
+
+Also calculate correlations between strategy returns across BTC, Gold, Silver and the FX pairs.
+
+I specifically want to know whether Gold/FX strategies make money during periods when BTC is performing poorly or producing no signals.
+
+# Final report
+
+At the end give me:
+
+1. Best BTC exit method
+2. 3-year BTC performance
+3. Whether the BTC edge survives different market regimes
+4. Gold results
+5. Silver results
+6. EUR/USD results
+7. GBP/USD results
+8. USD/JPY results
+9. Best individual market
+10. Best diversified portfolio
+11. Expected trades per month
+12. Expected annual return based on the historical test
+13. Maximum historical drawdown
+14. Evidence strength for every result
+
+Then provide one of these recommendations for every instrument:
+
+KEEP / ADD TO PAPER TESTING / MORE RESEARCH NEEDED / REJECT
+
+Most importantly, identify the route that appears capable of producing higher returns without disproportionately increasing drawdown or risk per trade.
+
+Do not implement any recommended changes.
+
+Do not change the live paper trader.
+
+Present all results to me first and wait for explicit approval.
