@@ -1,0 +1,260 @@
+Before making ANY live changes, I want to validate the BTC results and investigate ways to increase trade frequency without simply increasing risk.
+
+DO NOT change the live paper trader.
+
+Keep:
+- 1% risk per trade
+- BTC 6/6 entry
+- Current ATR stop loss
+- Current 2R take profit
+
+## 1. Run a TRUE continuous 3-year BTC backtest
+
+Use BTC data from approximately:
+
+18 Aug 2023 → 17 Aug 2026
+
+Start with:
+
+£100
+
+Run ONE continuous simulation across the entire three-year period.
+
+Do NOT reset:
+- balance
+- strategy state
+- open positions
+- cooldowns
+- indicators
+
+at calendar-year boundaries.
+
+Report:
+
+- £100 starting balance
+- Final balance
+- Total net P&L
+- Total ROI
+- CAGR/annualised return
+- Total trades
+- Trades per month
+- Wins
+- Losses
+- Win rate
+- Profit factor
+- Maximum drawdown
+- Expectancy
+- Sharpe ratio
+- Maximum consecutive losses
+- Maximum consecutive wins
+
+Also show performance by calendar year from the SAME continuous equity curve.
+
+## 2. Include realistic trading costs
+
+The previous BTC test used:
+
+NO FEES / NO SLIPPAGE.
+
+That could overstate profitability.
+
+Run the test twice:
+
+### Test A
+Zero fees/slippage — for comparison with the old result.
+
+### Test B
+Realistic Kraken-style trading costs.
+
+Use realistic maker/taker fees appropriate to the assumed execution type and a conservative slippage assumption.
+
+Clearly state exactly what fee and slippage assumptions were used.
+
+Do not deliberately choose optimistic assumptions.
+
+Show how much fees/slippage reduce:
+
+- ROI
+- Profit factor
+- expectancy
+- final balance
+
+## 3. Verify the breakeven test
+
+The current exit generated:
+
+Current exit: 32 trades  
+BE 0.75R: 94 trades  
+BE 1R: 84 trades
+
+Explain precisely WHY changing the exit caused almost 3× as many entries.
+
+Determine whether:
+
+- the bot only allows one position at a time
+- closing early immediately permits another entry
+- the same market setup can repeatedly trigger re-entry
+- the bot can re-enter on the same candle
+- the bot can repeatedly trade the same signal
+
+Check specifically for accidental signal recycling/re-entry loops.
+
+Add a test requiring a completely NEW entry signal after a position closes.
+
+Do not allow the same unchanged signal to repeatedly trigger new positions.
+
+Then rerun:
+
+A — Current exit  
+B — BE at +0.75R  
+C — BE at +1R
+
+Tell me whether the previous poor breakeven results were partly caused by repeated re-entry rather than the exit itself.
+
+## 4. Test higher BTC trade frequency WITHOUT weakening 6/6
+
+The current strategy produces too few trades.
+
+Instead of reducing confirmation quality, investigate multiple BTC timeframe configurations.
+
+Keep the same six-condition philosophy.
+
+Test:
+
+### Configuration 1 — Current
+1h entry + 4h higher-timeframe confirmation
+
+### Configuration 2
+30m entry + 4h confirmation
+
+### Configuration 3
+30m entry + 2h confirmation
+
+### Configuration 4
+15m entry + 1h confirmation
+
+Do not optimise indicator parameters individually for each test.
+
+Use the same underlying RSI/MACD/EMA/volume/trend logic translated appropriately to the timeframe.
+
+Report for each:
+
+- Total trades
+- Trades/month
+- ROI
+- CAGR
+- Profit factor
+- Win rate
+- Maximum drawdown
+- Expectancy
+- Sharpe ratio
+- Long performance
+- Short performance
+
+Include realistic fees/slippage.
+
+The goal is to determine whether we can get MORE opportunities while retaining high-quality confirmation.
+
+## 5. Investigate BTC LONG vs SHORT separately
+
+The previous research suggests LONG trades may outperform SHORT trades.
+
+For the continuous 3-year backtest show:
+
+LONG:
+- trades
+- win rate
+- ROI/P&L
+- PF
+- expectancy
+- maximum drawdown
+
+SHORT:
+- trades
+- win rate
+- ROI/P&L
+- PF
+- expectancy
+- maximum drawdown
+
+Then test:
+
+A — LONG + SHORT  
+B — LONG ONLY  
+C — LONG normal rules + stricter SHORT confirmation
+
+Do not automatically disable shorts. Show the evidence first.
+
+## 6. BTC regime filter — research only
+
+Test a simple, predetermined regime filter rather than optimising multiple versions.
+
+Compare current strategy against:
+
+Trade LONG signals normally when BTC is above the weekly 200-period moving average.
+
+Allow SHORT signals normally when BTC is below it.
+
+Also report what happens if signals against that regime are simply blocked.
+
+Do not optimise the moving-average period after seeing the results.
+
+Show:
+
+- trades removed
+- losing trades avoided
+- winning trades incorrectly removed
+- ROI
+- PF
+- drawdown
+- expectancy
+
+## 7. Gold, Silver and FX
+
+Keep these as research markets.
+
+Do NOT force the BTC strategy onto them any further.
+
+Create a separate research module for:
+
+- Gold
+- Silver
+- EUR/USD
+- GBP/USD
+- USD/JPY
+
+The objective is to eventually design and validate strategies appropriate to those markets rather than weakening the BTC strategy until it produces trades.
+
+Do not implement those strategies live yet.
+
+## FINAL REPORT
+
+Rank the BTC configurations according to:
+
+1. Profit factor
+2. CAGR/ROI
+3. Maximum drawdown
+4. Expectancy
+5. Sample size
+6. Trades per month
+7. Performance after realistic costs
+
+I want the best balance between RETURN, RISK and TRADE FREQUENCY.
+
+Do NOT recommend increasing risk per trade yet.
+
+Keep risk at 1%.
+
+Do NOT modify the live bot.
+
+At the end give me:
+
+CURRENT BTC STRATEGY REMAINS BEST
+
+or
+
+NEW BTC CONFIGURATION WORTH PAPER TESTING
+
+and explain the evidence.
+
+All changes remain research/backtest-only until I explicitly approve them.
