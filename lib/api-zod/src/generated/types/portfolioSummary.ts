@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { PortfolioSummaryCoins } from './portfolioSummaryCoins';
+import type { StrategyStats } from './strategyStats';
 
 export interface PortfolioSummary {
   /** @nullable */
@@ -30,4 +31,5 @@ export interface PortfolioSummary {
   totalLosses: number;
   overallWinRate: number;
   coins: PortfolioSummaryCoins;
+  strategyStats?: StrategyStats | null;
 }

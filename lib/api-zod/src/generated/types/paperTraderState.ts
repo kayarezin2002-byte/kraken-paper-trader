@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ActiveStrategyState } from './activeStrategyState';
 import type { DirectionalEvaluation } from './directionalEvaluation';
 import type { ExecutionDiagnostics } from './executionDiagnostics';
 import type { IndicatorSnapshot } from './indicatorSnapshot';
@@ -35,6 +36,10 @@ export interface PaperTraderState {
   executionDiagnostics?: ExecutionDiagnostics | null;
   opportunity: Opportunity;
   position: OpenPosition | null;
+  /** Open position held by the parallel ACTIVE (15m) strategy, if any. */
+  activePosition?: OpenPosition | null;
+  /** Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan. */
+  active?: ActiveStrategyState | null;
   metrics: PaperTraderMetrics;
   risk: PaperTraderStateRisk;
   recentTrades: PaperTrade[];

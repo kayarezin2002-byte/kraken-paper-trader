@@ -48,6 +48,18 @@ interface StrategyDiagnostic {
   noTradeReason: string | null;
   executionBlocked: boolean;
   blockReason: string | null;
+  /** CORE (1h) or ACTIVE (15m). Absent on pre-upgrade rows → CORE. */
+  strategy?: string;
+  /** Independent LONG/SHORT scores — the SAME evaluation the dashboard shows. */
+  directional?: {
+    longScore: number;
+    shortScore: number;
+    threshold: number;
+    shortThreshold: number;
+    maxScore: number;
+    decision: string;
+    reason: string;
+  } | null;
 }
 
 function tryParseDiagnostic(message: string): StrategyDiagnostic | null {
@@ -72,6 +84,9 @@ function StrategyDiagnosticPanel({ diag }: { diag: StrategyDiagnostic }) {
     <div className="mt-3 space-y-3 rounded-xl border border-border/60 bg-muted/30 p-4">
       {/* Header row */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px]">
+        <span className={`rounded px-1.5 py-0.5 font-mono-data text-[9px] font-bold uppercase tracking-wider ${(diag.strategy ?? 'CORE') === 'ACTIVE' ? 'bg-cyan-500/15 text-cyan-500' : 'bg-blue-500/10 text-blue-500'}`}>
+          {diag.strategy ?? 'CORE'}
+        </span>
         <div>
           <span className="text-muted-foreground">Price </span>
           <span className="font-mono-data font-semibold">{money(diag.price)}</span>
@@ -123,16 +138,33 @@ function StrategyDiagnosticPanel({ diag }: { diag: StrategyDiagnostic }) {
         ))}
       </div>
 
-      {/* Score footer */}
+      {/* Score footer — same directional evaluation the dashboard shows */}
       <div className="border-t border-border/50 pt-3 text-[11px]">
         <div className="flex flex-wrap gap-x-6 gap-y-1.5">
-          <div>
-            <span className="text-muted-foreground">Entry score </span>
-            <span className={`font-mono-data font-bold ${allPass ? 'text-accent' : 'text-foreground'}`}>
-              {diag.passCount}/{diag.totalCount}
-            </span>
-            <span className="ml-1 text-muted-foreground">required: {diag.totalCount}/{diag.totalCount}</span>
-          </div>
+          {diag.directional ? (
+            <div>
+              <span className="text-muted-foreground">Scores </span>
+              <span className="font-mono-data font-bold text-accent">
+                LONG {diag.directional.longScore}/{diag.directional.maxScore}
+              </span>
+              <span className="mx-1 text-border">·</span>
+              <span className="font-mono-data font-bold text-destructive">
+                SHORT {diag.directional.shortScore}/{diag.directional.maxScore}
+              </span>
+              <span className="ml-1 text-muted-foreground">
+                gate: {diag.directional.threshold}
+                {diag.directional.shortThreshold !== diag.directional.threshold ? `/${diag.directional.shortThreshold}` : ''}
+                /{diag.directional.maxScore}
+              </span>
+            </div>
+          ) : (
+            <div>
+              <span className="text-muted-foreground">Conditions met </span>
+              <span className={`font-mono-data font-bold ${allPass ? 'text-accent' : 'text-foreground'}`}>
+                {diag.passCount}/{diag.totalCount}
+              </span>
+            </div>
+          )}
           <div>
             <span className="text-muted-foreground">Final signal </span>
             <span className={`font-mono-data font-bold ${signalColor}`}>
@@ -174,9 +206,15 @@ function StrategyCollapsedSummary({ diag }: { diag: StrategyDiagnostic }) {
 
   return (
     <p className="mt-0.5 text-[11px] text-muted-foreground">
+      <span className="font-semibold text-muted-foreground/80">{diag.strategy ?? 'CORE'}</span>
+      <span className="mx-1.5 text-border">·</span>
       <span className={`font-mono-data font-semibold ${signalColor}`}>{diag.signal.replace('_', ' ')}</span>
       <span className="mx-1.5 text-border">·</span>
-      <span>{diag.passCount}/{diag.totalCount} conditions</span>
+      <span>
+        {diag.directional
+          ? `L ${diag.directional.longScore}/${diag.directional.maxScore} · S ${diag.directional.shortScore}/${diag.directional.maxScore}`
+          : `${diag.passCount}/${diag.totalCount} conditions`}
+      </span>
       {failedCount > 0 && (
         <>
           <span className="mx-1.5 text-border">·</span>

@@ -124,9 +124,9 @@ router.get("/paper-trader/activity", async (req, res) => {
 router.get("/paper-trader/chart", async (req, res) => {
   try {
     const params = GetChartDataQueryParams.parse(req.query);
-    const data = GetChartDataResponse.parse(
-      await runBot("chart", params.asset, params.range ?? "7D"),
-    );
+    const args = ["chart", params.asset, params.range ?? "7D"];
+    if (params.interval) args.push(params.interval);
+    const data = GetChartDataResponse.parse(await runBot(...(args as [string, ...string[]])));
     res.json(data);
   } catch (error) {
     req.log.error({ err: error }, "Unable to build chart data");

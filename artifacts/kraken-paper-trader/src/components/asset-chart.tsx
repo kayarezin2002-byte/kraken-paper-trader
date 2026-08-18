@@ -20,8 +20,20 @@ type OpenPosition = NonNullable<PaperTraderState['position']>;
 
 export type ChartRange = '24H' | '7D' | '30D' | '90D';
 const RANGES: ChartRange[] = ['24H', '7D', '30D', '90D'];
+export type ChartInterval = '15m' | '1h' | '4h';
+const INTERVALS: ChartInterval[] = ['15m', '1h', '4h'];
+const DEFAULT_INTERVAL: Record<ChartRange, ChartInterval> = { '24H': '15m', '7D': '1h', '30D': '1h', '90D': '4h' };
 
-const ALL_CONDITIONS = ['4h Trend', '1h Trend', 'RSI', 'MACD Momentum', 'Price vs MA', 'Volume'];
+const CORE_CONDITIONS = ['4h Trend', '1h Trend', 'RSI', 'MACD Momentum', 'Price vs MA', 'Volume'];
+const ACTIVE_CONDITIONS = ['15m Trend', '1h Confirmation', 'RSI', 'MACD Momentum', 'Price vs EMA20', 'Volume'];
+
+export interface PotentialSignal {
+  strategy: 'CORE' | 'ACTIVE';
+  direction: 'LONG' | 'SHORT';
+  score: number;
+  maxScore: number;
+  threshold: number;
+}
 
 const UP = '#22c55e';
 const DOWN = '#ef4444';
@@ -50,14 +62,19 @@ interface AssetChartProps {
   /** Trades for this asset only (already filtered). */
   trades: Trade[];
   position?: OpenPosition | null;
+  /** Open position held by the parallel ACTIVE (15m) strategy, if any. */
+  activePosition?: OpenPosition | null;
   currentPrice?: number | null;
   defaultRange?: ChartRange;
   /** Trade-review mode: centre the view on this trade. */
   focusTrade?: Trade | null;
+  /** Live "considering an entry" markers, shown distinct from executed trades. */
+  potentialSignals?: PotentialSignal[];
 }
 
-export function AssetChart({ asset, trades, position, currentPrice, defaultRange = '7D', focusTrade }: AssetChartProps) {
+export function AssetChart({ asset, trades, position, activePosition, currentPrice, defaultRange = '7D', focusTrade, potentialSignals }: AssetChartProps) {
   const [range, setRange] = useState<ChartRange>(defaultRange);
+  const [interval, setInterval] = useState<ChartInterval>(DEFAULT_INTERVAL[defaultRange]);
   const [showEma20, setShowEma20] = useState(true);
   const [showEma50, setShowEma50] = useState(true);
   const [showVolume, setShowVolume] = useState(false);
@@ -71,8 +88,8 @@ export function AssetChart({ asset, trades, position, currentPrice, defaultRange
   const chartRef = useRef<IChartApi | null>(null);
 
   const query = useGetChartData(
-    { asset: asset as never, range },
-    { query: { queryKey: getGetChartDataQueryKey({ asset: asset as never, range }), staleTime: 60_000, refetchInterval: 120_000 } },
+    { asset: asset as never, range, interval },
+    { query: { queryKey: getGetChartDataQueryKey({ asset: asset as never, range, interval }), staleTime: 60_000, refetchInterval: 120_000 } },
   );
   const data = query.data;
   const currency = data?.currency ?? (asset === 'GOLD' || asset === 'SILVER' ? 'USD' : 'GBP');
@@ -185,13 +202,14 @@ export function AssetChart({ asset, trades, position, currentPrice, defaultRange
       const entryTime = snap(t.openedAt);
       const exitTime = snap(t.closedAt);
       const isLong = t.direction === 'LONG';
+      const strat = (t.strategy ?? 'CORE').toUpperCase();
       if (entryTime != null) {
         markers.push({
           time: entryTime,
           position: isLong ? 'belowBar' : 'aboveBar',
           shape: isLong ? 'arrowUp' : 'arrowDown',
           color: isLong ? LONG_COLOR : SHORT_COLOR,
-          text: `${test ? 'TEST ' : ''}${isLong ? 'LONG ENTRY' : 'SHORT ENTRY'}`,
+          text: `${test ? 'TEST ' : ''}${strat} ${isLong ? 'LONG' : 'SHORT'}`,
           _kind: 'trade', _id: t.id,
         });
       }
@@ -204,7 +222,7 @@ export function AssetChart({ asset, trades, position, currentPrice, defaultRange
           position: isLong ? 'aboveBar' : 'belowBar',
           shape: label === 'TP' ? 'circle' : label === 'SL' ? 'square' : 'circle',
           color: label === 'TP' ? '#16a34a' : label === 'SL' ? '#dc2626' : '#64748b',
-          text: `${test ? 'TEST ' : ''}${label}`,
+          text: `${test ? 'TEST ' : ''}${strat} ${label}`,
           _kind: 'trade', _id: t.id,
         });
       }
@@ -240,16 +258,38 @@ export function AssetChart({ asset, trades, position, currentPrice, defaultRange
       }
     }
 
+    // ── live "potential entry" markers (visually distinct: hollow amber) ──
+    if (potentialSignals && potentialSignals.length > 0 && data.candles.length > 0) {
+      const lastT = data.candles[data.candles.length - 1].t as UTCTimestamp;
+      for (const p of potentialSignals) {
+        markers.push({
+          time: lastT,
+          position: p.direction === 'SHORT' ? 'aboveBar' : 'belowBar',
+          shape: 'circle',
+          color: '#f59e0b',
+          text: `POTENTIAL ${p.strategy} ${p.direction} ${p.score}/${p.maxScore}`,
+          _kind: 'potential',
+        });
+      }
+    }
+
     markers.sort((a, b) => (a.time as number) - (b.time as number));
     createSeriesMarkers(candleSeries, markers);
 
-    // ── open position levels ─────────────────────────────────────────────
-    if (position) {
-      const isLong = position.direction === 'LONG';
-      candleSeries.createPriceLine({ price: position.entry, color: '#3b82f6', lineWidth: 1, lineStyle: LineStyle.Solid, title: `ENTRY ${position.direction}` });
-      candleSeries.createPriceLine({ price: position.stopLoss, color: '#dc2626', lineWidth: 1, lineStyle: LineStyle.Dashed, title: 'STOP LOSS' });
-      candleSeries.createPriceLine({ price: position.takeProfit, color: '#16a34a', lineWidth: 1, lineStyle: LineStyle.Dashed, title: 'TAKE PROFIT' });
-      void isLong;
+    // ── current market price line ────────────────────────────────────────
+    const livePrice = data.currentPrice ?? currentPrice;
+    if (livePrice != null) {
+      candleSeries.createPriceLine({
+        price: livePrice, color: '#0ea5e9', lineWidth: 1, lineStyle: LineStyle.Dotted, title: 'PRICE',
+      });
+    }
+
+    // ── open position levels (CORE + ACTIVE) ────────────────────────────
+    for (const [label, pos] of [['CORE', position], ['ACTIVE', activePosition]] as const) {
+      if (!pos) continue;
+      candleSeries.createPriceLine({ price: pos.entry, color: '#3b82f6', lineWidth: 1, lineStyle: LineStyle.Solid, title: `${label} ENTRY ${pos.direction}` });
+      candleSeries.createPriceLine({ price: pos.stopLoss, color: '#dc2626', lineWidth: 1, lineStyle: LineStyle.Dashed, title: `${label} SL` });
+      candleSeries.createPriceLine({ price: pos.takeProfit, color: '#16a34a', lineWidth: 1, lineStyle: LineStyle.Dashed, title: `${label} TP` });
     }
 
     // ── click → select marker (trade details / signal reason) ───────────
@@ -287,7 +327,7 @@ export function AssetChart({ asset, trades, position, currentPrice, defaultRange
       chartRef.current = null;
       chart.remove();
     };
-  }, [data, visibleTrades, position, showEma20, showEma50, showVolume, showRsi, showMacd, showSignals, focusTrade, selectedTradeId]);
+  }, [data, visibleTrades, position, activePosition, currentPrice, potentialSignals, showEma20, showEma50, showVolume, showRsi, showMacd, showSignals, focusTrade, selectedTradeId]);
 
   const toggle = (label: string, on: boolean, set: (v: boolean) => void, dotClass?: string) => (
     <button
@@ -310,17 +350,31 @@ export function AssetChart({ asset, trades, position, currentPrice, defaultRange
     <div className="space-y-2">
       {/* range + toggles */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex overflow-hidden rounded-lg border border-border/70">
-          {RANGES.map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRange(r)}
-              className={`px-2.5 py-1 text-[11px] font-semibold ${range === r ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
-            >
-              {r}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex overflow-hidden rounded-lg border border-border/70">
+            {RANGES.map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => { setRange(r); setInterval(DEFAULT_INTERVAL[r]); }}
+                className={`px-2.5 py-1 text-[11px] font-semibold ${range === r ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+          <div className="inline-flex overflow-hidden rounded-lg border border-border/70" data-testid={`chart-interval-${asset}`}>
+            {INTERVALS.map((iv) => (
+              <button
+                key={iv}
+                type="button"
+                onClick={() => setInterval(iv)}
+                className={`px-2.5 py-1 text-[11px] font-semibold ${interval === iv ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'}`}
+              >
+                {iv}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex flex-wrap gap-1">
           {toggle('EMA20', showEma20, setShowEma20, 'bg-blue-500')}
@@ -353,9 +407,10 @@ export function AssetChart({ asset, trades, position, currentPrice, defaultRange
       </div>
       {data && (
         <p className="text-[10px] leading-tight text-muted-foreground">
-          {range === '90D' && data.intervalSeconds === 14400 ? '4h candles · ' : '1h candles · '}
-          UTC · {data.dataSource}
-          {position ? ` · OPEN ${position.direction} — unrealised ${fmtMoney(position.unrealisedPnl, currency)}${currentPrice != null ? ` @ ${fmtMoney(currentPrice, currency)}` : ''}` : ''}
+          {data.interval ?? (data.intervalSeconds === 14400 ? '4h' : data.intervalSeconds === 900 ? '15m' : '1h')} candles · UTC · {data.dataSource}
+          {data.currentPrice != null ? ` · price ${fmtMoney(data.currentPrice, currency)}` : ''}
+          {position ? ` · CORE ${position.direction} open — unrealised ${fmtMoney(position.unrealisedPnl, currency)}` : ''}
+          {activePosition ? ` · ACTIVE ${activePosition.direction} open — unrealised ${fmtMoney(activePosition.unrealisedPnl, currency)}` : ''}
         </p>
       )}
 
@@ -365,6 +420,9 @@ export function AssetChart({ asset, trades, position, currentPrice, defaultRange
           <div className="mb-1.5 flex items-center justify-between">
             <span className="font-bold">
               {selectedTrade.coin} {selectedTrade.direction}
+              <span className={`ml-1.5 rounded px-1 py-0.5 text-[9px] font-bold ${(selectedTrade.strategy ?? 'CORE') === 'ACTIVE' ? 'bg-cyan-500/20 text-cyan-600' : 'bg-blue-500/15 text-blue-600'}`}>
+                {selectedTrade.strategy ?? 'CORE'}
+              </span>
               {isTestTrade(selectedTrade) && <span className="ml-1.5 rounded bg-amber-500/20 px-1 py-0.5 text-[9px] font-bold text-amber-600">TEST</span>}
             </span>
             <button type="button" className="text-muted-foreground" onClick={() => setSelectedTradeId(null)}>✕</button>
@@ -382,9 +440,9 @@ export function AssetChart({ asset, trades, position, currentPrice, defaultRange
           </div>
           {selectedTrade.passCount != null && (
             <div className="mt-2 border-t border-border/60 pt-2">
-              <p className="mb-1 font-semibold">Entry conditions — score {selectedTrade.passCount}/6</p>
+              <p className="mb-1 font-semibold">Entry conditions — {selectedTrade.passCount}/6 conditions met</p>
               <div className="flex flex-wrap gap-1">
-                {ALL_CONDITIONS.map((c) => {
+                {((selectedTrade.strategy ?? 'CORE') === 'ACTIVE' ? ACTIVE_CONDITIONS : CORE_CONDITIONS).map((c) => {
                   const ok = passed(selectedTrade.entryConditions).includes(c);
                   return (
                     <span key={c} className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${ok ? 'bg-green-500/15 text-green-600' : 'bg-red-500/10 text-red-500'}`}>

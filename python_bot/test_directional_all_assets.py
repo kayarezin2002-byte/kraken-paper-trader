@@ -56,6 +56,12 @@ class _DBTestCase(unittest.TestCase):
         self._patcher.start()
         self.conn = pt.db()
         pt.init_db(self.conn)
+        # Keep legacy CORE tests deterministic: ACTIVE candle fetch is
+        # stubbed to fail so the parallel ACTIVE strategy never opens trades here.
+        self._active_patch = patch.object(pt, "fetch_active_candles",
+                                          side_effect=RuntimeError("no 15m data in test"))
+        self._active_patch.start()
+        self.addCleanup(self._active_patch.stop)
 
     def tearDown(self) -> None:
         self._patcher.stop()

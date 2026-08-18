@@ -1,0 +1,276 @@
+Please make the following upgrade to the paper-trading bot. Keep everything in PAPER MODE only.
+
+### 1. Add a second ACTIVE trading strategy
+
+Do NOT replace the existing strategy.
+
+I want two strategies running in parallel:
+
+CORE
+- Keep the existing higher-confidence strategy.
+- Continue using the existing 1h/4h logic.
+- Allow both LONG and SHORT trades.
+
+ACTIVE
+- Add a faster strategy designed to find more trading opportunities.
+- Use 15-minute candles for entries.
+- Use the 1-hour trend as higher-timeframe context.
+- Scan independently for both LONG and SHORT setups.
+- It should evaluate RSI, MACD momentum, EMA/price relationship, volume and short-term trend/momentum.
+- It should not require every indicator to agree, but it must still have proper safety/risk filters.
+- The aim is MORE opportunities, not random trades.
+
+Run CORE and ACTIVE simultaneously for:
+- BTC
+- ETH
+- SOL
+- XRP
+- Gold
+- Silver
+- Any other assets already enabled in the bot.
+
+A CORE trade must not prevent ACTIVE from evaluating opportunities and vice versa, provided portfolio/risk limits allow it.
+
+### 2. LONG and SHORT must be completely independent
+
+For every scan calculate and display:
+
+LONG SCORE: X/Y  
+SHORT SCORE: X/Y
+
+If LONG reaches its threshold, allow a LONG.
+
+If SHORT reaches its threshold, allow a SHORT.
+
+Do not force one directional bias to block the other direction from being evaluated.
+
+For ACTIVE mode, use an initial sensible entry threshold that gives more opportunities than CORE, but keep the threshold configurable.
+
+### 3. FIX THE CHARTS — THIS IS IMPORTANT
+
+At the moment there is a VIEW CHART button but no usable chart is appearing.
+
+Please diagnose and fix this completely.
+
+When I press VIEW CHART for an asset I want an actual interactive candlestick chart to open.
+
+The chart should show:
+
+- Candlesticks
+- Time along the bottom
+- Price scale
+- Zoom/pan if possible
+- 20 EMA
+- 50 EMA
+- Current market price
+- Trading timeframe selector:
+  - 15m
+  - 1h
+  - 4h
+
+Most importantly, overlay the bot's trades.
+
+Use markers for:
+
+LONG ENTRY
+Green upward marker:
+▲ LONG
+
+SHORT ENTRY
+Red downward marker:
+▼ SHORT
+
+EXIT
+Marker labelled:
+EXIT
+
+Also display:
+
+- Entry price
+- Exit price
+- Stop loss
+- Take profit
+- Trade P&L
+- Strategy used: CORE or ACTIVE
+
+Draw horizontal lines for the SL and TP while a position is open.
+
+Historical completed trades should remain visible on the chart.
+
+If no trades exist yet, the candlestick chart MUST STILL DISPLAY. Do not hide the chart because trade history is empty.
+
+### 4. Add live signal markers
+
+I also want the chart to show where the strategy is currently considering an entry.
+
+For example:
+
+Potential LONG  
+LONG 4/6
+
+or
+
+Potential SHORT  
+SHORT 5/6
+
+These should be visually different from executed trade markers so there is no confusion between a signal and an actual trade.
+
+### 5. Add chart access from each asset card
+
+Every asset card should have:
+
+VIEW CHART
+
+Pressing it must open the chart for THAT asset — not a generic chart.
+
+For example:
+
+BTC → BTC chart  
+ETH → ETH chart  
+SOL → SOL chart  
+XRP → XRP chart  
+Gold → XAU/USD chart  
+Silver → XAG/USD chart
+
+Please test every button on mobile because I am mainly using the dashboard on an iPhone.
+
+### 6. Separate CORE and ACTIVE performance
+
+The dashboard and trade history should record which strategy opened every trade.
+
+Add performance statistics for:
+
+CORE
+- Trades
+- Wins
+- Losses
+- Win rate
+- P&L
+- ROI
+- Profit factor
+- Maximum drawdown
+
+ACTIVE
+- Trades
+- Wins
+- Losses
+- Win rate
+- P&L
+- ROI
+- Profit factor
+- Maximum drawdown
+
+COMBINED
+- Same statistics
+
+This is important because we need to determine whether the extra trades from ACTIVE actually improve profitability.
+
+### 7. Do not weaken risk management
+
+More trades does NOT mean unlimited trading.
+
+Keep/enforce:
+
+- Position sizing
+- Stop loss
+- Take profit
+- Maximum portfolio exposure
+- Maximum simultaneous positions
+- Maximum loss protection
+- No duplicate identical entries
+- Cooldown protection against rapid repeated entries
+
+CORE and ACTIVE may have different stop/target parameters if testing shows that is appropriate.
+
+### 8. Fix the scoring discrepancy
+
+I am seeing inconsistent diagnostics.
+
+For example one screen reports something similar to:
+
+SHORT 5/8 needs 6
+
+while another part of the asset card may display:
+
+4/6 met
+
+Audit the scoring system so:
+
+- Dashboard score
+- Entry diagnostics
+- Latest Strategy Scan
+- Activity Log
+- LONG score
+- SHORT score
+
+all come from the SAME underlying strategy evaluation result.
+
+There should never be different scores for the same asset, strategy and completed candle.
+
+### 9. Add strategy diagnostics
+
+For each asset display:
+
+CORE:
+LONG X/Y
+SHORT X/Y
+Next scan: HH:MM
+
+ACTIVE:
+LONG X/Y
+SHORT X/Y
+Next scan: HH:MM
+
+Also show which conditions currently pass/fail.
+
+Example:
+
+ACTIVE SHORT 4/6
+
+✓ 15m trend  
+✓ RSI  
+✓ MACD  
+✓ Price vs EMA  
+✗ Volume  
+✗ 1h confirmation
+
+### 10. Do not fake activity
+
+Do NOT insert artificial trades just so the dashboard shows trades.
+
+All paper trades must be generated from genuine historical/live strategy signals.
+
+However, ACTIVE should genuinely create substantially more opportunities than CORE because it evaluates completed 15-minute candles.
+
+### 11. Verify everything before saying it is finished
+
+Please actually test:
+
+1. Candlestick chart loads.
+2. Chart loads when there are zero trades.
+3. BTC View Chart opens BTC.
+4. Gold View Chart opens Gold.
+5. Silver View Chart opens Silver.
+6. 15m/1h/4h switching works.
+7. CORE and ACTIVE both scan.
+8. LONG and SHORT are evaluated separately.
+9. Executed entry markers appear.
+10. Exit markers appear.
+11. SL/TP appear.
+12. Trade P&L appears.
+13. Mobile layout works.
+14. Scores are identical across dashboard/activity log/diagnostics.
+
+When finished, tell me specifically:
+
+- What chart library you used
+- What candle data source each asset uses
+- CORE thresholds
+- ACTIVE thresholds
+- ACTIVE scan frequency
+- Maximum simultaneous positions
+- Whether CORE and ACTIVE can hold positions in the same asset simultaneously
+- Exactly what caused the old VIEW CHART button not to display a chart
+- Which files you changed
+
+Please do not just say "implemented". I want confirmation that the chart has actually been rendered and tested.

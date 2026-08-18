@@ -16,6 +16,13 @@ export interface ChartData {
   display: string;
   currency: string;
   range: string;
+  /** Candle timeframe used (15m, 1h or 4h). */
+  interval?: string;
+  /**
+     * Live market price at request time (best effort; null if the price feed failed).
+     * @nullable
+     */
+  currentPrice?: number | null;
   intervalSeconds: number;
   dataSource: string;
   candles: ChartCandle[];

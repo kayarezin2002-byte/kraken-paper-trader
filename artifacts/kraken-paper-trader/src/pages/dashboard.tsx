@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, BarChart3, CandlestickChart, CheckCircle2,
@@ -284,7 +284,7 @@ function LatestScanStrip({ coins, multiState }: { coins: readonly string[]; mult
       <div className="flex items-center gap-2 border-b border-border/70 px-5 py-4 sm:px-6">
         <ScanSearch size={16} className="text-sky-400" />
         <h2 className="text-sm font-extrabold">Latest strategy scan</h2>
-        <span className="ml-auto font-mono-data text-[10px] uppercase tracking-wider text-muted-foreground">crypto ≥ 6/8 score · gold &amp; silver ≥ 5/6 either direction + hard safety rules</span>
+        <span className="ml-auto font-mono-data text-[10px] uppercase tracking-wider text-muted-foreground">CORE: crypto ≥ 6/8 weighted · metals ≥ 5/6 conditions · ACTIVE: 15m ≥ 4/6 · + hard safety rules</span>
       </div>
       <div className="divide-y divide-border/50">
         {coins.map((coin) => {
@@ -412,13 +412,90 @@ function CoinChartSection({ coin, state }: { coin: string; state: PaperTraderSta
     { query: { queryKey: getListAllTradesQueryKey({ limit: 200 }), staleTime: 30_000 } },
   );
   const trades = (tradesQuery.data ?? []).filter((t) => t.coin === coin);
+
+  // Live "considering an entry" markers: any direction at or within 1 of its gate
+  const potentialSignals = useMemo(() => {
+    const out: { strategy: 'CORE' | 'ACTIVE'; direction: 'LONG' | 'SHORT'; score: number; maxScore: number; threshold: number }[] = [];
+    const d = state.directional;
+    if (d && d.longScore != null && d.threshold != null && d.maxScore != null) {
+      const shortTh = d.shortThreshold ?? d.threshold;
+      if (d.longScore >= d.threshold - 1) out.push({ strategy: 'CORE', direction: 'LONG', score: d.longScore, maxScore: d.maxScore, threshold: d.threshold });
+      if ((d.shortScore ?? 0) >= shortTh - 1) out.push({ strategy: 'CORE', direction: 'SHORT', score: d.shortScore ?? 0, maxScore: d.maxScore, threshold: shortTh });
+    }
+    const a = state.active;
+    if (a && a.longScore != null && a.threshold != null) {
+      const max = a.maxScore ?? 6;
+      const th = a.threshold;
+      if (a.longScore >= th - 1) out.push({ strategy: 'ACTIVE', direction: 'LONG', score: a.longScore, maxScore: max, threshold: th });
+      if ((a.shortScore ?? 0) >= th - 1) out.push({ strategy: 'ACTIVE', direction: 'SHORT', score: a.shortScore ?? 0, maxScore: max, threshold: th });
+    }
+    return out;
+  }, [state.directional, state.active]);
+
   return (
     <AssetChart
       asset={coin}
       trades={trades}
       position={state.position}
+      activePosition={state.activePosition}
       currentPrice={state.market.currentPrice}
+      potentialSignals={potentialSignals}
     />
+  );
+}
+
+// ─── ACTIVE (15m) strategy panel ─────────────────────────────────────────────
+function ActiveStrategyPanel({ coin, state }: { coin: string; state: PaperTraderState }) {
+  const [open, setOpen] = useState(false);
+  const a = state.active;
+  if (!a) return null;
+  const threshold = a.threshold ?? 4;
+  const max = a.maxScore ?? 6;
+  const side = (label: string, score: number | null | undefined, conds: NonNullable<typeof a.longConditions>, hot: boolean, tone: 'long' | 'short') => (
+    <div className={`rounded-lg border px-2.5 py-2 ${hot ? (tone === 'long' ? 'border-accent/40 bg-accent/5' : 'border-destructive/40 bg-destructive/5') : 'border-border/60 bg-muted/20'}`}>
+      <div className="flex items-center justify-between">
+        <span className={`font-mono-data text-[10px] font-bold uppercase tracking-wider ${tone === 'long' ? 'text-accent' : 'text-destructive'}`}>{label}</span>
+        <span className="font-mono-data text-[10px] font-semibold">{score ?? 0}/{max} <span className="text-muted-foreground/60">(needs {threshold})</span></span>
+      </div>
+      {open && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {(conds ?? []).map((c) => (
+            <span key={c.name} className={`rounded px-1.5 py-0.5 text-[9px] font-medium ${c.pass ? 'bg-accent/8 text-accent' : 'bg-destructive/10 text-destructive/80'}`}>
+              {c.pass ? '✓' : '✕'} {c.name}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+  return (
+    <div className="rounded-lg border border-cyan-500/25 bg-cyan-500/5 px-3 py-2.5" data-testid={`active-strategy-${coin}`}>
+      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between">
+        <span className="font-mono-data text-[10px] font-bold uppercase tracking-wider text-cyan-500">
+          ACTIVE · 15m entries · 1h context
+        </span>
+        <span className="font-mono-data text-[9px] uppercase tracking-wider text-muted-foreground">
+          {a.status === 'API_ERROR' ? 'data error' : a.decision === 'NO_TRADE' || !a.decision ? 'waiting' : a.decision}
+          {open ? ' ▴' : ' ▾'}
+        </span>
+      </button>
+      {a.status === 'API_ERROR' ? (
+        <p className="mt-1.5 text-[10px] text-muted-foreground">{a.message ?? '15m data unavailable'}</p>
+      ) : (
+        <>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {side('Long', a.longScore, a.longConditions ?? [], a.decision === 'LONG', 'long')}
+            {side('Short', a.shortScore, a.shortConditions ?? [], a.decision === 'SHORT', 'short')}
+          </div>
+          {open && a.decisionReason && (
+            <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">{a.decisionReason}</p>
+          )}
+          {a.blockReason && (
+            <p className="mt-1.5 text-[10px] text-amber-500">{a.blockReason}</p>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
@@ -507,10 +584,10 @@ function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
             data-testid={`dual-direction-${coin}`}
           >
             <span className="font-mono-data text-[10px] font-semibold text-accent">
-              LONG {state.strategyConditions.long.passCount}/6 · {state.strategyConditions.long.score}/8
+              LONG {state.strategyConditions.long.passCount}/6 conds · {state.strategyConditions.long.score}/8 wtd
             </span>
             <span className="font-mono-data text-[10px] font-semibold text-destructive">
-              SHORT {state.strategyConditions.short.passCount}/6 · {state.strategyConditions.short.score}/8
+              SHORT {state.strategyConditions.short.passCount}/6 conds · {state.strategyConditions.short.score}/8 wtd
             </span>
             <span className="ml-auto font-mono-data text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
               decision: <span className={
@@ -528,6 +605,9 @@ function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
         {/* Independent LONG/SHORT directional scores (all assets) */}
         {state.directional && <DirectionalPanel directional={state.directional} coin={coin} />}
 
+        {/* ACTIVE (15m) parallel strategy */}
+        <ActiveStrategyPanel coin={coin} state={state} />
+
         {/* Why is an entry not happening right now? */}
         {state.executionDiagnostics && <ExecutionDiagnosticsPanel diag={state.executionDiagnostics} coin={coin} />}
 
@@ -541,9 +621,12 @@ function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
           compact
         />
 
-        {/* Open position summary */}
+        {/* Open position summaries (CORE + ACTIVE can coexist) */}
         {hasPosition && state.position && (
           <PositionPanel position={state.position} coin={coin} sym={sym} />
+        )}
+        {state.activePosition && (
+          <PositionPanel position={state.activePosition} coin={`${coin}-active`} sym={sym} />
         )}
       </div>
 

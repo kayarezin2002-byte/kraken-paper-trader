@@ -52,6 +52,12 @@ def _make_four_hour_candles(n: int = 60) -> list[list]:
 
 
 class TestMetalsInvariants(unittest.TestCase):
+    def setUp(self) -> None:
+        self._active_patch = patch.object(pt, "fetch_active_candles",
+                                          side_effect=RuntimeError("no 15m data in test"))
+        self._active_patch.start()
+        self.addCleanup(self._active_patch.stop)
+
     """Core invariants: metals never trade and never change balance."""
 
     def _db_with_fresh_state(self) -> tuple[sqlite3.Connection, str]:

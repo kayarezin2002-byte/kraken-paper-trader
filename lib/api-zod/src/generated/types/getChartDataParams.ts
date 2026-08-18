@@ -6,9 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { GetChartDataAsset } from './getChartDataAsset';
+import type { GetChartDataInterval } from './getChartDataInterval';
 import type { GetChartDataRange } from './getChartDataRange';
 
 export type GetChartDataParams = {
 asset: GetChartDataAsset;
 range?: GetChartDataRange;
+/**
+ * Candle timeframe. Defaults per range (24H→15m, 7D/30D→1h, 90D→4h).
+ */
+interval?: GetChartDataInterval;
 };

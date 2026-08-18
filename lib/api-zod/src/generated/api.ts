@@ -150,6 +150,52 @@ export const GetPaperTraderStateResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -200,7 +246,8 @@ export const GetPaperTraderStateResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -349,6 +396,52 @@ export const RefreshPaperTraderResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -399,7 +492,8 @@ export const RefreshPaperTraderResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -456,7 +550,8 @@ export const ListPaperTradesResponseItem = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })
 export const ListPaperTradesResponse = zod.array(ListPaperTradesResponseItem)
 
@@ -602,6 +697,52 @@ export const ResetPaperTraderResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -652,7 +793,8 @@ export const ResetPaperTraderResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -803,6 +945,52 @@ export const GetMultiCoinStateResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -853,7 +1041,8 @@ export const GetMultiCoinStateResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -997,6 +1186,52 @@ export const GetMultiCoinStateResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -1047,7 +1282,8 @@ export const GetMultiCoinStateResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -1191,6 +1427,52 @@ export const GetMultiCoinStateResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -1241,7 +1523,8 @@ export const GetMultiCoinStateResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -1385,6 +1668,52 @@ export const GetMultiCoinStateResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -1435,7 +1764,8 @@ export const GetMultiCoinStateResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -1579,6 +1909,52 @@ export const GetMultiCoinStateResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -1629,7 +2005,8 @@ export const GetMultiCoinStateResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -1773,6 +2150,52 @@ export const GetMultiCoinStateResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -1823,7 +2246,8 @@ export const GetMultiCoinStateResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -1975,6 +2399,52 @@ export const RefreshMultiCoinResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -2025,7 +2495,8 @@ export const RefreshMultiCoinResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -2169,6 +2640,52 @@ export const RefreshMultiCoinResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -2219,7 +2736,8 @@ export const RefreshMultiCoinResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -2363,6 +2881,52 @@ export const RefreshMultiCoinResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -2413,7 +2977,8 @@ export const RefreshMultiCoinResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -2557,6 +3122,52 @@ export const RefreshMultiCoinResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -2607,7 +3218,8 @@ export const RefreshMultiCoinResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -2751,6 +3363,52 @@ export const RefreshMultiCoinResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -2801,7 +3459,8 @@ export const RefreshMultiCoinResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -2945,6 +3604,52 @@ export const RefreshMultiCoinResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -2995,7 +3700,8 @@ export const RefreshMultiCoinResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -3075,7 +3781,39 @@ export const GetPortfolioSummaryResponse = zod.object({
   "maximumDrawdown": zod.number(),
   "dailyLoss": zod.number(),
   "consecutiveLosses": zod.number()
-}))
+})),
+  "strategyStats": zod.union([zod.object({
+  "core": zod.object({
+  "trades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number(),
+  "pnl": zod.number(),
+  "roi": zod.number(),
+  "profitFactor": zod.number().nullable(),
+  "maxDrawdown": zod.number()
+}).describe('Performance stats for one strategy bucket (CORE, ACTIVE, or COMBINED).'),
+  "active": zod.object({
+  "trades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number(),
+  "pnl": zod.number(),
+  "roi": zod.number(),
+  "profitFactor": zod.number().nullable(),
+  "maxDrawdown": zod.number()
+}).describe('Performance stats for one strategy bucket (CORE, ACTIVE, or COMBINED).'),
+  "combined": zod.object({
+  "trades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number(),
+  "pnl": zod.number(),
+  "roi": zod.number(),
+  "profitFactor": zod.number().nullable(),
+  "maxDrawdown": zod.number()
+}).describe('Performance stats for one strategy bucket (CORE, ACTIVE, or COMBINED).')
+}),zod.null()]).optional()
 })
 
 
@@ -3108,7 +3846,8 @@ export const getChartDataQueryRangeDefault = `7D`;
 
 export const GetChartDataQueryParams = zod.object({
   "asset": zod.enum(['BTC', 'ETH', 'SOL', 'XRP', 'GOLD', 'SILVER']),
-  "range": zod.enum(['24H', '7D', '30D', '90D']).default(getChartDataQueryRangeDefault)
+  "range": zod.enum(['24H', '7D', '30D', '90D']).default(getChartDataQueryRangeDefault),
+  "interval": zod.enum(['15m', '1h', '4h']).optional().describe('Candle timeframe. Defaults per range (24H→15m, 7D\/30D→1h, 90D→4h).')
 })
 
 export const GetChartDataResponse = zod.object({
@@ -3116,6 +3855,8 @@ export const GetChartDataResponse = zod.object({
   "display": zod.string(),
   "currency": zod.string(),
   "range": zod.string(),
+  "interval": zod.string().optional().describe('Candle timeframe used (15m, 1h or 4h).'),
+  "currentPrice": zod.number().nullish().describe('Live market price at request time (best effort; null if the price feed failed).'),
   "intervalSeconds": zod.number(),
   "dataSource": zod.string(),
   "candles": zod.array(zod.object({
@@ -3181,7 +3922,8 @@ export const ListAllTradesResponseItem = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })
 export const ListAllTradesResponse = zod.array(ListAllTradesResponseItem)
 
@@ -3329,6 +4071,52 @@ export const ResetAllCoinsResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -3379,7 +4167,8 @@ export const ResetAllCoinsResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -3523,6 +4312,52 @@ export const ResetAllCoinsResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -3573,7 +4408,8 @@ export const ResetAllCoinsResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -3717,6 +4553,52 @@ export const ResetAllCoinsResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -3767,7 +4649,8 @@ export const ResetAllCoinsResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -3911,6 +4794,52 @@ export const ResetAllCoinsResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -3961,7 +4890,8 @@ export const ResetAllCoinsResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -4105,6 +5035,52 @@ export const ResetAllCoinsResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -4155,7 +5131,8 @@ export const ResetAllCoinsResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
@@ -4299,6 +5276,52 @@ export const ResetAllCoinsResponse = zod.object({
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
 }),zod.null()]),
+  "activePosition": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]).optional().describe('Open position held by the parallel ACTIVE (15m) strategy, if any.'),
+  "active": zod.union([zod.object({
+  "status": zod.enum(['READY', 'DANGER', 'API_ERROR']),
+  "message": zod.string().nullish(),
+  "updatedAt": zod.string().nullish(),
+  "lastCompletedCandleAt": zod.string().nullish(),
+  "decision": zod.union([zod.literal('LONG'),zod.literal('SHORT'),zod.literal('NO_TRADE'),zod.literal(null)]).nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})).optional(),
+  "fifteenTrend": zod.union([zod.literal('BULLISH'),zod.literal('BEARISH'),zod.literal('NEUTRAL'),zod.literal(null)]).nullish(),
+  "blockReason": zod.string().nullish()
+}).describe('Latest scan state of the parallel ACTIVE 15-minute strategy.'),zod.null()]).optional().describe('Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan.'),
   "metrics": zod.object({
   "virtualBalance": zod.number(),
   "startingBalance": zod.number(),
@@ -4349,7 +5372,8 @@ export const ResetAllCoinsResponse = zod.object({
   "entryConditions": zod.string().nullish(),
   "longScore": zod.number().nullish(),
   "shortScore": zod.number().nullish(),
-  "entryThreshold": zod.number().nullish()
+  "entryThreshold": zod.number().nullish(),
+  "strategy": zod.string().nullish().describe('CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.')
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),

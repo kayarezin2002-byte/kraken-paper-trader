@@ -56,4 +56,9 @@ export interface PaperTrade {
   shortScore?: number | null;
   /** @nullable */
   entryThreshold?: number | null;
+  /**
+     * CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.
+     * @nullable
+     */
+  strategy?: string | null;
 }

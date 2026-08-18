@@ -254,6 +254,11 @@ export interface PaperTrade {
   shortScore?: number | null;
   /** @nullable */
   entryThreshold?: number | null;
+  /**
+     * CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.
+     * @nullable
+     */
+  strategy?: string | null;
 }
 
 export interface PaperTraderMetrics {
@@ -440,6 +445,77 @@ export interface Opportunity {
   lastTradeAt: string | null;
 }
 
+export type ActiveStrategyStateStatus = typeof ActiveStrategyStateStatus[keyof typeof ActiveStrategyStateStatus];
+
+
+export const ActiveStrategyStateStatus = {
+  READY: 'READY',
+  DANGER: 'DANGER',
+  API_ERROR: 'API_ERROR',
+} as const;
+
+/**
+ * @nullable
+ */
+export type ActiveStrategyStateDecision = typeof ActiveStrategyStateDecision[keyof typeof ActiveStrategyStateDecision] | null;
+
+
+export const ActiveStrategyStateDecision = {
+  LONG: 'LONG',
+  SHORT: 'SHORT',
+  NO_TRADE: 'NO_TRADE',
+} as const;
+
+export interface ActiveConditionCheck {
+  name: string;
+  currentValue: string;
+  requiredValue: string;
+  pass: boolean;
+}
+
+/**
+ * @nullable
+ */
+export type ActiveStrategyStateFifteenTrend = typeof ActiveStrategyStateFifteenTrend[keyof typeof ActiveStrategyStateFifteenTrend] | null;
+
+
+export const ActiveStrategyStateFifteenTrend = {
+  BULLISH: 'BULLISH',
+  BEARISH: 'BEARISH',
+  NEUTRAL: 'NEUTRAL',
+} as const;
+
+/**
+ * Latest scan state of the parallel ACTIVE 15-minute strategy.
+ */
+export interface ActiveStrategyState {
+  status: ActiveStrategyStateStatus;
+  /** @nullable */
+  message?: string | null;
+  /** @nullable */
+  updatedAt?: string | null;
+  /** @nullable */
+  lastCompletedCandleAt?: string | null;
+  /** @nullable */
+  decision?: ActiveStrategyStateDecision;
+  /** @nullable */
+  decisionReason?: string | null;
+  /** @nullable */
+  longScore?: number | null;
+  /** @nullable */
+  shortScore?: number | null;
+  /** @nullable */
+  threshold?: number | null;
+  /** @nullable */
+  maxScore?: number | null;
+  longConditions?: ActiveConditionCheck[];
+  shortConditions?: ActiveConditionCheck[];
+  /** @nullable */
+  fifteenTrend?: ActiveStrategyStateFifteenTrend;
+  /** @nullable */
+  blockReason?: string | null;
+}
+
 export interface PaperTraderState {
   coin: string;
   market: PaperTraderStateMarket;
@@ -453,6 +529,10 @@ export interface PaperTraderState {
   executionDiagnostics?: ExecutionDiagnostics | null;
   opportunity: Opportunity;
   position: OpenPosition | null;
+  /** Open position held by the parallel ACTIVE (15m) strategy, if any. */
+  activePosition?: OpenPosition | null;
+  /** Latest ACTIVE (15m) strategy scan diagnostics. Null until first scan. */
+  active?: ActiveStrategyState | null;
   metrics: PaperTraderMetrics;
   risk: PaperTraderStateRisk;
   recentTrades: PaperTrade[];
@@ -471,6 +551,27 @@ export interface MultiCoinState {
   XRP: PaperTraderState;
   GOLD: PaperTraderState;
   SILVER: PaperTraderState;
+}
+
+/**
+ * Performance stats for one strategy bucket (CORE, ACTIVE, or COMBINED).
+ */
+export interface StrategyStatsBlock {
+  trades: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  pnl: number;
+  roi: number;
+  /** @nullable */
+  profitFactor: number | null;
+  maxDrawdown: number;
+}
+
+export interface StrategyStats {
+  core: StrategyStatsBlock;
+  active: StrategyStatsBlock;
+  combined: StrategyStatsBlock;
 }
 
 /**
@@ -516,6 +617,13 @@ export interface ChartData {
   display: string;
   currency: string;
   range: string;
+  /** Candle timeframe used (15m, 1h or 4h). */
+  interval?: string;
+  /**
+     * Live market price at request time (best effort; null if the price feed failed).
+     * @nullable
+     */
+  currentPrice?: number | null;
   intervalSeconds: number;
   dataSource: string;
   candles: ChartCandle[];
@@ -611,6 +719,7 @@ export interface PortfolioSummary {
   totalLosses: number;
   overallWinRate: number;
   coins: PortfolioSummaryCoins;
+  strategyStats?: StrategyStats | null;
 }
 
 export interface ActivityEvent {
@@ -645,6 +754,10 @@ limit?: number;
 export type GetChartDataParams = {
 asset: GetChartDataAsset;
 range?: GetChartDataRange;
+/**
+ * Candle timeframe. Defaults per range (24H→15m, 7D/30D→1h, 90D→4h).
+ */
+interval?: GetChartDataInterval;
 };
 
 export type GetChartDataAsset = typeof GetChartDataAsset[keyof typeof GetChartDataAsset];
@@ -667,6 +780,15 @@ export const GetChartDataRange = {
   '7D': '7D',
   '30D': '30D',
   '90D': '90D',
+} as const;
+
+export type GetChartDataInterval = typeof GetChartDataInterval[keyof typeof GetChartDataInterval];
+
+
+export const GetChartDataInterval = {
+  '15m': '15m',
+  '1h': '1h',
+  '4h': '4h',
 } as const;
 
 export type ListAllTradesParams = {

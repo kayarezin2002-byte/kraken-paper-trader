@@ -2,6 +2,7 @@
 - [Kraken GBP pair names](kraken-pairs.md) — verified correct Kraken spot pair names for the four GBP coins.
 - [Multi-coin DB migration](multi-coin-db-migration.md) — the trades table migration from single-coin to multi-coin requires ALTER TABLE, not just CREATE TABLE IF NOT EXISTS.
 - [Opportunity system conclusions](opportunity-research-conclusions.md) — backtest (with fees): 6/8 weighted-score worse than 6/6; user chose to run 6/8 live anyway (Aug 2026) since paper trader is fee-free — judge by forward paper data.
+- [Dual-strategy CORE+ACTIVE](dual-strategy-active.md) — two position slots per asset; exits run before entry-data fetch; gap stops fill at live price; every SQLite early return must commit.
 - [Dual-direction system](dual-direction-system.md) — LONG+SHORT scored independently per scan on all 6 assets; opposite signals logged, never auto-reversed; snapshot fields must be added to the OpenAPI spec or Zod strips them.
 - [Metals paper-trading mode](metals-monitoring-mode.md) — GOLD/SILVER now paper-trade on the strict 6/6 gate (USD $100 accounts, unvalidated-strategy warning, LIVE_TRADING=False hard gate); spot fails closed.
 - [Metals backtest conclusions](metals-backtest-conclusions.md) — 365d gate study: relaxing 4h Trend/Volume beats 6/6; 1h Trend is implied by MACD+PriceVsMA; live 3-loss pause never un-pauses (bug).

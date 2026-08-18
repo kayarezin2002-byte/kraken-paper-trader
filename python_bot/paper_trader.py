@@ -130,6 +130,18 @@ DIRECTIONAL_THRESHOLDS: dict[str, dict[str, Any]] = {
     "SILVER": {"long": SILVER_MIN_PASS, "short": SILVER_MIN_PASS, "scale": "conditions6"},
 }
 
+# ── ACTIVE strategy (15-minute entries, 1h trend context) ──────────────────
+# A second, faster strategy that runs IN PARALLEL with the existing CORE
+# strategy on every asset. It evaluates completed 15m candles and requires
+# fewer conditions to agree (more opportunities), while keeping all hard
+# safety rules: 1% risk sizing, ATR stops, portfolio risk ceiling, re-entry
+# protection, daily-loss/streak pauses, and PAPER-ONLY execution.
+ACTIVE_MIN_PASS        = 4      # of 6 conditions (configurable gate, both directions)
+ACTIVE_MAX_SCORE       = 6
+ACTIVE_ATR_MULTIPLIER  = 1.5    # stop = 1.5 × ATR(15m)
+ACTIVE_REWARD_TO_RISK  = 1.5    # faster targets than CORE's 2.0
+ACTIVE_STALE_SECONDS   = 2700   # last completed 15m candle older than 45min = stale
+
 # ── Portfolio-level risk ceiling ────────────────────────────────────────────
 # Maximum aggregate open risk (sum of riskAmount across all open positions)
 # as a percentage of total starting capital across all six paper accounts.
@@ -263,6 +275,16 @@ def init_db(connection: sqlite3.Connection) -> None:
     state_cols = [row[1] for row in connection.execute("PRAGMA table_info(coin_state)").fetchall()]
     if "reentry" not in state_cols:
         connection.execute("ALTER TABLE coin_state ADD COLUMN reentry TEXT")
+    # ACTIVE strategy slots (parallel 15m strategy) — one extra position per
+    # asset, with its own candle gate and re-entry protection.
+    for col in ("active_position", "active_last_candle_at", "active_reentry", "active_snapshot"):
+        if col not in state_cols:
+            connection.execute(f"ALTER TABLE coin_state ADD COLUMN {col} TEXT")
+    # Strategy attribution on trades: CORE (1h strategy) vs ACTIVE (15m).
+    trades_cols_now = {r[1] for r in connection.execute("PRAGMA table_info(trades)")}
+    if "strategy" not in trades_cols_now:
+        connection.execute("ALTER TABLE trades ADD COLUMN strategy TEXT")
+        connection.execute("UPDATE trades SET strategy = 'CORE' WHERE strategy IS NULL")
     # Migrate old single-coin bot_state if present
     has_old = connection.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='bot_state'"
@@ -1005,10 +1027,11 @@ def portfolio_open_risk(connection: sqlite3.Connection) -> dict[str, Any]:
     for sym in INSTRUMENTS:
         st = load_coin_state(connection, sym)
         total_start += float(st["starting_balance"])
-        pos = json.loads(st["open_position"]) if st["open_position"] else None
-        if pos:
-            open_count += 1
-            total_risk += float(pos.get("riskAmount") or 0.0)
+        for col in ("open_position", "active_position"):
+            pos = json.loads(st[col]) if st[col] else None
+            if pos:
+                open_count += 1
+                total_risk += float(pos.get("riskAmount") or 0.0)
     pct = (total_risk / total_start * 100) if total_start else 0.0
     return {
         "openPositions":   open_count,
@@ -1286,6 +1309,8 @@ def trade_from_row(row: sqlite3.Row) -> dict[str, Any]:
         "longScore":       row["long_score"]       if "long_score"       in row.keys() else None,
         "shortScore":      row["short_score"]      if "short_score"      in row.keys() else None,
         "entryThreshold":  row["entry_threshold"]  if "entry_threshold"  in row.keys() else None,
+        # Strategy attribution: CORE (1h) or ACTIVE (15m). Pre-upgrade rows → CORE.
+        "strategy":        (row["strategy"] if "strategy" in row.keys() and row["strategy"] else "CORE"),
     }
 
 
@@ -1321,6 +1346,15 @@ def build_coin_state(
     stored = json.loads(state["snapshot"]) if state["snapshot"] else {}
     data = snapshot or stored
     open_position = json.loads(state["open_position"]) if state["open_position"] else None
+    keys = state.keys()
+    active_position = (
+        json.loads(state["active_position"])
+        if "active_position" in keys and state["active_position"] else None
+    )
+    active_snap = (
+        json.loads(state["active_snapshot"])
+        if "active_snapshot" in keys and state["active_snapshot"] else None
+    )
     recent_trades = connection.execute(
         "SELECT * FROM trades WHERE coin = ? ORDER BY id DESC LIMIT 50", (coin,)
     ).fetchall()
@@ -1357,6 +1391,16 @@ def build_coin_state(
             open_position["unrealisedPct"] = round((entry - price) / entry * 100, 3) if entry else 0.0
         open_position["currentPrice"] = price
 
+    # Unrealised PnL for the ACTIVE-strategy position (same maths)
+    if active_position and data.get("currentPrice"):
+        price = data["currentPrice"]
+        entry = float(active_position["entry"])
+        qty   = float(active_position["quantity"])
+        sign  = 1 if active_position["direction"] == "LONG" else -1
+        active_position["unrealisedPnl"] = round((price - entry) * qty * sign, 2)
+        active_position["unrealisedPct"] = round((price - entry) / entry * 100 * sign, 3) if entry else 0.0
+        active_position["currentPrice"] = price
+
     return {
         "coin":          coin,
         "instrument":    instrument_info(coin),
@@ -1379,6 +1423,8 @@ def build_coin_state(
         "executionDiagnostics": exec_diag,
         "opportunity":        _opportunity_with_last_trade(connection, coin, data, open_position),
         "position":           open_position,
+        "activePosition":     active_position,
+        "active":             active_snap,
         "metrics":            metrics,
         "risk": {
             "dailyLossLimit":           float(state["starting_balance"]) * DAILY_LOSS_LIMIT,
@@ -1407,6 +1453,7 @@ def close_position(
     position: dict[str, Any],
     exit_price: float,
     reason: str,
+    strategy: str = "CORE",
 ) -> None:
     _assert_paper_only()   # simulated close only — no real order can be sent
     direction = position["direction"]
@@ -1439,8 +1486,8 @@ def close_position(
              profit_loss, account_balance, exit_reason,
              risk_amount, r_multiple, pnl_pct, duration_seconds, result,
              entry_score, pass_count, trend_1h, entry_mode, entry_conditions,
-             long_score, short_score, entry_threshold)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             long_score, short_score, entry_threshold, strategy)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             coin, position["openedAt"], closed_at, direction,
@@ -1452,12 +1499,17 @@ def close_position(
             position.get("trend1h"), position.get("entryMode"),
             position.get("entryConditions"),
             safe_float(position.get("longScore")), safe_float(position.get("shortScore")),
-            safe_float(position.get("entryThreshold")),
+            safe_float(position.get("entryThreshold")), strategy,
         ),
     )
-    # Disarm re-entry protection: no same-signal recycling until the setup resets
+    # Disarm re-entry protection on the strategy's own slot: no same-signal
+    # recycling until the setup resets.
+    pos_col, reentry_col = (
+        ("active_position", "active_reentry") if strategy == "ACTIVE"
+        else ("open_position", "reentry")
+    )
     connection.execute(
-        "UPDATE coin_state SET balance = ?, open_position = NULL, reentry = ?, updated_at = ? WHERE coin = ?",
+        f"UPDATE coin_state SET balance = ?, {pos_col} = NULL, {reentry_col} = ?, updated_at = ? WHERE coin = ?",
         (balance, json.dumps({"armed": False, "lastDirection": direction}), now_iso(), coin),
     )
     risk_amount = risk_amount_val
@@ -1470,15 +1522,18 @@ def close_position(
     entry_mode  = position.get("entryMode")
     audit = ""
     if entry_score is not None or entry_mode:
+        # Strategy-aware denominator: ACTIVE scores are raw x/6 conditions,
+        # CORE scores are weighted x/8.
+        score_max = ACTIVE_MAX_SCORE if strategy == "ACTIVE" else OPP_MAX_SCORE
         audit = (
-            f" | entry score {entry_score}/{OPP_MAX_SCORE}" if entry_score is not None else ""
+            f" | entry score {entry_score}/{score_max}" if entry_score is not None else ""
         ) + (f" | mode {entry_mode}" if entry_mode else "")
         if position.get("entryConditions"):
             audit += f" | passed: {position['entryConditions']}"
     add_activity(
         connection, coin,
         "TRADE_CLOSED",
-        f"{direction} position closed ({reason.replace('_',' ')}) | exit {cur}{exit_price:,.2f} "
+        f"{strategy} {direction} position closed ({reason.replace('_',' ')}) | exit {cur}{exit_price:,.2f} "
         f"| P&L {pnl_str}{r_str} | {result_word}{audit} "
         f"| SL {cur}{float(position['stopLoss']):,.2f} | TP {cur}{float(position['takeProfit']):,.2f} "
         f"| risk {cur}{risk_amount:.2f} | balance {cur}{balance:.2f}",
@@ -1510,6 +1565,393 @@ def _block_stale_opportunity(connection: sqlite3.Connection, coin: str, reason: 
 
 
 # ---------------------------------------------------------------------------
+# ACTIVE strategy — 15-minute entries with 1h trend context (PAPER ONLY)
+# Runs in parallel with CORE on every asset. Separate position slot,
+# separate candle gate and re-entry protection; shares the account balance,
+# 1% risk sizing, portfolio risk ceiling and daily-loss/streak pauses.
+# ---------------------------------------------------------------------------
+
+def fetch_active_candles(coin: str) -> list[list[Any]]:
+    """Completed 15m candles in Kraken row shape for the ACTIVE strategy."""
+    if coin in COINS:
+        pair = COINS[coin]["pair"]
+        result = fetch_json(
+            f"https://api.kraken.com/0/public/OHLC?pair={pair}&interval=15"
+        )
+        cutoff = time.time()
+        rows = result.get(pair) or next(
+            (v for k, v in result.items() if k != "last"), []
+        )
+        return [r for r in rows if len(r) >= 8 and float(r[0]) < cutoff][:-1]
+    # Metals: Yahoo Finance 15m candles on the COMEX futures contract
+    symbol = METALS[coin]["candles_symbol"]
+    last_error: Exception | None = None
+    for host in ("query1", "query2"):
+        url = (
+            f"https://{host}.finance.yahoo.com/v8/finance/chart/{symbol}"
+            "?interval=15m&range=5d"
+        )
+        request = Request(url, headers={
+            "Accept": "application/json",
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+        })
+        try:
+            with urlopen(request, timeout=20) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            result = payload["chart"]["result"][0]
+            timestamps = result["timestamp"]
+            quote = result["indicators"]["quote"][0]
+            cutoff = time.time()
+            rows: list[list[Any]] = []
+            for i, ts in enumerate(timestamps):
+                o = safe_float(quote["open"][i]); h = safe_float(quote["high"][i])
+                l = safe_float(quote["low"][i]);  c = safe_float(quote["close"][i])
+                v = safe_float(quote["volume"][i]) or 0.0
+                if None in (o, h, l, c) or float(ts) >= cutoff:
+                    continue
+                rows.append([float(ts), o, h, l, c, c, v, 1])
+            return rows[:-1] if rows else rows
+        except (HTTPError, URLError, TimeoutError, ValueError, KeyError,
+                IndexError, TypeError) as error:
+            last_error = error
+    raise RuntimeError(f"Yahoo Finance 15m error for {symbol}: {last_error}")
+
+
+def _active_direction_conditions(
+    direction: str,
+    snap: dict[str, Any],
+    close: float,
+    fifteen_trend: str,
+    one_hour_trend: str,
+) -> list[dict[str, Any]]:
+    """Six ACTIVE entry conditions for one direction, computed on 15m candles."""
+    rsi_val  = snap["rsi"]
+    macd_val = snap["macd"]
+    sig_val  = snap["macdSignal"]
+    e20      = snap["ema20"]
+    avg_vol  = snap.get("_avg_volume") or 0.0
+    volume   = snap["volume"] or 0.0
+
+    def c(name: str, current_val: str, required_val: str, passed: bool) -> dict[str, Any]:
+        return {"name": name, "currentValue": current_val,
+                "requiredValue": required_val, "pass": passed}
+
+    want = "BULLISH" if direction == "LONG" else "BEARISH"
+    cond_vol = avg_vol > 0 and volume >= avg_vol * 0.7
+    if direction == "LONG":
+        rsi_ok  = rsi_val is not None and rsi_val >= 50
+        macd_ok = macd_val is not None and sig_val is not None and macd_val > sig_val
+        px_ok   = e20 is not None and close > e20
+        rsi_req, macd_req, px_req = "≥ 50", "MACD above signal", "Price > EMA20"
+    else:
+        rsi_ok  = rsi_val is not None and rsi_val <= 50
+        macd_ok = macd_val is not None and sig_val is not None and macd_val < sig_val
+        px_ok   = e20 is not None and close < e20
+        rsi_req, macd_req, px_req = "≤ 50", "MACD below signal", "Price < EMA20"
+    return [
+        c("15m Trend", fifteen_trend, want, fifteen_trend == want),
+        c("1h Confirmation", one_hour_trend, want, one_hour_trend == want),
+        c("RSI", f"{rsi_val:.1f}" if rsi_val is not None else "—", rsi_req, rsi_ok),
+        c("MACD Momentum",
+          f"{macd_val:.4f} vs {sig_val:.4f}" if (macd_val is not None and sig_val is not None) else "—",
+          macd_req, macd_ok),
+        c("Price vs EMA20",
+          f"{close:.4f} vs {e20:.4f}" if e20 is not None else "—", px_req, px_ok),
+        c("Volume", f"{volume:.4f}", f"≥ {avg_vol * 0.7:.4f} (70% avg)", cond_vol),
+    ]
+
+
+def evaluate_active_directional(
+    fifteen: list[list[Any]],
+    one_hour_trend: str,
+    threshold: int = ACTIVE_MIN_PASS,
+) -> dict[str, Any]:
+    """Independent LONG/SHORT scoring for the ACTIVE 15m strategy.
+
+    Raw pass count of 6 conditions, gate = threshold (default 4/6, configurable).
+    Both directions are always evaluated; a tie above the gate means WAIT.
+    """
+    empty_ind = {"rsi": None, "macd": None, "macdSignal": None,
+                 "atr": None, "ema20": None, "ema50": None, "volume": None}
+    if len(fifteen) < 55:
+        return {
+            "long":  {"conditions": [], "passCount": 0, "score": 0},
+            "short": {"conditions": [], "passCount": 0, "score": 0},
+            "threshold": threshold, "shortThreshold": threshold,
+            "maxScore": ACTIVE_MAX_SCORE, "weighted": False,
+            "decision": "NO_TRADE",
+            "decisionReason": "Waiting for enough 15m candle history (55+)",
+            "fifteenTrend": "NEUTRAL", "oneHourTrend": one_hour_trend,
+            "indicators": empty_ind,
+        }
+    snap  = indicator_snapshot(fifteen)
+    close = float(fifteen[-1][4])
+    fifteen_trend = trend_for(fifteen)
+    long_conds  = _active_direction_conditions("LONG",  snap, close, fifteen_trend, one_hour_trend)
+    short_conds = _active_direction_conditions("SHORT", snap, close, fifteen_trend, one_hour_trend)
+    long_score  = sum(1 for cd in long_conds if cd["pass"])
+    short_score = sum(1 for cd in short_conds if cd["pass"])
+    long_ok, short_ok = long_score >= threshold, short_score >= threshold
+    if long_ok and short_ok:
+        if long_score > short_score:
+            decision, reason = "LONG", f"Both qualified — LONG stronger ({long_score}/6 vs {short_score}/6)"
+        elif short_score > long_score:
+            decision, reason = "SHORT", f"Both qualified — SHORT stronger ({short_score}/6 vs {long_score}/6)"
+        else:
+            decision, reason = "NO_TRADE", f"Tie at {long_score}/6 both directions — waiting"
+    elif long_ok:
+        decision, reason = "LONG", f"LONG {long_score}/6 reached the {threshold}/6 gate (SHORT {short_score}/6)"
+    elif short_ok:
+        decision, reason = "SHORT", f"SHORT {short_score}/6 reached the {threshold}/6 gate (LONG {long_score}/6)"
+    else:
+        decision, reason = "NO_TRADE", (
+            f"Neither direction reached the gate (LONG {long_score}/6, "
+            f"SHORT {short_score}/6, need {threshold})"
+        )
+    return {
+        "long":  {"conditions": long_conds,  "passCount": long_score,  "score": long_score},
+        "short": {"conditions": short_conds, "passCount": short_score, "score": short_score},
+        "threshold": threshold, "shortThreshold": threshold,
+        "maxScore": ACTIVE_MAX_SCORE, "weighted": False,
+        "decision": decision, "decisionReason": reason,
+        "fifteenTrend": fifteen_trend, "oneHourTrend": one_hour_trend,
+        "indicators": {k: v for k, v in snap.items() if not k.startswith("_")},
+    }
+
+
+def refresh_active(
+    connection: sqlite3.Connection,
+    coin: str,
+    current_price: float,
+    one_hour_trend: str,
+    spread_pct: float | None,
+) -> None:
+    """One ACTIVE-strategy scan for one asset. Manages the ACTIVE position
+    slot and evaluates new 15m entries. All writes go to the active_* columns;
+    the CORE strategy is never touched. PAPER ONLY."""
+    state = load_coin_state(connection, coin)
+    active_position = json.loads(state["active_position"]) if state["active_position"] else None
+
+    # ── Manage existing ACTIVE position FIRST (every scan, live price) ────
+    # Exit management must never depend on 15m candle availability: we have a
+    # live price, so SL/TP protection runs before any entry-data fetch.
+    if active_position:
+        hit_stop = (
+            current_price <= active_position["stopLoss"]
+            if active_position["direction"] == "LONG"
+            else current_price >= active_position["stopLoss"]
+        )
+        hit_target = (
+            current_price >= active_position["takeProfit"]
+            if active_position["direction"] == "LONG"
+            else current_price <= active_position["takeProfit"]
+        )
+        if hit_stop or hit_target:
+            if hit_stop:
+                # Adverse fill model: if price gapped THROUGH the stop between
+                # scans, fill at the observed live price, not the stop — never
+                # understate the loss.
+                if active_position["direction"] == "LONG":
+                    exit_price = min(current_price, active_position["stopLoss"])
+                else:
+                    exit_price = max(current_price, active_position["stopLoss"])
+            else:
+                # Take-profit is a limit order: fill at target by policy.
+                exit_price = active_position["takeProfit"]
+            close_position(
+                connection, coin, state, active_position, exit_price,
+                "STOP_LOSS" if hit_stop else "TAKE_PROFIT",
+                strategy="ACTIVE",
+            )
+            state = load_coin_state(connection, coin)
+            active_position = None
+
+    try:
+        fifteen = fetch_active_candles(coin)
+    except Exception as error:
+        _write_active_snapshot(connection, coin, {
+            "status": "API_ERROR",
+            "message": f"15m data unavailable: {error}",
+            "updatedAt": now_iso(),
+        })
+        return
+
+    dir_eval = evaluate_active_directional(fifteen, one_hour_trend, ACTIVE_MIN_PASS)
+    decision = dir_eval["decision"]
+    indicators = dir_eval["indicators"]
+
+    completed_candle_at = (
+        datetime.fromtimestamp(float(fifteen[-1][0]), timezone.utc).isoformat()
+        if fifteen else None
+    )
+    is_new_candle = completed_candle_at is not None and completed_candle_at != state["active_last_candle_at"]
+
+    # ── Safety filters (never weakened) ────────────────────────────────────
+    danger: str | None = None
+    if fifteen and (time.time() - float(fifteen[-1][0])) > ACTIVE_STALE_SECONDS:
+        danger = "15m candle data is stale (last completed candle older than 45 min)"
+    elif spread_pct is not None and spread_pct > MAX_SPREAD_PCT:
+        danger = f"Spread {spread_pct:.2f}% wider than {MAX_SPREAD_PCT}% safety limit"
+    elif fifteen and indicators.get("atr"):
+        last = fifteen[-1]
+        candle_range = float(last[2]) - float(last[3])
+        if candle_range > float(indicators["atr"]) * ABNORMAL_RANGE_ATR:
+            danger = f"Abnormal 15m candle range ({candle_range:.4f} > 3× ATR)"
+
+    try:
+        reentry = json.loads(state["active_reentry"]) if state["active_reentry"] else {"armed": True, "lastDirection": None}
+    except (TypeError, ValueError):
+        reentry = {"armed": True, "lastDirection": None}
+    candidate = decision if decision in ("LONG", "SHORT") else "NONE"
+    if is_new_candle and not reentry.get("armed", True):
+        if candidate != reentry.get("lastDirection"):
+            reentry = {"armed": True, "lastDirection": reentry.get("lastDirection")}
+            connection.execute(
+                "UPDATE coin_state SET active_reentry = ?, updated_at = ? WHERE coin = ?",
+                (json.dumps(reentry), now_iso(), coin),
+            )
+    armed = bool(reentry.get("armed", True))
+
+    block_reason: str | None = None
+    opened: dict[str, Any] | None = None
+    cur = "$" if coin in METALS else "£"
+
+    if is_new_candle and active_position is None and decision in ("LONG", "SHORT"):
+        m = coin_metrics(connection, coin, state)
+        daily_limit = float(state["starting_balance"]) * DAILY_LOSS_LIMIT
+        streak_paused = (
+            m["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES
+            and m.get("streakBlockDay") == date_key()
+        )
+        if float(state["balance"]) <= 0:
+            block_reason = "Account balance exhausted"
+        elif m["dailyLoss"] >= daily_limit:
+            block_reason = f"Daily loss limit reached ({cur}{m['dailyLoss']:.2f} / {cur}{daily_limit:.2f})"
+        elif streak_paused:
+            block_reason = f"Max consecutive losses reached ({int(m['consecutiveLosses'])})"
+        elif danger:
+            block_reason = danger
+        elif not armed:
+            block_reason = ("Re-entry protection: same ACTIVE setup already traded — "
+                            "waiting for a changed signal on a new 15m candle")
+        elif not indicators.get("atr") or float(indicators["atr"]) <= 0:
+            block_reason = "No valid ATR on 15m candles"
+        else:
+            atr_val     = float(indicators["atr"])
+            risk_amount = float(state["balance"]) * RISK_PER_TRADE
+            stop_dist   = atr_val * ACTIVE_ATR_MULTIPLIER
+            stop_loss   = current_price - stop_dist if decision == "LONG" else current_price + stop_dist
+            take_profit = (
+                current_price + stop_dist * ACTIVE_REWARD_TO_RISK if decision == "LONG"
+                else current_price - stop_dist * ACTIVE_REWARD_TO_RISK
+            )
+            quantity = min(
+                risk_amount / stop_dist if stop_dist > 0 else 0,
+                float(state["balance"]) / current_price if current_price > 0 else 0,
+            )
+            risk_block = _portfolio_risk_block_reason(connection, risk_amount) if quantity > 0 else None
+            if risk_block:
+                block_reason = "Entry blocked by portfolio risk limit."
+                add_activity(
+                    connection, coin, "ENTRY_BLOCKED",
+                    f"ACTIVE {decision} qualifies (LONG {dir_eval['long']['score']}/6, "
+                    f"SHORT {dir_eval['short']['score']}/6) but was skipped — {risk_block}",
+                )
+            elif quantity > 0:
+                _assert_paper_only()   # simulated open only — no real order can be sent
+                opened = {
+                    "strategy":   "ACTIVE",
+                    "direction":  decision,
+                    "entry":      round_price(current_price),
+                    "stopLoss":   round_price(stop_loss),
+                    "takeProfit": round_price(take_profit),
+                    "quantity":   round_amount(quantity),
+                    "riskAmount": round(risk_amount, 2),
+                    "openedAt":   now_iso(),
+                    "entryRsi":   indicators.get("rsi"),
+                    "entryMacd":  indicators.get("macd"),
+                    "entryAtr":   indicators.get("atr"),
+                    # ACTIVE has no 4h context; store its 1h context so the
+                    # trades table enum (BULLISH/BEARISH/NEUTRAL) stays valid.
+                    "trend4h":    one_hour_trend if one_hour_trend in ("BULLISH", "BEARISH", "NEUTRAL") else "NEUTRAL",
+                    "trend1h":    one_hour_trend,
+                    "entryScore": dir_eval[decision.lower()]["score"],
+                    "passCount":  dir_eval[decision.lower()]["score"],
+                    "maxScore":   ACTIVE_MAX_SCORE,
+                    "entryMode":  "ACTIVE",
+                    "longScore":  dir_eval["long"]["score"],
+                    "shortScore": dir_eval["short"]["score"],
+                    "entryThreshold": ACTIVE_MIN_PASS,
+                    "entryConditions": ", ".join(
+                        cd["name"] for cd in dir_eval[decision.lower()]["conditions"] if cd["pass"]
+                    ),
+                }
+                connection.execute(
+                    "UPDATE coin_state SET active_position = ?, updated_at = ? WHERE coin = ?",
+                    (json.dumps(opened), now_iso(), coin),
+                )
+                add_activity(
+                    connection, coin, "TRADE_OPENED",
+                    f"ACTIVE {decision} opened at {cur}{current_price:,.2f} "
+                    f"| LONG {dir_eval['long']['score']}/6 vs SHORT {dir_eval['short']['score']}/6 "
+                    f"(gate {ACTIVE_MIN_PASS}/6) | passed: {opened['entryConditions']} "
+                    f"| SL {cur}{stop_loss:,.2f} | TP {cur}{take_profit:,.2f} | risk {cur}{risk_amount:.2f}",
+                )
+                active_position = opened
+
+    # ── Diagnostic log (same evaluation feeds log + dashboard) ─────────────
+    if is_new_candle:
+        add_activity(connection, coin, "STRATEGY_EVALUATED", json.dumps({
+            "strategy":         "ACTIVE",
+            "price":            round_price(current_price),
+            "signal":           decision if (opened or decision == "NO_TRADE") else decision,
+            "passCount":        max(dir_eval["long"]["score"], dir_eval["short"]["score"]),
+            "totalCount":       ACTIVE_MAX_SCORE,
+            "score":            max(dir_eval["long"]["score"], dir_eval["short"]["score"]),
+            "maxScore":         ACTIVE_MAX_SCORE,
+            "conditions":       dir_eval["long"]["conditions"] if dir_eval["long"]["score"] >= dir_eval["short"]["score"] else dir_eval["short"]["conditions"],
+            "noTradeReason":    None if decision in ("LONG", "SHORT") else dir_eval["decisionReason"],
+            "executionBlocked": block_reason is not None,
+            "blockReason":      block_reason,
+            "directional":      _directional_diag_block(dir_eval),
+        }))
+
+    if is_new_candle and completed_candle_at:
+        connection.execute(
+            "UPDATE coin_state SET active_last_candle_at = ?, updated_at = ? WHERE coin = ?",
+            (completed_candle_at, now_iso(), coin),
+        )
+
+    _write_active_snapshot(connection, coin, {
+        "status": "READY" if not danger else "DANGER",
+        "message": danger,
+        "updatedAt": now_iso(),
+        "lastCompletedCandleAt": completed_candle_at,
+        "decision": decision,
+        "decisionReason": dir_eval["decisionReason"],
+        "longScore": dir_eval["long"]["score"],
+        "shortScore": dir_eval["short"]["score"],
+        "threshold": ACTIVE_MIN_PASS,
+        "maxScore": ACTIVE_MAX_SCORE,
+        "longConditions": dir_eval["long"]["conditions"],
+        "shortConditions": dir_eval["short"]["conditions"],
+        "fifteenTrend": dir_eval.get("fifteenTrend", "NEUTRAL"),
+        "blockReason": block_reason,
+    })
+    connection.commit()
+
+
+def _write_active_snapshot(connection: sqlite3.Connection, coin: str, snap: dict[str, Any]) -> None:
+    connection.execute(
+        "UPDATE coin_state SET active_snapshot = ?, updated_at = ? WHERE coin = ?",
+        (json.dumps(snap), now_iso(), coin),
+    )
+    # Commit immediately: refresh_active can return early on this path and an
+    # uncommitted write would keep the SQLite lock held (blocks other readers).
+    connection.commit()
+
+
+# ---------------------------------------------------------------------------
 # Core refresh — one coin
 # ---------------------------------------------------------------------------
 
@@ -1528,6 +1970,14 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
     if len(one_hour) < 55 or len(four_hour) < 55:
         _block_stale_opportunity(connection, coin, "Not enough candle data to evaluate safely")
         connection.commit()
+        # ACTIVE runs on its own 15m data — a live price is available, so its
+        # position management (and independent scan) must not be skipped just
+        # because CORE lacks 1h/4h history.
+        try:
+            refresh_active(connection, coin, current_price, "NEUTRAL", spread_pct)
+        except Exception as error:  # never let ACTIVE break the CORE scan
+            add_activity(connection, coin, "API_ERROR", f"ACTIVE scan failed: {error}")
+            connection.commit()
         return build_coin_state(
             connection, coin,
             message=f"Waiting for enough candles ({len(one_hour)}/55 1h, {len(four_hour)}/55 4h).",
@@ -1919,6 +2369,14 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
         ),
     )
     connection.commit()
+
+    # ── ACTIVE strategy scan (parallel 15m strategy, own position slot) ────
+    try:
+        refresh_active(connection, coin, current_price, one_hour_trend, spread_pct)
+    except Exception as error:  # never let ACTIVE break the CORE scan
+        add_activity(connection, coin, "API_ERROR", f"ACTIVE scan failed: {error}")
+        connection.commit()
+
     return build_coin_state(connection, coin, snapshot, status=status)
 
 
@@ -2347,6 +2805,14 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
         (completed_candle_at, json.dumps(snapshot), now_iso(), message, metal),
     )
     connection.commit()
+
+    # ── ACTIVE strategy scan (parallel 15m strategy, own position slot) ────
+    try:
+        refresh_active(connection, metal, spot_price, one_hour_trend, None)
+    except Exception as error:  # never let ACTIVE break the CORE scan
+        add_activity(connection, metal, "API_ERROR", f"ACTIVE scan failed: {error}")
+        connection.commit()
+
     return build_coin_state(connection, metal, snapshot, status=status)
 
 
@@ -2406,6 +2872,52 @@ def multi_state() -> dict[str, Any]:
         connection.close()
 
 
+def _strategy_stats_block(trades: list[sqlite3.Row]) -> dict[str, Any]:
+    """Stats for one strategy bucket: trades, wins, losses, win rate, P&L,
+    ROI (vs risked capital is ambiguous → ROI reported vs total starting
+    balances), profit factor and max drawdown of the cumulative P&L curve."""
+    n = len(trades)
+    wins = sum(1 for t in trades if (t["profit_loss"] or 0) > 0)
+    losses = n - wins
+    pnl = sum(float(t["profit_loss"] or 0) for t in trades)
+    gross_win  = sum(float(t["profit_loss"]) for t in trades if (t["profit_loss"] or 0) > 0)
+    gross_loss = -sum(float(t["profit_loss"]) for t in trades if (t["profit_loss"] or 0) < 0)
+    profit_factor = (gross_win / gross_loss) if gross_loss > 0 else (None if gross_win == 0 else float("inf"))
+    # Max drawdown on the cumulative P&L curve, oldest → newest
+    cum = peak = max_dd = 0.0
+    for t in sorted(trades, key=lambda r: str(r["closed_at"] or "")):
+        cum += float(t["profit_loss"] or 0)
+        peak = max(peak, cum)
+        max_dd = max(max_dd, peak - cum)
+    return {
+        "trades":   n,
+        "wins":     wins,
+        "losses":   losses,
+        "winRate":  round(wins / n * 100, 2) if n else 0.0,
+        "pnl":      round(pnl, 2),
+        "profitFactor": (round(profit_factor, 3) if isinstance(profit_factor, float) and profit_factor != float("inf") else None),
+        "maxDrawdown":  round(max_dd, 2),
+    }
+
+
+def strategy_stats(connection: sqlite3.Connection) -> dict[str, Any]:
+    """CORE / ACTIVE / COMBINED performance stats from the trades table."""
+    rows = connection.execute(
+        "SELECT profit_loss, closed_at, strategy FROM trades"
+    ).fetchall()
+    core   = [r for r in rows if (r["strategy"] or "CORE") == "CORE"]
+    active = [r for r in rows if (r["strategy"] or "CORE") == "ACTIVE"]
+    total_starting = sum(
+        float(load_coin_state(connection, c)["starting_balance"]) for c in INSTRUMENTS
+    )
+    out: dict[str, Any] = {}
+    for key, bucket in (("core", core), ("active", active), ("combined", rows)):
+        block = _strategy_stats_block(bucket)
+        block["roi"] = round(block["pnl"] / total_starting * 100, 3) if total_starting else 0.0
+        out[key] = block
+    return out
+
+
 def portfolio_summary() -> dict[str, Any]:
     connection = db()
     init_db(connection)
@@ -2443,6 +2955,7 @@ def portfolio_summary() -> dict[str, Any]:
             "totalLosses":    total_losses,
             "overallWinRate": win_rate,
             "coins":          coins_summary,
+            "strategyStats":  strategy_stats(connection),
         }
     finally:
         connection.close()
@@ -2517,16 +3030,24 @@ def _macd_series(closes: list[float]) -> tuple[list[float | None], list[float | 
     return macd, signal
 
 
-def _fetch_chart_rows(asset: str, range_key: str) -> tuple[list[list[Any]], int]:
+CHART_INTERVALS: dict[str, int] = {"15m": 900, "1h": 3600, "4h": 14400}
+
+
+def _default_interval(range_key: str) -> str:
+    return {"24H": "15m", "7D": "1h", "30D": "1h", "90D": "4h"}[range_key]
+
+
+def _fetch_chart_rows(asset: str, range_key: str, interval_key: str) -> tuple[list[list[Any]], int]:
     """Completed candles covering the range plus indicator warm-up.
 
     Returns (rows, interval_seconds). Uses the SAME data sources as the
-    strategy engine: Kraken OHLC for crypto (1h; 4h for 90D since Kraken's
-    1h history caps at ~30 days), Yahoo Finance COMEX futures for metals.
+    strategy engine: Kraken OHLC for crypto, Yahoo Finance COMEX futures
+    for metals. Kraken history caps apply (15m ≈ 7.5 days, 1h ≈ 30 days) —
+    the chart simply shows what the exchange provides for that timeframe.
     """
     if asset in COINS:
         pair = COINS[asset]["pair"]
-        interval = 240 if range_key == "90D" else 60
+        interval = CHART_INTERVALS[interval_key] // 60
         result = fetch_json(
             f"https://api.kraken.com/0/public/OHLC?pair={pair}&interval={interval}"
         )
@@ -2542,13 +3063,19 @@ def _fetch_chart_rows(asset: str, range_key: str) -> tuple[list[list[Any]], int]
         return rows, interval * 60
     if asset in METALS:
         symbol = METALS[asset]["candles_symbol"]
-        # extra days beyond the window cover EMA50/MACD warm-up
-        yahoo_range = {"24H": "10d", "7D": "20d", "30D": "60d", "90D": "120d"}[range_key]
+        # extra days beyond the window cover EMA50/MACD warm-up.
+        # Yahoo limits 15m data to ~60 days; 4h is aggregated locally from 1h.
+        if interval_key == "15m":
+            yahoo_range = {"24H": "10d", "7D": "20d", "30D": "59d", "90D": "59d"}[range_key]
+            yahoo_interval = "15m"
+        else:
+            yahoo_range = {"24H": "10d", "7D": "20d", "30D": "60d", "90D": "120d"}[range_key]
+            yahoo_interval = "1h"
         last_error: Exception | None = None
         for host in ("query1", "query2"):
             url = (
                 f"https://{host}.finance.yahoo.com/v8/finance/chart/{symbol}"
-                f"?interval=1h&range={yahoo_range}"
+                f"?interval={yahoo_interval}&range={yahoo_range}"
             )
             request = Request(url, headers={
                 "Accept": "application/json",
@@ -2569,7 +3096,18 @@ def _fetch_chart_rows(asset: str, range_key: str) -> tuple[list[list[Any]], int]
                     if None in (o, h, l, c) or float(ts) >= cutoff:
                         continue
                     rows.append([float(ts), o, h, l, c, c, v, 1])
-                return (rows[:-1] if rows else rows), 3600
+                rows = rows[:-1] if rows else rows
+                if interval_key == "4h":
+                    buckets: dict[int, list[list[Any]]] = {}
+                    for row in rows:
+                        buckets.setdefault(int(row[0]) // 14400, []).append(row)
+                    rows = [
+                        [float(k * 14400), b[0][1], max(r[2] for r in b),
+                         min(r[3] for r in b), b[-1][4], b[-1][4],
+                         sum(r[6] for r in b), len(b)]
+                        for k, b in sorted(buckets.items())
+                    ]
+                return rows, CHART_INTERVALS[interval_key]
             except (HTTPError, URLError, TimeoutError, ValueError, KeyError,
                     IndexError, TypeError) as error:
                 last_error = error
@@ -2577,16 +3115,36 @@ def _fetch_chart_rows(asset: str, range_key: str) -> tuple[list[list[Any]], int]
     raise RuntimeError(f"Unknown asset {asset}")
 
 
-def chart_command(asset: str, range_key: str) -> dict[str, Any]:
+def chart_command(asset: str, range_key: str, interval_key: str | None = None) -> dict[str, Any]:
     """Candles + indicator overlays + recent signal points for the dashboard
-    charts. Read-only visualisation: never touches positions or balances."""
+    charts. Read-only visualisation: never touches positions or balances.
+    Renders fine with zero trades — candles and indicators never depend on
+    trade history."""
     asset = asset.upper()
     if asset not in INSTRUMENTS:
         raise RuntimeError(f"Unknown asset {asset}")
     if range_key not in CHART_RANGES:
         raise RuntimeError(f"Unknown range {range_key}")
+    if interval_key is None:
+        interval_key = _default_interval(range_key)
+    if interval_key not in CHART_INTERVALS:
+        raise RuntimeError(f"Unknown interval {interval_key}")
 
-    rows, interval_seconds = _fetch_chart_rows(asset, range_key)
+    # Live market price for the current-price line (best effort)
+    current_price: float | None = None
+    try:
+        if asset in COINS:
+            pair = COINS[asset]["pair"]
+            tr = fetch_json(f"https://api.kraken.com/0/public/Ticker?pair={pair}")
+            tk = tr.get(pair) or next(iter(tr.values()), None)
+            if tk and tk.get("c"):
+                current_price = safe_float(tk["c"][0])
+        else:
+            current_price, _ = fetch_metal_spot(METALS[asset]["spot_symbol"])
+    except Exception:
+        current_price = None
+
+    rows, interval_seconds = _fetch_chart_rows(asset, range_key, interval_key)
     closes = [float(r[4]) for r in rows]
     ema20 = ema_series(closes, 20)
     ema50 = ema_series(closes, 50)
@@ -2660,6 +3218,8 @@ def chart_command(asset: str, range_key: str) -> dict[str, Any]:
         "display": instrument_display(asset),
         "currency": info["currency"],
         "range": range_key,
+        "interval": interval_key,
+        "currentPrice": round_price(current_price) if current_price is not None else None,
         "intervalSeconds": interval_seconds,
         "dataSource": info["dataSource"],
         "candles": candles,
@@ -2736,7 +3296,8 @@ def main() -> None:
     elif command == "chart":
         asset = sys.argv[2] if len(sys.argv) > 2 else "BTC"
         range_key = sys.argv[3] if len(sys.argv) > 3 else "7D"
-        result = chart_command(asset, range_key)
+        interval_key = sys.argv[4] if len(sys.argv) > 4 else None
+        result = chart_command(asset, range_key, interval_key)
     elif command == "reset-all":
         payload = sys.argv[2] if len(sys.argv) > 2 else None
         result = reset_all_command(payload)

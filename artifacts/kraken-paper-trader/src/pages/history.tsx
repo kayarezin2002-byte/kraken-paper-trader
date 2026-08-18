@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, BookOpen, Filter, History as HistoryIcon, X } from 'lucide-react';
-import { useListAllTrades, getListAllTradesQueryKey, type PaperTrade } from '@workspace/api-client-react';
+import { useListAllTrades, getListAllTradesQueryKey, useGetPortfolioSummary, getGetPortfolioSummaryQueryKey, type PaperTrade } from '@workspace/api-client-react';
 import { TradingShell } from '@/components/trading-shell';
 import { AssetChart, type ChartRange } from '@/components/asset-chart';
 
@@ -69,6 +69,8 @@ export default function History() {
     { query: { queryKey: getListAllTradesQueryKey({ limit: 200 }) } },
   );
   const allTrades = tradesQuery.data ?? [];
+  const portfolioQuery = useGetPortfolioSummary({ query: { queryKey: getGetPortfolioSummaryQueryKey(), staleTime: 60_000 } });
+  const strategyStats = portfolioQuery.data?.strategyStats ?? null;
 
   const filtered = useMemo(
     () => coinFilter === 'ALL' ? allTrades : allTrades.filter((t) => t.coin === coinFilter),
@@ -146,6 +148,26 @@ export default function History() {
           </div>
         </section>
 
+        {/* ─── Strategy performance: CORE vs ACTIVE vs COMBINED ─────────── */}
+        {strategyStats && (
+          <section className="rise-in rounded-2xl border border-border/80 bg-card p-5 shadow-[0_10px_32px_hsl(215_35%_13%_/_0.05)] sm:p-6" data-testid="strategy-stats">
+            <h2 className="text-sm font-extrabold">Strategy performance</h2>
+            <p className="mt-1 text-xs text-muted-foreground">CORE trades on completed 1h candles; ACTIVE trades on completed 15m candles with 1h context. Both run in parallel on every asset.</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {([['CORE', strategyStats.core, 'text-blue-500'], ['ACTIVE', strategyStats.active, 'text-cyan-500'], ['COMBINED', strategyStats.combined, 'text-foreground']] as const).map(([label, s, tone]) => (
+                <div key={label} className="rounded-xl border border-border/60 bg-background p-4">
+                  <p className={`font-mono-data text-[10px] font-bold uppercase tracking-[0.14em] ${tone}`}>{label}</p>
+                  <p className={`mt-2 font-mono-data text-xl ${s.pnl >= 0 ? 'text-accent' : 'text-destructive'}`}>{s.pnl >= 0 ? '+' : ''}{money(s.pnl)}</p>
+                  <div className="mt-2 space-y-0.5 text-[11px] text-muted-foreground">
+                    <p>{s.trades} trades · {s.wins}W / {s.losses}L · {num(s.winRate)}% win rate</p>
+                    <p>ROI {num(s.roi, 3)}% · profit factor {s.profitFactor != null ? num(s.profitFactor) : '—'} · max DD {money(s.maxDrawdown)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* ─── Coin filter tabs ─────────────────────────────────────────── */}
         <div className="flex gap-2 overflow-x-auto pb-1">
           {COINS.map((c) => (
@@ -195,6 +217,7 @@ export default function History() {
                   <tr className="border-b border-border/70 text-[10px] uppercase tracking-[0.13em] text-muted-foreground">
                     <th className="px-5 py-3 font-bold sm:px-6">Closed / opened</th>
                     <th className="px-3 py-3 font-bold">Coin</th>
+                    <th className="px-3 py-3 font-bold">Strategy</th>
                     <th className="px-3 py-3 font-bold">Side</th>
                     <th className="px-3 py-3 font-bold">Entry → exit</th>
                     <th className="px-3 py-3 font-bold">Stop / target</th>
@@ -213,6 +236,11 @@ export default function History() {
                       <td className="px-3 py-4">
                         <span className={`rounded px-1.5 py-0.5 font-mono-data text-[10px] font-bold uppercase ${COIN_COLORS[trade.coin] ?? 'bg-muted text-muted-foreground'}`}>
                           {trade.coin}
+                        </span>
+                      </td>
+                      <td className="px-3 py-4">
+                        <span className={`rounded px-1.5 py-0.5 font-mono-data text-[9px] font-bold uppercase ${(trade.strategy ?? 'CORE') === 'ACTIVE' ? 'bg-cyan-500/15 text-cyan-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                          {trade.strategy ?? 'CORE'}
                         </span>
                       </td>
                       <td className="px-3 py-4">
