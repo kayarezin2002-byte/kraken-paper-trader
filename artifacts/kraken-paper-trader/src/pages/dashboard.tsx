@@ -18,8 +18,9 @@ import { TradingShell } from '@/components/trading-shell';
 import { StrategyConditionsPanel } from '@/components/strategy-conditions';
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
-const money = (v: number | null | undefined, d = 2) =>
-  v == null ? '—' : `£${v.toLocaleString('en-GB', { minimumFractionDigits: d, maximumFractionDigits: d })}`;
+const money = (v: number | null | undefined, d = 2, sym = '£') =>
+  v == null ? '—' : `${sym}${v.toLocaleString('en-GB', { minimumFractionDigits: d, maximumFractionDigits: d })}`;
+const curSym = (currency?: string) => (currency === 'USD' ? '$' : '£');
 const num = (v: number | null | undefined, d = 2) =>
   v == null ? '—' : v.toLocaleString('en-GB', { minimumFractionDigits: d, maximumFractionDigits: d });
 const time = (v?: string | null) =>
@@ -229,7 +230,7 @@ function LatestScanStrip({ coins, multiState }: { coins: readonly string[]; mult
 }
 
 // ─── Open position panel ──────────────────────────────────────────────────────
-function PositionPanel({ position, coin }: { position: NonNullable<PaperTraderState['position']>; coin: string }) {
+function PositionPanel({ position, coin, sym }: { position: NonNullable<PaperTraderState['position']>; coin: string; sym: string }) {
   const meta = COIN_META[coin] ?? COIN_META.BTC;
   const pnl = position.unrealisedPnl ?? null;
   const pnlPct = position.unrealisedPct ?? null;
@@ -242,16 +243,16 @@ function PositionPanel({ position, coin }: { position: NonNullable<PaperTraderSt
         </span>
         {pnl != null && (
           <span className={`font-mono-data text-[11px] font-semibold ${pnl >= 0 ? 'text-accent' : 'text-destructive'}`}>
-            {pnl >= 0 ? '+' : ''}{money(pnl)} ({pnlPct != null ? pct(pnlPct) : '—'})
+            {pnl >= 0 ? '+' : ''}{money(pnl, 2, sym)} ({pnlPct != null ? pct(pnlPct) : '—'})
           </span>
         )}
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
-        <div><span className="text-muted-foreground">Entry</span><span className="ml-2 font-mono-data">{money(position.entry, 4)}</span></div>
-        <div><span className="text-muted-foreground">Current</span><span className="ml-2 font-mono-data">{position.currentPrice ? money(position.currentPrice, 4) : '—'}</span></div>
-        <div><span className="text-muted-foreground">Stop</span><span className="ml-2 font-mono-data text-destructive/80">{money(position.stopLoss, 4)}</span></div>
-        <div><span className="text-muted-foreground">Target</span><span className="ml-2 font-mono-data text-accent">{money(position.takeProfit, 4)}</span></div>
-        <div><span className="text-muted-foreground">Risk</span><span className="ml-2 font-mono-data">{money(position.riskAmount)}</span></div>
+        <div><span className="text-muted-foreground">Entry</span><span className="ml-2 font-mono-data">{money(position.entry, 4, sym)}</span></div>
+        <div><span className="text-muted-foreground">Current</span><span className="ml-2 font-mono-data">{position.currentPrice ? money(position.currentPrice, 4, sym) : '—'}</span></div>
+        <div><span className="text-muted-foreground">Stop</span><span className="ml-2 font-mono-data text-destructive/80">{money(position.stopLoss, 4, sym)}</span></div>
+        <div><span className="text-muted-foreground">Target</span><span className="ml-2 font-mono-data text-accent">{money(position.takeProfit, 4, sym)}</span></div>
+        <div><span className="text-muted-foreground">Risk</span><span className="ml-2 font-mono-data">{money(position.riskAmount, 2, sym)}</span></div>
         <div><span className="text-muted-foreground">Opened</span><span className="ml-2 font-mono-data">{time(position.openedAt)}</span></div>
       </div>
     </div>
@@ -264,6 +265,7 @@ function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
   const [expanded, setExpanded] = useState(false);
   const positivePnl = state.metrics.totalProfitLoss >= 0;
   const hasPosition = state.position != null;
+  const sym = curSym(state.instrument.currency);
 
   return (
     <div className="rise-in flex flex-col overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_10px_32px_hsl(215_35%_13%_/_0.05)]">
@@ -281,7 +283,7 @@ function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
           </div>
           <div className="flex flex-col items-end gap-1.5">
             <span className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono-data text-[9px] font-bold uppercase tracking-wider ${
-              state.instrument.tradingMode === 'MONITORING'
+              state.instrument.tradingMode === 'MONITORING' || state.instrument.tradingMode === 'PAPER_UNVALIDATED'
                 ? 'bg-amber-400/10 text-amber-400 border border-amber-400/25'
                 : 'bg-accent/10 text-accent border border-accent/25'
             }`} data-testid={`badge-status-${coin}`}>
@@ -315,7 +317,7 @@ function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
 
         {/* Open position summary */}
         {hasPosition && state.position && (
-          <PositionPanel position={state.position} coin={coin} />
+          <PositionPanel position={state.position} coin={coin} sym={sym} />
         )}
       </div>
 
@@ -324,12 +326,12 @@ function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
         <div className="grid grid-cols-3 gap-3 text-[10px]">
           <div>
             <p className="uppercase tracking-[0.12em] text-muted-foreground">Balance</p>
-            <p className="mt-0.5 font-mono-data font-semibold">{money(state.metrics.virtualBalance)}</p>
+            <p className="mt-0.5 font-mono-data font-semibold">{money(state.metrics.virtualBalance, 2, sym)}</p>
           </div>
           <div>
             <p className="uppercase tracking-[0.12em] text-muted-foreground">P&L</p>
             <p className={`mt-0.5 font-mono-data font-semibold ${positivePnl ? 'text-accent' : 'text-destructive'}`}>
-              {state.metrics.totalProfitLoss >= 0 ? '+' : ''}{money(state.metrics.totalProfitLoss)}
+              {state.metrics.totalProfitLoss >= 0 ? '+' : ''}{money(state.metrics.totalProfitLoss, 2, sym)}
             </p>
           </div>
           <div>
@@ -352,8 +354,8 @@ function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
           <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-border/50 pt-3 text-[10px]">
             <div><span className="text-muted-foreground">RSI</span><span className="ml-2 font-mono-data">{num(state.indicators.rsi)}</span></div>
             <div><span className="text-muted-foreground">MACD</span><span className="ml-2 font-mono-data">{num(state.indicators.macd, 4)}</span></div>
-            <div><span className="text-muted-foreground">EMA 20</span><span className="ml-2 font-mono-data">{money(state.indicators.ema20, 4)}</span></div>
-            <div><span className="text-muted-foreground">EMA 50</span><span className="ml-2 font-mono-data">{money(state.indicators.ema50, 4)}</span></div>
+            <div><span className="text-muted-foreground">EMA 20</span><span className="ml-2 font-mono-data">{money(state.indicators.ema20, 4, sym)}</span></div>
+            <div><span className="text-muted-foreground">EMA 50</span><span className="ml-2 font-mono-data">{money(state.indicators.ema50, 4, sym)}</span></div>
             <div><span className="text-muted-foreground">ATR</span><span className="ml-2 font-mono-data">{num(state.indicators.atr, 4)}</span></div>
             <div><span className="text-muted-foreground">1h trend</span><span className={`ml-2 font-mono-data ${state.oneHourTrend === 'BULLISH' ? 'text-accent' : state.oneHourTrend === 'BEARISH' ? 'text-destructive' : 'text-muted-foreground'}`}>{state.oneHourTrend}</span></div>
             <div><span className="text-muted-foreground">4h trend</span><span className={`ml-2 font-mono-data ${state.fourHourTrend === 'BULLISH' ? 'text-accent' : state.fourHourTrend === 'BEARISH' ? 'text-destructive' : 'text-muted-foreground'}`}>{state.fourHourTrend}</span></div>
@@ -395,6 +397,7 @@ function OpenPositionsSummary({ coins }: { coins: Record<string, PaperTraderStat
               const pos = state.position!;
               const meta = COIN_META[coin] ?? COIN_META.BTC;
               const pnl = pos.unrealisedPnl ?? null;
+              const sym = curSym(state.instrument.currency);
               return (
                 <tr key={coin} className="border-b border-border/50 last:border-0">
                   <td className="px-5 py-3.5 sm:px-6">
@@ -407,15 +410,15 @@ function OpenPositionsSummary({ coins }: { coins: Record<string, PaperTraderStat
                       {pos.direction}
                     </span>
                   </td>
-                  <td className="px-3 py-3.5 font-mono-data text-xs">{money(pos.entry, 4)}</td>
-                  <td className="px-3 py-3.5 font-mono-data text-xs">{pos.currentPrice ? money(pos.currentPrice, 4) : '—'}</td>
+                  <td className="px-3 py-3.5 font-mono-data text-xs">{money(pos.entry, 4, sym)}</td>
+                  <td className="px-3 py-3.5 font-mono-data text-xs">{pos.currentPrice ? money(pos.currentPrice, 4, sym) : '—'}</td>
                   <td className="px-3 py-3.5 text-[11px]">
-                    <p className="font-mono-data text-destructive/80">{money(pos.stopLoss, 4)}</p>
-                    <p className="font-mono-data text-accent">{money(pos.takeProfit, 4)}</p>
+                    <p className="font-mono-data text-destructive/80">{money(pos.stopLoss, 4, sym)}</p>
+                    <p className="font-mono-data text-accent">{money(pos.takeProfit, 4, sym)}</p>
                   </td>
                   <td className="px-3 py-3.5 font-mono-data text-[11px] text-muted-foreground">{dateTime(pos.openedAt)}</td>
                   <td className={`px-5 py-3.5 text-right font-mono-data text-xs font-semibold sm:px-6 ${pnl == null ? 'text-muted-foreground' : pnl >= 0 ? 'text-accent' : 'text-destructive'}`}>
-                    {pnl == null ? '—' : `${pnl >= 0 ? '+' : ''}${money(pnl)}`}
+                    {pnl == null ? '—' : `${pnl >= 0 ? '+' : ''}${money(pnl, 2, sym)}`}
                     {pos.unrealisedPct != null && (
                       <p className="text-[10px] font-normal text-muted-foreground">{pct(pos.unrealisedPct)}</p>
                     )}
@@ -521,8 +524,11 @@ export default function Dashboard() {
   if (multiStateQuery.isLoading && !multiState) return <Skeleton />;
   if (multiStateQuery.isError || !multiState) return <ErrorPanel onRetry={() => multiStateQuery.refetch()} />;
 
-  const totalBalance  = COINS.reduce((s, c) => s + (multiState[c]?.metrics.virtualBalance ?? 0), 0);
-  const totalStarting = COINS.reduce((s, c) => s + (multiState[c]?.metrics.startingBalance ?? 0), 0);
+  // £ totals cover the four GBP crypto accounts only — metals are USD-denominated
+  // and shown per-account to avoid mixing currencies in one sum.
+  const CRYPTO_COINS  = ['BTC', 'ETH', 'SOL', 'XRP'] as const;
+  const totalBalance  = CRYPTO_COINS.reduce((s, c) => s + (multiState[c]?.metrics.virtualBalance ?? 0), 0);
+  const totalStarting = CRYPTO_COINS.reduce((s, c) => s + (multiState[c]?.metrics.startingBalance ?? 0), 0);
   const totalPnl      = totalBalance - totalStarting;
   const totalRoi      = totalStarting > 0 ? totalPnl / totalStarting * 100 : 0;
   const totalTrades   = COINS.reduce((s, c) => s + (multiState[c]?.metrics.numberOfTrades ?? 0), 0);
@@ -539,7 +545,7 @@ export default function Dashboard() {
   };
 
   const handleResetAll = () => {
-    if (!window.confirm('Reset ALL six virtual accounts to £100 and clear their entire trade history? This cannot be undone.')) return;
+    if (!window.confirm('Reset ALL six virtual accounts (crypto £100, metals $100) and clear their entire trade history? This cannot be undone.')) return;
     setResetting(true);
     resetAll.mutate({ data: {} }, {
       onSuccess: (next) => {
@@ -551,7 +557,7 @@ export default function Dashboard() {
   };
 
   return (
-    <TradingShell eyebrow="Live desk" title="Portfolio dashboard" subtitle="BTC · ETH · SOL · XRP · GOLD · SILVER — six simulated accounts, each starting at £100. Metals are monitoring only.">
+    <TradingShell eyebrow="Live desk" title="Portfolio dashboard" subtitle="BTC · ETH · SOL · XRP (£100 each) · GOLD · SILVER ($100 each) — six simulated paper accounts. Metals: unvalidated strategy, paper trading only.">
       <div className="space-y-6">
         {/* ─── Portfolio header ─────────────────────────────────────────── */}
         <section className="rise-in rounded-2xl border border-border/80 bg-card p-5 shadow-[0_10px_32px_hsl(215_35%_13%_/_0.05)] sm:p-6">
@@ -598,8 +604,8 @@ export default function Dashboard() {
           {/* Portfolio metric tiles */}
           <div className="mt-5 grid gap-3 border-t border-border/60 pt-5 sm:grid-cols-2 xl:grid-cols-4">
             {[
-              { label: 'Starting capital', value: money(totalStarting), sub: 'across all 6 accounts', tone: '' },
-              { label: 'Total P&L', value: `${totalPnl >= 0 ? '+' : ''}${money(totalPnl)}`, sub: `ROI ${pct(totalRoi)}`, tone: totalPnl >= 0 ? 'text-accent' : 'text-destructive' },
+              { label: 'Starting capital', value: money(totalStarting), sub: 'across 4 crypto accounts (£)', tone: '' },
+              { label: 'Total P&L', value: `${totalPnl >= 0 ? '+' : ''}${money(totalPnl)}`, sub: `crypto ROI ${pct(totalRoi)}`, tone: totalPnl >= 0 ? 'text-accent' : 'text-destructive' },
               { label: 'Total trades', value: num(totalTrades, 0), sub: 'across all 6 accounts', tone: '' },
               { label: 'Open positions', value: num(openPositions, 0), sub: `of 6 instruments`, tone: openPositions > 0 ? 'text-primary' : '' },
             ].map(({ label, value, sub, tone }) => (

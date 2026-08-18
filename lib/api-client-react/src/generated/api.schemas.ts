@@ -170,6 +170,18 @@ export const PaperTradeExitReason = {
   MANUAL: 'MANUAL',
 } as const;
 
+/**
+ * @nullable
+ */
+export type PaperTradeResult = typeof PaperTradeResult[keyof typeof PaperTradeResult] | null;
+
+
+export const PaperTradeResult = {
+  WIN: 'WIN',
+  LOSS: 'LOSS',
+  BREAKEVEN: 'BREAKEVEN',
+} as const;
+
 export interface PaperTrade {
   id: number;
   coin: string;
@@ -190,6 +202,26 @@ export interface PaperTrade {
   profitLoss: number;
   accountBalance: number;
   exitReason: PaperTradeExitReason;
+  /** @nullable */
+  riskAmount?: number | null;
+  /** @nullable */
+  rMultiple?: number | null;
+  /** @nullable */
+  pnlPct?: number | null;
+  /** @nullable */
+  durationSeconds?: number | null;
+  /** @nullable */
+  result?: PaperTradeResult;
+  /** @nullable */
+  entryScore?: number | null;
+  /** @nullable */
+  passCount?: number | null;
+  /** @nullable */
+  trend1h?: string | null;
+  /** @nullable */
+  entryMode?: string | null;
+  /** @nullable */
+  entryConditions?: string | null;
 }
 
 export interface PaperTraderMetrics {
@@ -276,6 +308,7 @@ export type PaperTraderStateInstrumentTradingMode = typeof PaperTraderStateInstr
 export const PaperTraderStateInstrumentTradingMode = {
   ACTIVE: 'ACTIVE',
   MONITORING: 'MONITORING',
+  PAPER_UNVALIDATED: 'PAPER_UNVALIDATED',
 } as const;
 
 export type PaperTraderStateInstrumentCurrency = typeof PaperTraderStateInstrumentCurrency[keyof typeof PaperTraderStateInstrumentCurrency];

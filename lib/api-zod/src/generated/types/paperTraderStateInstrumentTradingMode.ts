@@ -12,4 +12,5 @@ export type PaperTraderStateInstrumentTradingMode = typeof PaperTraderStateInstr
 export const PaperTraderStateInstrumentTradingMode = {
   ACTIVE: 'ACTIVE',
   MONITORING: 'MONITORING',
+  PAPER_UNVALIDATED: 'PAPER_UNVALIDATED',
 } as const;

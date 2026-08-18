@@ -1,0 +1,110 @@
+Update my existing trading bot to enable PAPER TRADING execution for GOLD (XAU/USD) and SILVER (XAG/USD).
+
+IMPORTANT:
+This must remain PAPER TRADING ONLY.
+Do not enable live trading, brokerage orders, exchange orders, or any real-money execution.
+
+CURRENT PROBLEM:
+Gold and Silver are being analysed correctly, but execution is blocked because the metals strategy is marked "MONITORING ONLY — STRATEGY NOT VALIDATED".
+
+For example, Gold currently shows:
+- LONG
+- Score 8/8
+- Entry conditions 6/6 met
+- 4h trend bullish
+- 1h trend bullish
+- RSI passed
+- MACD momentum passed
+- Price vs MA passed
+- Volume passed
+
+Despite this, no simulated trade is opened.
+
+CHANGE REQUIRED:
+
+1. Remove the execution block for GOLD and SILVER in PAPER MODE ONLY.
+
+2. Keep the warning:
+"UNVALIDATED STRATEGY — PAPER TRADING ONLY"
+
+3. When the Gold or Silver strategy produces a valid LONG or SHORT entry signal, allow the paper-trading engine to open a simulated position.
+
+4. Initially allow a maximum of ONE open position per asset.
+
+5. Do not repeatedly enter on every scan while the same signal remains active.
+There must be position-state protection so one continuous signal creates only one trade.
+
+6. Use the existing risk-management system for position sizing, stop loss and take profit.
+
+7. Never risk more than the configured percentage of the asset's paper balance on one trade.
+
+8. When a position opens, record:
+- asset
+- LONG/SHORT
+- entry price
+- entry timestamp
+- position size
+- stop loss
+- take profit
+- risk amount
+- signal score
+- number of entry conditions passed
+- 4h trend
+- 1h trend
+- RSI
+- MACD
+- moving-average condition
+- volume condition
+
+9. Monitor every open position and automatically close it when its configured exit condition is reached.
+
+10. When the position closes, record:
+- exit price
+- exit timestamp
+- realised P&L £
+- realised P&L %
+- R multiple
+- trade duration
+- win/loss
+- exit reason
+
+11. Update:
+- paper balance
+- P&L
+- number of trades
+- wins
+- losses
+- win rate
+- trade history
+- activity log
+
+12. The dashboard should clearly distinguish:
+SIGNAL
+OPEN POSITION
+NO TRADE
+
+If Gold currently has a qualifying 6/6 LONG signal and no Gold position is already open, the next strategy evaluation should be capable of opening a Gold PAPER trade.
+
+13. SILVER should use exactly the same paper execution architecture.
+
+14. Do not change the BTC, ETH, SOL or XRP strategy logic as part of this update.
+
+15. Add a global safety flag such as:
+PAPER_TRADING = true
+LIVE_TRADING = false
+
+Any order/execution function must check these flags.
+
+LIVE_TRADING=false must prevent any real external order from being submitted even if another part of the program accidentally requests one.
+
+16. After implementing this, test the paper execution path and report:
+- files changed
+- how Gold/Silver paper entries are triggered
+- how duplicate entries are prevented
+- stop-loss/take-profit logic
+- position sizing/risk per trade
+- how exits are processed
+- confirmation that no real orders can be submitted
+- any errors found during testing
+
+Do not redesign the dashboard or rewrite the strategy. Focus on enabling safe Gold/Silver paper execution and making sure trades are correctly recorded.

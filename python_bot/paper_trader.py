@@ -31,10 +31,11 @@ COINS: dict[str, dict[str, str]] = {
     "XRP": {"pair": "XRPGBP",   "display": "XRP/GBP"},
 }
 
-# Precious metals — MONITORING / RESEARCH MODE ONLY.
-# The crypto 6/6 strategy has NOT passed validated backtesting on metals,
-# so these accounts never open paper trades. They only track market data
-# and run the strategy scan for research visibility.
+# Precious metals — PAPER TRADING (UNVALIDATED STRATEGY).
+# The crypto 6/6 strategy has NOT passed validated backtesting on metals.
+# Per user instruction (Aug 2026), metals now open SIMULATED paper trades
+# when a full 6/6 signal appears, clearly labelled as unvalidated.
+# No real orders are ever sent (see PAPER_TRADING / LIVE_TRADING flags).
 METALS: dict[str, dict[str, str]] = {
     "GOLD": {
         "display": "XAU/USD",
@@ -64,8 +65,8 @@ def instrument_info(symbol: str) -> dict[str, Any]:
         meta = METALS[symbol]
         return {
             "kind":        "METAL",
-            "tradingMode": "MONITORING",
-            "statusLabel": "MONITORING ONLY — STRATEGY NOT VALIDATED",
+            "tradingMode": "PAPER_UNVALIDATED",
+            "statusLabel": "UNVALIDATED STRATEGY — PAPER TRADING ONLY",
             "currency":    "USD",
             "priceType":   "SPOT",
             "dataSource":  f"Spot price: gold-api.com ({meta['display']}, spot) · "
@@ -80,6 +81,22 @@ def instrument_info(symbol: str) -> dict[str, Any]:
         "dataSource":  f"Kraken public API ({COINS[symbol]['display']}, spot)",
     }
 STARTING_BALANCE    = 100.0
+
+# ── Global execution safety flags ───────────────────────────────────────────
+# Every function that opens or closes a position MUST pass through
+# _assert_paper_only(). LIVE_TRADING=False guarantees no real external order
+# can ever be submitted, even if some other code path requests one.
+PAPER_TRADING = True    # simulated fills against public market data only
+LIVE_TRADING  = False   # NEVER set to True — no brokerage/exchange execution exists
+
+
+def _assert_paper_only() -> None:
+    """Hard safety gate for all order/execution paths."""
+    if LIVE_TRADING or not PAPER_TRADING:
+        raise RuntimeError(
+            "SAFETY HALT: live trading is not supported. "
+            "PAPER_TRADING must be True and LIVE_TRADING must be False."
+        )
 # ── Opportunity scoring (paper mode) ───────────────────────────────────────
 # Weighted score replaces the strict 6/6 gate:
 #   4h trend=2, 1h trend=2, RSI=1, MACD=1, Price vs MA=1, Volume=1 → max 8
@@ -185,6 +202,23 @@ def init_db(connection: sqlite3.Connection) -> None:
         );
         """
     )
+    # Audit columns added Aug 2026 (metals paper execution): ALTER TABLE is
+    # required for existing databases — CREATE TABLE IF NOT EXISTS won't add them.
+    existing_cols = {r[1] for r in connection.execute("PRAGMA table_info(trades)")}
+    for col, col_type in (
+        ("risk_amount",      "REAL"),
+        ("r_multiple",       "REAL"),
+        ("pnl_pct",          "REAL"),
+        ("duration_seconds", "REAL"),
+        ("result",           "TEXT"),
+        ("entry_score",      "REAL"),
+        ("pass_count",       "INTEGER"),
+        ("trend_1h",         "TEXT"),
+        ("entry_mode",       "TEXT"),
+        ("entry_conditions", "TEXT"),
+    ):
+        if col not in existing_cols:
+            connection.execute(f"ALTER TABLE trades ADD COLUMN {col} {col_type}")
     # Migrate: add coin column to trades if it doesn't exist yet
     trades_cols = [row[1] for row in connection.execute("PRAGMA table_info(trades)").fetchall()]
     if "coin" not in trades_cols:
@@ -401,7 +435,7 @@ def fetch_market_data(pair: str) -> tuple[float, float | None, list[list[Any]], 
 
 
 # ---------------------------------------------------------------------------
-# Metals market data (MONITORING ONLY — no trading)
+# Metals market data (public sources — used for simulated paper fills only)
 # ---------------------------------------------------------------------------
 
 def fetch_metal_spot(spot_symbol: str) -> tuple[float, str]:
@@ -956,6 +990,17 @@ def trade_from_row(row: sqlite3.Row) -> dict[str, Any]:
         "profitLoss":     row["profit_loss"],
         "accountBalance": row["account_balance"],
         "exitReason":     row["exit_reason"],
+        # Audit fields (nullable for trades recorded before Aug 2026)
+        "riskAmount":      row["risk_amount"]      if "risk_amount"      in row.keys() else None,
+        "rMultiple":       row["r_multiple"]       if "r_multiple"       in row.keys() else None,
+        "pnlPct":          row["pnl_pct"]          if "pnl_pct"          in row.keys() else None,
+        "durationSeconds": row["duration_seconds"] if "duration_seconds" in row.keys() else None,
+        "result":          row["result"]           if "result"           in row.keys() else None,
+        "entryScore":      row["entry_score"]      if "entry_score"      in row.keys() else None,
+        "passCount":       row["pass_count"]       if "pass_count"       in row.keys() else None,
+        "trend1h":         row["trend_1h"]         if "trend_1h"         in row.keys() else None,
+        "entryMode":       row["entry_mode"]       if "entry_mode"       in row.keys() else None,
+        "entryConditions": row["entry_conditions"] if "entry_conditions" in row.keys() else None,
     }
 
 
@@ -1058,6 +1103,7 @@ def close_position(
     exit_price: float,
     reason: str,
 ) -> None:
+    _assert_paper_only()   # simulated close only — no real order can be sent
     direction = position["direction"]
     quantity  = float(position["quantity"])
     entry     = float(position["entry"])
@@ -1066,19 +1112,39 @@ def close_position(
         else (entry - exit_price) * quantity
     )
     balance = max(0.0, float(state["balance"]) + pnl)
+    closed_at = now_iso()
+    risk_amount_val = safe_float(position.get("riskAmount")) or 0.0
+    r_multiple_val  = (pnl / risk_amount_val) if risk_amount_val > 0 else None
+    pnl_pct_val     = (pnl / (entry * quantity) * 100) if entry and quantity else None
+    try:
+        duration_val = (
+            datetime.fromisoformat(closed_at) - datetime.fromisoformat(position["openedAt"])
+        ).total_seconds()
+    except (ValueError, TypeError, KeyError):
+        duration_val = None
+    if risk_amount_val > 0 and abs(pnl) <= risk_amount_val * 0.1:
+        result_val = "BREAKEVEN"
+    else:
+        result_val = "WIN" if pnl > 0 else "LOSS"
     connection.execute(
         """
         INSERT INTO trades
             (coin, opened_at, closed_at, direction, entry, exit,
              stop_loss, take_profit, rsi, macd, atr, trend_4h,
-             profit_loss, account_balance, exit_reason)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             profit_loss, account_balance, exit_reason,
+             risk_amount, r_multiple, pnl_pct, duration_seconds, result,
+             entry_score, pass_count, trend_1h, entry_mode, entry_conditions)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            coin, position["openedAt"], now_iso(), direction,
+            coin, position["openedAt"], closed_at, direction,
             entry, exit_price, position["stopLoss"], position["takeProfit"],
             position.get("entryRsi"), position.get("entryMacd"), position.get("entryAtr"),
             position["trend4h"], pnl, balance, reason,
+            risk_amount_val, r_multiple_val, pnl_pct_val, duration_val, result_val,
+            safe_float(position.get("entryScore")), position.get("passCount"),
+            position.get("trend1h"), position.get("entryMode"),
+            position.get("entryConditions"),
         ),
     )
     # Disarm re-entry protection: no same-signal recycling until the setup resets
@@ -1086,13 +1152,11 @@ def close_position(
         "UPDATE coin_state SET balance = ?, open_position = NULL, reentry = ?, updated_at = ? WHERE coin = ?",
         (balance, json.dumps({"armed": False, "lastDirection": direction}), now_iso(), coin),
     )
-    risk_amount = safe_float(position.get("riskAmount")) or 0.0
-    r_multiple  = pnl / risk_amount if risk_amount > 0 else None
-    if risk_amount > 0 and abs(pnl) <= risk_amount * 0.1:
-        result_word = "BREAKEVEN"
-    else:
-        result_word = "WIN" if pnl > 0 else "LOSS"
-    pnl_str = f"+£{pnl:.2f}" if pnl >= 0 else f"-£{abs(pnl):.2f}"
+    risk_amount = risk_amount_val
+    r_multiple  = r_multiple_val
+    result_word = result_val
+    cur = "$" if coin in METALS else "£"
+    pnl_str = f"+{cur}{pnl:.2f}" if pnl >= 0 else f"-{cur}{abs(pnl):.2f}"
     r_str   = f" | R {r_multiple:+.2f}" if r_multiple is not None else ""
     entry_score = position.get("entryScore")
     entry_mode  = position.get("entryMode")
@@ -1106,10 +1170,10 @@ def close_position(
     add_activity(
         connection, coin,
         "TRADE_CLOSED",
-        f"{direction} position closed ({reason.replace('_',' ')}) | exit £{exit_price:,.2f} "
+        f"{direction} position closed ({reason.replace('_',' ')}) | exit {cur}{exit_price:,.2f} "
         f"| P&L {pnl_str}{r_str} | {result_word}{audit} "
-        f"| SL £{float(position['stopLoss']):,.2f} | TP £{float(position['takeProfit']):,.2f} "
-        f"| risk £{risk_amount:.2f} | balance £{balance:.2f}",
+        f"| SL {cur}{float(position['stopLoss']):,.2f} | TP {cur}{float(position['takeProfit']):,.2f} "
+        f"| risk {cur}{risk_amount:.2f} | balance {cur}{balance:.2f}",
     )
     connection.commit()
 
@@ -1130,6 +1194,7 @@ def _block_stale_opportunity(connection: sqlite3.Connection, coin: str, reason: 
         "lastTradeAt":  None,
     }
     stored["signal"] = "NO_TRADE"
+    stored["botStatus"] = "API_ERROR"   # honest status: never show stale READY
     connection.execute(
         "UPDATE coin_state SET snapshot = ?, updated_at = ? WHERE coin = ?",
         (json.dumps(stored), now_iso(), coin),
@@ -1318,6 +1383,7 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
                 float(state["balance"]) / current_price if current_price > 0 else 0,
             )
             if quantity > 0:
+                _assert_paper_only()   # simulated open only — no real order can be sent
                 position = {
                     "direction":  signal,
                     "entry":      round_price(current_price),
@@ -1472,14 +1538,14 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Core refresh — one metal (MONITORING ONLY — never opens paper trades)
+# Core refresh — one metal (PAPER TRADING — unvalidated strategy, simulated only)
 # ---------------------------------------------------------------------------
 
 def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
     meta = METALS[metal]
-    monitoring_note = (
-        "MONITORING ONLY — metals strategy has not passed validated backtesting; "
-        "no paper trades are opened."
+    warning_note = (
+        "UNVALIDATED STRATEGY — PAPER TRADING ONLY. Metals strategy has not "
+        "passed validated backtesting; all trades are simulated."
     )
 
     # --- Spot price (gold-api.com, true spot, USD) ---
@@ -1491,6 +1557,7 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
         )
     except Exception as error:
         add_activity(connection, metal, "API_ERROR", str(error))
+        _block_stale_opportunity(connection, metal, f"Spot price unavailable: {error}")
         connection.commit()
         return build_coin_state(connection, metal, message=str(error), status="API_ERROR")
 
@@ -1513,75 +1580,239 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
         scan_note = f"Scan data unavailable: {error}"
 
     if cond_eval is not None:
-        signal          = cond_eval["signal"]
+        signal          = cond_eval["signal"]      # strict 6/6 signal
         one_hour_trend  = cond_eval["oneHourTrend"]
         four_hour_trend = cond_eval["fourHourTrend"]
         indicators      = cond_eval["indicators"]
-        _cond_list = cond_eval.get("conditions", [])
-        _failed = [cd["name"] for cd in _cond_list if not cd["pass"]]
-        if cond_eval.get("bias") == "NEUTRAL":
-            _no_trade_reason: str | None = "No directional trend on 1h or 4h timeframe"
-        elif signal == "NO_TRADE" and _failed:
-            _no_trade_reason = "Failed: " + ", ".join(_failed)
-        else:
-            _no_trade_reason = monitoring_note
-        _diag: dict[str, Any] = {
-            "price":            round_price(spot_price),
-            "signal":           signal,
-            "bias":             cond_eval.get("bias", "NEUTRAL"),
-            "oneHourTrend":     one_hour_trend,
-            "fourHourTrend":    four_hour_trend,
-            "passCount":        cond_eval.get("passCount", 0),
-            "totalCount":       cond_eval.get("totalCount", 6),
-            "conditions":       _cond_list,
-            "noTradeReason":    _no_trade_reason,
-            "executionBlocked": True,
-            "blockReason":      monitoring_note,
-        }
-        add_activity(connection, metal, "STRATEGY_EVALUATED", json.dumps(_diag))
     else:
         signal, one_hour_trend, four_hour_trend = "NO_TRADE", "NEUTRAL", "NEUTRAL"
         indicators = {
             "rsi": None, "macd": None, "macdSignal": None,
             "atr": None, "ema20": None, "ema50": None, "volume": None,
         }
-        _diag = {
-            "price":            round_price(spot_price),
-            "signal":           "NO_TRADE",
-            "bias":             "NEUTRAL",
-            "oneHourTrend":     "NEUTRAL",
-            "fourHourTrend":    "NEUTRAL",
-            "passCount":        0,
-            "totalCount":       6,
-            "conditions":       [],
-            "noTradeReason":    scan_note or monitoring_note,
-            "executionBlocked": True,
-            "blockReason":      monitoring_note,
-        }
-        add_activity(connection, metal, "STRATEGY_EVALUATED", json.dumps(_diag))
 
-    # Metals are monitoring-only: opportunity panel always shows BLOCKED
+    # Weighted score for the dashboard opportunity panel (display only —
+    # metals ENTRY gate stays the strict 6/6 signal above)
     if cond_eval is not None:
         metal_score = sum(
             w for w, cd in zip(OPP_WEIGHTS, cond_eval.get("conditions", [])) if cd["pass"]
         )
-        if one_hour_trend == "NEUTRAL" and four_hour_trend == "NEUTRAL":
-            metal_mode = "RANGE"
-        else:
-            metal_mode = "TREND"
+        metal_mode = "RANGE" if (one_hour_trend == "NEUTRAL" and four_hour_trend == "NEUTRAL") else "TREND"
     else:
         metal_score, metal_mode = 0, "TREND"
+
+    # --- Account state / day rollover ---
+    state = load_coin_state(connection, metal)
+    if state["day_key"] != date_key():
+        connection.execute(
+            "UPDATE coin_state SET day_key = ?, updated_at = ? WHERE coin = ?",
+            (date_key(), now_iso(), metal),
+        )
+        connection.commit()
+        state = load_coin_state(connection, metal)
+
+    open_position = json.loads(state["open_position"]) if state["open_position"] else None
+    try:
+        reentry = json.loads(state["reentry"]) if state["reentry"] else {"armed": True, "lastDirection": None}
+    except (TypeError, ValueError, KeyError):
+        reentry = {"armed": True, "lastDirection": None}
+
+    # --- Check stop/target on existing position (uses live spot price) ---
+    if open_position:
+        hit_stop = (
+            spot_price <= open_position["stopLoss"]
+            if open_position["direction"] == "LONG"
+            else spot_price >= open_position["stopLoss"]
+        )
+        hit_target = (
+            spot_price >= open_position["takeProfit"]
+            if open_position["direction"] == "LONG"
+            else spot_price <= open_position["takeProfit"]
+        )
+        if hit_stop or hit_target:
+            exit_price = open_position["stopLoss"] if hit_stop else open_position["takeProfit"]
+            close_position(
+                connection, metal, state, open_position, exit_price,
+                "STOP_LOSS" if hit_stop else "TAKE_PROFIT",
+            )
+            state = load_coin_state(connection, metal)
+            try:
+                reentry = json.loads(state["reentry"]) if state["reentry"] else {"armed": False, "lastDirection": open_position["direction"]}
+            except (TypeError, ValueError, KeyError):
+                reentry = {"armed": False, "lastDirection": open_position["direction"]}
+            open_position = None
+
+    # --- Entry evaluation on a NEW completed scan candle only ---
+    is_new_candle = (
+        completed_candle_at is not None
+        and completed_candle_at != state["last_candle_at"]
+    )
+    execution_block_reason: str | None = None
+    opened_this_cycle = False
+
+    # Re-arm re-entry protection: needs a new candle AND the signal to change
+    candidate_signal = signal if signal in ("LONG", "SHORT") else "NONE"
+    if is_new_candle and not reentry.get("armed", True):
+        if candidate_signal != reentry.get("lastDirection"):
+            reentry = {"armed": True, "lastDirection": reentry.get("lastDirection")}
+            connection.execute(
+                "UPDATE coin_state SET reentry = ?, updated_at = ? WHERE coin = ?",
+                (json.dumps(reentry), now_iso(), metal),
+            )
+    armed = bool(reentry.get("armed", True))
+
+    if is_new_candle and open_position is None and cond_eval is not None:
+        m = coin_metrics(connection, metal, state)
+        daily_limit = float(state["starting_balance"]) * DAILY_LOSS_LIMIT
+        risk_paused = (
+            m["dailyLoss"] >= daily_limit
+            or m["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES
+            or float(state["balance"]) <= 0
+        )
+        if risk_paused and signal in ("LONG", "SHORT"):
+            if float(state["balance"]) <= 0:
+                execution_block_reason = "Account balance exhausted"
+            elif m["dailyLoss"] >= daily_limit:
+                execution_block_reason = f"Daily loss limit reached (£{m['dailyLoss']:.2f} / £{daily_limit:.2f})"
+            else:
+                execution_block_reason = f"Max consecutive losses reached ({int(m['consecutiveLosses'])})"
+            add_activity(connection, metal, "RISK_LIMIT_REACHED", execution_block_reason)
+        elif signal in ("LONG", "SHORT") and not armed:
+            execution_block_reason = (
+                "Re-entry protection: same setup already traded — waiting for a "
+                "changed signal on a new candle"
+            )
+
+        if (
+            not risk_paused
+            and armed
+            and signal in ("LONG", "SHORT")
+            and indicators.get("atr") is not None
+            and indicators["atr"] > 0
+        ):
+            _assert_paper_only()   # simulated open only — no real order can be sent
+            atr_val     = float(indicators["atr"])
+            risk_amount = float(state["balance"]) * RISK_PER_TRADE   # 1% max risk
+            stop_dist   = atr_val * ATR_MULTIPLIER
+            stop_loss   = spot_price - stop_dist if signal == "LONG" else spot_price + stop_dist
+            take_profit = (
+                spot_price + stop_dist * REWARD_TO_RISK if signal == "LONG"
+                else spot_price - stop_dist * REWARD_TO_RISK
+            )
+            quantity = min(
+                risk_amount / stop_dist if stop_dist > 0 else 0,
+                float(state["balance"]) / spot_price if spot_price > 0 else 0,
+            )
+            if quantity > 0:
+                _conds = {cd["name"]: cd["pass"] for cd in cond_eval.get("conditions", [])}
+                position = {
+                    "direction":  signal,
+                    "entry":      round_price(spot_price),
+                    "stopLoss":   round_price(stop_loss),
+                    "takeProfit": round_price(take_profit),
+                    "quantity":   round_amount(quantity),
+                    "riskAmount": round(risk_amount, 2),
+                    "openedAt":   now_iso(),
+                    "entryRsi":   indicators.get("rsi"),
+                    "entryMacd":  indicators.get("macd"),
+                    "entryAtr":   indicators.get("atr"),
+                    "trend4h":    four_hour_trend,
+                    "trend1h":    one_hour_trend,
+                    "entryScore": metal_score,
+                    "entryMode":  "TREND",
+                    "passCount":  cond_eval.get("passCount", 0),
+                    "totalCount": cond_eval.get("totalCount", 6),
+                    "maCondition":     bool(_conds.get("Price vs MA")),
+                    "volumeCondition": bool(_conds.get("Volume")),
+                    "entryConditions": ", ".join(
+                        cd["name"] for cd in cond_eval.get("conditions", []) if cd["pass"]
+                    ),
+                    "unvalidatedStrategy": True,
+                }
+                connection.execute(
+                    "UPDATE coin_state SET open_position = ?, updated_at = ? WHERE coin = ?",
+                    (json.dumps(position), now_iso(), metal),
+                )
+                add_activity(
+                    connection, metal, "TRADE_OPENED",
+                    f"{signal} PAPER trade opened at ${spot_price:,.2f} (UNVALIDATED STRATEGY) "
+                    f"| {cond_eval.get('passCount', 0)}/6 conditions | score {metal_score}/{OPP_MAX_SCORE} "
+                    f"| SL ${stop_loss:,.2f} | TP ${take_profit:,.2f} | risk ${risk_amount:.2f}",
+                )
+                opened_this_cycle = True
+                open_position = position
+
+    # --- Status / opportunity panel ---
+    current_m = coin_metrics(connection, metal, load_coin_state(connection, metal))
+    status = "READY"
+    if current_m["dailyLoss"] >= float(state["starting_balance"]) * DAILY_LOSS_LIMIT or \
+       current_m["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES:
+        status = "RISK_PAUSED"
+
+    if open_position or opened_this_cycle:
+        entry_status, entry_reason = "BLOCKED", "Position open — waiting for stop or target"
+        next_eligible = "After the open position closes"
+    elif status == "RISK_PAUSED":
+        entry_status, entry_reason = "BLOCKED", execution_block_reason or "Risk limit reached"
+        next_eligible = "After risk limits reset (next day or streak break)"
+    elif signal in ("LONG", "SHORT") and not armed:
+        entry_status = "BLOCKED"
+        entry_reason = "Re-entry protection: same setup already traded — needs a changed signal on a new candle"
+        next_eligible = "After the signal resets on a new candle"
+    elif signal in ("LONG", "SHORT"):
+        entry_status = "READY"
+        entry_reason = f"6/6 entry conditions met ({warning_note})"
+        next_eligible = "Next completed 1h candle" if not is_new_candle else "Now"
+    else:
+        entry_status = "WAIT"
+        entry_reason = (
+            scan_note if cond_eval is None and scan_note
+            else f"{cond_eval.get('passCount', 0) if cond_eval else 0}/6 conditions — need all 6 to enter"
+        )
+        next_eligible = "Next completed 1h candle"
+
     metal_opportunity: dict[str, Any] = {
         "score":        metal_score,
         "maxScore":     OPP_MAX_SCORE,
         "mode":         metal_mode,
-        "entryStatus":  "BLOCKED",
-        "reason":       monitoring_note,
-        "nextEligible": None,
+        "entryStatus":  entry_status,
+        "reason":       entry_reason,
+        "nextEligible": next_eligible,
         "lastTradeAt":  None,
     }
 
-    message = monitoring_note if scan_note is None else f"{monitoring_note} {scan_note}"
+    # --- Diagnostic log ---
+    _cond_list = (cond_eval or {}).get("conditions", [])
+    _failed = [cd["name"] for cd in _cond_list if not cd["pass"]]
+    if signal != "NO_TRADE":
+        _no_trade_reason: str | None = None
+    elif cond_eval is None:
+        _no_trade_reason = scan_note or "Scan data unavailable"
+    elif cond_eval.get("bias") == "NEUTRAL":
+        _no_trade_reason = "No directional trend on 1h or 4h timeframe"
+    elif _failed:
+        _no_trade_reason = "Failed: " + ", ".join(_failed)
+    else:
+        _no_trade_reason = entry_reason if entry_status != "READY" else None
+    _diag: dict[str, Any] = {
+        "price":            round_price(spot_price),
+        "signal":           signal,
+        "bias":             (cond_eval or {}).get("bias", "NEUTRAL"),
+        "oneHourTrend":     one_hour_trend,
+        "fourHourTrend":    four_hour_trend,
+        "passCount":        (cond_eval or {}).get("passCount", 0),
+        "totalCount":       (cond_eval or {}).get("totalCount", 6),
+        "score":            metal_score,
+        "maxScore":         OPP_MAX_SCORE,
+        "conditions":       _cond_list,
+        "noTradeReason":    _no_trade_reason,
+        "executionBlocked": execution_block_reason is not None,
+        "blockReason":      execution_block_reason,
+        "paperTradingOnly": True,
+    }
+    add_activity(connection, metal, "STRATEGY_EVALUATED", json.dumps(_diag))
+
+    message = warning_note if scan_note is None else f"{warning_note} {scan_note}"
     snapshot: dict[str, Any] = {
         "currentPrice":          round_price(spot_price),
         "updatedAt":             now_iso(),
@@ -1593,18 +1824,18 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
         "strategyConditions":    cond_eval,
         "proposedTrade":         None,
         "opportunity":           metal_opportunity,
-        "botStatus":             "MONITORING",
+        "botStatus":             status,
     }
     connection.execute(
         """
         UPDATE coin_state
-        SET last_candle_at = ?, snapshot = ?, updated_at = ?, message = ?
+        SET last_candle_at = COALESCE(?, last_candle_at), snapshot = ?, updated_at = ?, message = ?
         WHERE coin = ?
         """,
         (completed_candle_at, json.dumps(snapshot), now_iso(), message, metal),
     )
     connection.commit()
-    return build_coin_state(connection, metal, snapshot, status="MONITORING")
+    return build_coin_state(connection, metal, snapshot, status=status)
 
 
 # ---------------------------------------------------------------------------
@@ -1729,7 +1960,7 @@ def reset_all_command(payload: str | None = None) -> dict[str, Any]:
             if requested is not None:
                 starting = max(0.0, requested)
         for coin in INSTRUMENTS:
-            # Metals are monitoring-only: always reset to the fixed £100,
+            # Metals always reset to the fixed £100 baseline,
             # never a caller-supplied balance.
             reset_coin(connection, coin, STARTING_BALANCE if coin in METALS else starting)
         # return portfolio summary after reset
@@ -1750,7 +1981,7 @@ def reset_coin_command(coin: str, payload: str | None = None) -> dict[str, Any]:
     try:
         starting = STARTING_BALANCE
         if payload and coin not in METALS:
-            # Metals are monitoring-only: balance is fixed at £100.
+            # Metals reset balance is fixed at the £100 baseline.
             decoded = json.loads(payload)
             requested = safe_float(decoded.get("startingBalance"))
             if requested is not None:

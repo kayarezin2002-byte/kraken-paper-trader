@@ -7,6 +7,7 @@
  */
 import type { PaperTradeDirection } from './paperTradeDirection';
 import type { PaperTradeExitReason } from './paperTradeExitReason';
+import type { PaperTradeResult } from './paperTradeResult';
 import type { PaperTradeTrend4h } from './paperTradeTrend4h';
 
 export interface PaperTrade {
@@ -29,4 +30,24 @@ export interface PaperTrade {
   profitLoss: number;
   accountBalance: number;
   exitReason: PaperTradeExitReason;
+  /** @nullable */
+  riskAmount?: number | null;
+  /** @nullable */
+  rMultiple?: number | null;
+  /** @nullable */
+  pnlPct?: number | null;
+  /** @nullable */
+  durationSeconds?: number | null;
+  /** @nullable */
+  result?: PaperTradeResult;
+  /** @nullable */
+  entryScore?: number | null;
+  /** @nullable */
+  passCount?: number | null;
+  /** @nullable */
+  trend1h?: string | null;
+  /** @nullable */
+  entryMode?: string | null;
+  /** @nullable */
+  entryConditions?: string | null;
 }

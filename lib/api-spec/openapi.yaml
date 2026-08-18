@@ -106,7 +106,7 @@ paths:
       operationId: getMultiCoinState
       tags: [paper-trader]
       summary: Get paper trading state for all six instruments
-      description: Returns BTC, ETH, SOL, XRP (active paper trading) plus GOLD and SILVER (monitoring only) states in one call.
+      description: Returns BTC, ETH, SOL, XRP plus GOLD and SILVER (paper trading, unvalidated strategy) states in one call.
       responses:
         "200":
           description: All coin states
@@ -119,7 +119,7 @@ paths:
       operationId: refreshMultiCoin
       tags: [paper-trader]
       summary: Refresh market data and strategy for all six instruments
-      description: Fetches Kraken public data for BTC, ETH, SOL, and XRP, plus gold-api.com spot prices and Yahoo Finance futures candles for GOLD and SILVER (monitoring only), and evaluates each strategy.
+      description: Fetches Kraken public data for BTC, ETH, SOL, and XRP, plus gold-api.com spot prices and Yahoo Finance futures candles for GOLD and SILVER (paper trading, unvalidated strategy), and evaluates each strategy.
       responses:
         "200":
           description: Refreshed multi-coin state
@@ -196,7 +196,7 @@ paths:
       operationId: resetAllCoins
       tags: [paper-trader]
       summary: Reset all six virtual accounts
-      description: Resets BTC, ETH, SOL, and XRP accounts to the requested starting balance and clears history. GOLD and SILVER (monitoring only) always reset to the fixed £100.
+      description: Resets BTC, ETH, SOL, and XRP accounts to the requested starting balance and clears history. GOLD and SILVER always reset to their fixed $100 baseline.
       requestBody:
         required: false
         content:
@@ -384,6 +384,27 @@ components:
         exitReason:
           type: string
           enum: [TAKE_PROFIT, STOP_LOSS, SIGNAL_REVERSAL, MANUAL]
+        riskAmount:
+          type: ["number", "null"]
+        rMultiple:
+          type: ["number", "null"]
+        pnlPct:
+          type: ["number", "null"]
+        durationSeconds:
+          type: ["number", "null"]
+        result:
+          type: ["string", "null"]
+          enum: [WIN, LOSS, BREAKEVEN, null]
+        entryScore:
+          type: ["number", "null"]
+        passCount:
+          type: ["number", "null"]
+        trend1h:
+          type: ["string", "null"]
+        entryMode:
+          type: ["string", "null"]
+        entryConditions:
+          type: ["string", "null"]
       required: [id, coin, openedAt, closedAt, direction, entry, exit, stopLoss, takeProfit, rsi, macd, atr, trend4h, profitLoss, accountBalance, exitReason]
 
     # ── Metrics ─────────────────────────────────────────────────────────────
@@ -493,7 +514,7 @@ components:
               enum: [CRYPTO, METAL]
             tradingMode:
               type: string
-              enum: [ACTIVE, MONITORING]
+              enum: [ACTIVE, MONITORING, PAPER_UNVALIDATED]
             statusLabel:
               type: string
             currency:

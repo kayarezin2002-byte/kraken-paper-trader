@@ -450,7 +450,7 @@ export const getGetMultiCoinStateUrl = () => {
 }
 
 /**
- * Returns BTC, ETH, SOL, XRP (active paper trading) plus GOLD and SILVER (monitoring only) states in one call.
+ * Returns BTC, ETH, SOL, XRP plus GOLD and SILVER (paper trading, unvalidated strategy) states in one call.
  * @summary Get paper trading state for all six instruments
  */
 export const getMultiCoinState = async ( options?: Parameters<typeof customFetch>[1]): Promise<MultiCoinState> => {
@@ -528,7 +528,7 @@ export const getRefreshMultiCoinUrl = () => {
 }
 
 /**
- * Fetches Kraken public data for BTC, ETH, SOL, and XRP, plus gold-api.com spot prices and Yahoo Finance futures candles for GOLD and SILVER (monitoring only), and evaluates each strategy.
+ * Fetches Kraken public data for BTC, ETH, SOL, and XRP, plus gold-api.com spot prices and Yahoo Finance futures candles for GOLD and SILVER (paper trading, unvalidated strategy), and evaluates each strategy.
  * @summary Refresh market data and strategy for all six instruments
  */
 export const refreshMultiCoin = async ( options?: Parameters<typeof customFetch>[1]): Promise<MultiCoinState> => {
@@ -845,7 +845,7 @@ export const getResetAllCoinsUrl = () => {
 }
 
 /**
- * Resets BTC, ETH, SOL, and XRP accounts to the requested starting balance and clears history. GOLD and SILVER (monitoring only) always reset to the fixed £100.
+ * Resets BTC, ETH, SOL, and XRP accounts to the requested starting balance and clears history. GOLD and SILVER always reset to their fixed $100 baseline.
  * @summary Reset all six virtual accounts
  */
 export const resetAllCoins = async (resetPaperTraderInput?: ResetPaperTraderInput, options?: Parameters<typeof customFetch>[1]): Promise<MultiCoinState> => {

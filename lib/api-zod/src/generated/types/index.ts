@@ -23,6 +23,7 @@ export * from './opportunityMode';
 export * from './paperTrade';
 export * from './paperTradeDirection';
 export * from './paperTradeExitReason';
+export * from './paperTradeResult';
 export * from './paperTraderMetrics';
 export * from './paperTraderState';
 export * from './paperTraderStateBotStatus';
