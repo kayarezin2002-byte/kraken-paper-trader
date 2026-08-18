@@ -263,6 +263,20 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/PaperTrade"
+  /paper-trader/pnl-series:
+    get:
+      operationId: getPnlSeries
+      tags: [paper-trader]
+      summary: Cumulative P&L time-series for all coins
+      description: Returns a per-coin (and combined crypto) time-series of cumulative profit/loss, suitable for plotting an equity curve. Covers all historical paper trades from the database.
+      responses:
+        "200":
+          description: P&L series per asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PnlSeriesResult"
+
   /paper-trader/reset-all:
     post:
       operationId: resetAllCoins
@@ -285,6 +299,41 @@ paths:
 
 components:
   schemas:
+    PnlDataPoint:
+      type: object
+      properties:
+        ts:
+          type: string
+          description: ISO timestamp when the trade closed
+        cumulativePnl:
+          type: number
+          description: Cumulative profit/loss in account currency up to this trade
+        cumulativePnlPct:
+          type: number
+          description: Cumulative P&L as a percentage of starting balance
+        balance:
+          type: number
+          description: Account balance after this trade (absent for combined CRYPTO series)
+          nullable: true
+      required: [ts, cumulativePnl, cumulativePnlPct]
+
+    PnlSeriesResult:
+      type: object
+      properties:
+        series:
+          type: object
+          description: Map of asset key (BTC, ETH, SOL, XRP, GOLD, SILVER, CRYPTO) to its data points
+          additionalProperties:
+            type: array
+            items:
+              $ref: "#/components/schemas/PnlDataPoint"
+        startingBalances:
+          type: object
+          description: Starting balance per asset key
+          additionalProperties:
+            type: number
+      required: [series, startingBalances]
+
     HealthStatus:
       type: object
       properties:

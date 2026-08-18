@@ -814,6 +814,18 @@ export const ResetPaperTraderResponse = zod.object({
  * Returns BTC, ETH, SOL, XRP plus GOLD and SILVER (paper trading, unvalidated strategy) states in one call.
  * @summary Get paper trading state for all six instruments
  */
+// ── P&L series ───────────────────────────────────────────────────────────────
+export const PnlDataPointItem = zod.object({
+  "ts": zod.string(),
+  "cumulativePnl": zod.number(),
+  "cumulativePnlPct": zod.number(),
+  "balance": zod.number().nullish(),
+});
+export const GetPnlSeriesResponse = zod.object({
+  "series": zod.record(zod.array(PnlDataPointItem)),
+  "startingBalances": zod.record(zod.number()),
+});
+
 export const GetMultiCoinStateResponse = zod.object({
   "BTC": zod.object({
   "coin": zod.string(),

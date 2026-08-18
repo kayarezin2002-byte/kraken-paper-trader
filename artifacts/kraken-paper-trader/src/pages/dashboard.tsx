@@ -21,6 +21,8 @@ import {
 import { TradingShell } from '@/components/trading-shell';
 import { StrategyConditionsPanel } from '@/components/strategy-conditions';
 import { AssetChart } from '@/components/asset-chart';
+import { PnlChart } from '@/components/pnl-chart';
+import { LineChart } from 'lucide-react';
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
 const money = (v: number | null | undefined, d = 2, sym = '£') =>
@@ -946,6 +948,18 @@ export default function Dashboard() {
 
         {/* ─── Background engine status (scans continue with browser closed) ── */}
         <EngineStatusStrip lastCandleAt={multiState.BTC?.market.lastCompletedCandleAt} />
+
+        {/* ─── Cumulative P&L equity curve ──────────────────────────────── */}
+        <section className="rise-in overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_10px_32px_hsl(215_35%_13%_/_0.05)]">
+          <div className="flex items-center gap-2 border-b border-border/70 px-5 py-4 sm:px-6">
+            <LineChart size={16} className="text-primary" />
+            <h2 className="text-sm font-extrabold">Equity curve</h2>
+            <span className="ml-auto font-mono-data text-[10px] uppercase tracking-wider text-muted-foreground">cumulative P&amp;L % · all historical paper trades</span>
+          </div>
+          <div className="px-5 py-4 sm:px-6">
+            <PnlChart />
+          </div>
+        </section>
 
         {/* ─── Latest strategy scan strip ───────────────────────────────── */}
         <LatestScanStrip coins={COINS} multiState={multiState as unknown as Record<string, PaperTraderState>} />

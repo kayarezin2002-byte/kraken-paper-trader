@@ -799,3 +799,22 @@ export type ListAllTradesParams = {
 limit?: number;
 };
 
+// ── P&L series ───────────────────────────────────────────────────────────────
+export interface PnlDataPoint {
+  /** ISO timestamp when the trade closed */
+  ts: string;
+  /** Cumulative profit/loss in account currency */
+  cumulativePnl: number;
+  /** Cumulative P&L as % of starting balance */
+  cumulativePnlPct: number;
+  /** Account balance after trade (absent for CRYPTO combined series) */
+  balance?: number | null;
+}
+
+export interface PnlSeriesResult {
+  /** Map of asset key (BTC, ETH, SOL, XRP, GOLD, SILVER, CRYPTO) to data points */
+  series: Record<string, PnlDataPoint[]>;
+  /** Starting balance per asset key */
+  startingBalances: Record<string, number>;
+}
+

@@ -7,6 +7,7 @@ import {
   GetEngineStatusResponse,
   GetMultiCoinStateResponse,
   GetPaperTraderStateResponse,
+  GetPnlSeriesResponse,
   GetPortfolioSummaryResponse,
   ListActivityLogQueryParams,
   ListActivityLogResponse,
@@ -131,6 +132,16 @@ router.get("/paper-trader/chart", async (req, res) => {
   } catch (error) {
     req.log.error({ err: error }, "Unable to build chart data");
     res.status(502).json({ error: "Unable to fetch chart market data" });
+  }
+});
+
+router.get("/paper-trader/pnl-series", async (req, res) => {
+  try {
+    const data = GetPnlSeriesResponse.parse(await runBot("pnl-series"));
+    res.json(data);
+  } catch (error) {
+    req.log.error({ err: error }, "Unable to compute P&L series");
+    res.status(500).json({ error: "Unable to compute P&L time series" });
   }
 });
 

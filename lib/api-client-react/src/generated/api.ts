@@ -33,6 +33,7 @@ import type {
   MultiCoinState,
   PaperTrade,
   PaperTraderState,
+  PnlSeriesResult,
   PortfolioSummary,
   ResetPaperTraderInput
 } from './api.schemas';
@@ -1154,4 +1155,40 @@ export const useResetAllCoins = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getResetAllCoinsMutationOptions(options));
     }
+
+// ── P&L series ───────────────────────────────────────────────────────────────
+
+export const getPnlSeriesUrl = () => `/api/paper-trader/pnl-series`;
+
+/**
+ * @summary Cumulative P&L time-series for all coins
+ */
+export const getPnlSeries = async (options?: Parameters<typeof customFetch>[1]): Promise<PnlSeriesResult> => {
+  return customFetch<PnlSeriesResult>(getPnlSeriesUrl(), { ...options, method: 'GET' });
+};
+
+export const getGetPnlSeriesQueryKey = () => [`/api/paper-trader/pnl-series`] as const;
+
+export const getGetPnlSeriesQueryOptions = <TData = Awaited<ReturnType<typeof getPnlSeries>>, TError = ErrorType<unknown>>(
+  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof getPnlSeries>>, TError, TData>; request?: SecondParameter<typeof customFetch> }
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getGetPnlSeriesQueryKey();
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPnlSeries>>> = ({ signal }) => getPnlSeries({ signal, ...requestOptions });
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<Awaited<ReturnType<typeof getPnlSeries>>, TError, TData> & { queryKey: QueryKey };
+};
+
+export type GetPnlSeriesQueryResult = NonNullable<Awaited<ReturnType<typeof getPnlSeries>>>;
+export type GetPnlSeriesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Cumulative P&L time-series for all coins
+ */
+export function useGetPnlSeries<TData = Awaited<ReturnType<typeof getPnlSeries>>, TError = ErrorType<unknown>>(
+  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof getPnlSeries>>, TError, TData>; request?: SecondParameter<typeof customFetch> }
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPnlSeriesQueryOptions(options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  return withQueryKey(query, queryOptions.queryKey);
+}
 

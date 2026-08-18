@@ -2988,6 +2988,68 @@ def all_trades(limit: int = 200) -> list[dict[str, Any]]:
         connection.close()
 
 
+def pnl_series() -> dict[str, Any]:
+    """Return cumulative P&L time-series per coin plus a combined crypto series."""
+    connection = db()
+    init_db(connection)
+    try:
+        # Oldest-first so we can accumulate correctly
+        rows = connection.execute(
+            "SELECT coin, closed_at, profit_loss, account_balance FROM trades ORDER BY closed_at ASC, id ASC"
+        ).fetchall()
+
+        # Starting balances per coin
+        states = connection.execute(
+            "SELECT coin, starting_balance FROM coin_state"
+        ).fetchall()
+        starting: dict[str, float] = {r["coin"]: float(r["starting_balance"]) for r in states}
+
+        # Per-coin series
+        series: dict[str, list[dict[str, Any]]] = {}
+        cum_pnl: dict[str, float] = {}
+
+        for row in rows:
+            coin = row["coin"]
+            if coin not in series:
+                series[coin] = []
+                cum_pnl[coin] = 0.0
+            cum_pnl[coin] += float(row["profit_loss"])
+            start = starting.get(coin, 100.0)
+            series[coin].append({
+                "ts": row["closed_at"],
+                "cumulativePnl": round(cum_pnl[coin], 4),
+                "cumulativePnlPct": round(cum_pnl[coin] / start * 100, 4) if start else 0.0,
+                "balance": round(float(row["account_balance"]), 4),
+            })
+
+        # Crypto aggregate (£ denominated: BTC, ETH, SOL, XRP)
+        crypto_coins = {"BTC", "ETH", "SOL", "XRP"}
+        crypto_rows = [r for r in rows if r["coin"] in crypto_coins]
+        crypto_start = sum(starting.get(c, 100.0) for c in crypto_coins if c in starting)
+        if not crypto_start:
+            crypto_start = len(crypto_coins) * 100.0
+        cum_crypto = 0.0
+        crypto_series: list[dict[str, Any]] = []
+        for row in crypto_rows:
+            cum_crypto += float(row["profit_loss"])
+            crypto_series.append({
+                "ts": row["closed_at"],
+                "cumulativePnl": round(cum_crypto, 4),
+                "cumulativePnlPct": round(cum_crypto / crypto_start * 100, 4) if crypto_start else 0.0,
+            })
+        series["CRYPTO"] = crypto_series
+
+        starting_with_crypto = dict(starting)
+        starting_with_crypto["CRYPTO"] = crypto_start
+
+        return {
+            "series": series,
+            "startingBalances": starting_with_crypto,
+        }
+    finally:
+        connection.close()
+
+
 def activity_log(limit: int = 50) -> list[dict[str, Any]]:
     connection = db()
     init_db(connection)
@@ -3293,6 +3355,8 @@ def main() -> None:
     elif command == "all-trades":
         limit = int(sys.argv[2]) if len(sys.argv) > 2 else 200
         result = all_trades(limit)
+    elif command == "pnl-series":
+        result = pnl_series()
     elif command == "chart":
         asset = sys.argv[2] if len(sys.argv) > 2 else "BTC"
         range_key = sys.argv[3] if len(sys.argv) > 3 else "7D"
