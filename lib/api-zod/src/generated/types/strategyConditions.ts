@@ -5,9 +5,11 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { DirectionEval } from './directionEval';
 import type { IndicatorSnapshot } from './indicatorSnapshot';
 import type { StrategyCondition } from './strategyCondition';
 import type { StrategyConditionsBias } from './strategyConditionsBias';
+import type { StrategyConditionsDecision } from './strategyConditionsDecision';
 import type { StrategyConditionsFourHourTrend } from './strategyConditionsFourHourTrend';
 import type { StrategyConditionsOneHourTrend } from './strategyConditionsOneHourTrend';
 import type { StrategyConditionsSignal } from './strategyConditionsSignal';
@@ -21,4 +23,7 @@ export interface StrategyConditions {
   oneHourTrend: StrategyConditionsOneHourTrend;
   fourHourTrend: StrategyConditionsFourHourTrend;
   indicators: IndicatorSnapshot;
+  long?: DirectionEval;
+  short?: DirectionEval;
+  decision?: StrategyConditionsDecision;
 }

@@ -9,6 +9,7 @@
 export * from './activityEvent';
 export * from './directionalEvaluation';
 export * from './directionalEvaluationDecision';
+export * from './directionEval';
 export * from './engineStatus';
 export * from './engineStatusStatus';
 export * from './errorResponse';
@@ -51,6 +52,7 @@ export * from './resetPaperTraderInput';
 export * from './strategyCondition';
 export * from './strategyConditions';
 export * from './strategyConditionsBias';
+export * from './strategyConditionsDecision';
 export * from './strategyConditionsFourHourTrend';
 export * from './strategyConditionsOneHourTrend';
 export * from './strategyConditionsSignal';

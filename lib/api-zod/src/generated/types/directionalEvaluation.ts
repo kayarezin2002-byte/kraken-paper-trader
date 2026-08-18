@@ -9,7 +9,7 @@ import type { DirectionalEvaluationDecision } from './directionalEvaluationDecis
 import type { StrategyCondition } from './strategyCondition';
 
 /**
- * Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.
+ * Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.
  */
 export interface DirectionalEvaluation {
   longScore: number;

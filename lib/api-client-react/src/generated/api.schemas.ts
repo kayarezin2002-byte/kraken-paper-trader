@@ -73,6 +73,21 @@ export const StrategyConditionsFourHourTrend = {
   NEUTRAL: 'NEUTRAL',
 } as const;
 
+export type StrategyConditionsDecision = typeof StrategyConditionsDecision[keyof typeof StrategyConditionsDecision];
+
+
+export const StrategyConditionsDecision = {
+  LONG: 'LONG',
+  SHORT: 'SHORT',
+  NO_TRADE: 'NO_TRADE',
+} as const;
+
+export interface DirectionEval {
+  conditions: StrategyCondition[];
+  passCount: number;
+  score: number;
+}
+
 export interface StrategyConditions {
   conditions: StrategyCondition[];
   passCount: number;
@@ -82,6 +97,9 @@ export interface StrategyConditions {
   oneHourTrend: StrategyConditionsOneHourTrend;
   fourHourTrend: StrategyConditionsFourHourTrend;
   indicators: IndicatorSnapshot;
+  long?: DirectionEval;
+  short?: DirectionEval;
+  decision?: StrategyConditionsDecision;
 }
 
 export type ProposedTradeDirection = typeof ProposedTradeDirection[keyof typeof ProposedTradeDirection];
@@ -363,7 +381,7 @@ export const DirectionalEvaluationDecision = {
 } as const;
 
 /**
- * Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.
+ * Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.
  */
 export interface DirectionalEvaluation {
   longScore: number;

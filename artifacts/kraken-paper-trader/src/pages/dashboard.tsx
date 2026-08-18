@@ -238,7 +238,7 @@ function EngineStatusStrip({ lastCandleAt }: { lastCandleAt: string | null | und
 function noTradeReason(state: PaperTraderState): string | null {
   const conds = state.strategyConditions;
   if (!conds || !conds.conditions || conds.conditions.length === 0) return null;
-  if (conds.bias === 'NEUTRAL') return 'No directional trend on 1h or 4h';
+  if (conds.bias === 'NEUTRAL') return 'No directional edge — LONG and SHORT evaluations tied';
   const failed = conds.conditions.filter((c) => !c.pass).map((c) => c.name);
   if (failed.length === 0) return null;
   return 'Failed: ' + failed.join(', ');
@@ -288,6 +288,16 @@ function LatestScanStrip({ coins, multiState }: { coins: readonly string[]; mult
                   </div>
                   <span className="font-mono-data text-[10px] text-muted-foreground">{pass}/{total}</span>
                 </div>
+                {conds?.long && conds?.short && (
+                  <span className="flex items-center gap-1">
+                    <span className="rounded bg-accent/10 px-1.5 py-0.5 font-mono-data text-[10px] font-semibold text-accent">
+                      L {conds.long.passCount}/6
+                    </span>
+                    <span className="rounded bg-destructive/10 px-1.5 py-0.5 font-mono-data text-[10px] font-semibold text-destructive">
+                      S {conds.short.passCount}/6
+                    </span>
+                  </span>
+                )}
                 {state.opportunity && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-mono-data text-[10px] font-semibold text-primary">
                     score {state.opportunity.score}/{state.opportunity.maxScore}
@@ -435,6 +445,28 @@ function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
                 {state.scanNote} — spot price is still live.
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Dual-direction evaluation */}
+        {state.strategyConditions?.long && state.strategyConditions?.short && (
+          <div
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/70 bg-muted/30 px-3 py-2"
+            data-testid={`dual-direction-${coin}`}
+          >
+            <span className="font-mono-data text-[10px] font-semibold text-accent">
+              LONG {state.strategyConditions.long.passCount}/6 · {state.strategyConditions.long.score}/8
+            </span>
+            <span className="font-mono-data text-[10px] font-semibold text-destructive">
+              SHORT {state.strategyConditions.short.passCount}/6 · {state.strategyConditions.short.score}/8
+            </span>
+            <span className="ml-auto font-mono-data text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+              decision: <span className={
+                (state.strategyConditions.decision ?? state.signal) === 'LONG' ? 'text-accent'
+                : (state.strategyConditions.decision ?? state.signal) === 'SHORT' ? 'text-destructive'
+                : 'text-muted-foreground'
+              }>{(state.strategyConditions.decision ?? state.signal).replace('_', ' ')}</span>
+            </span>
           </div>
         )}
 

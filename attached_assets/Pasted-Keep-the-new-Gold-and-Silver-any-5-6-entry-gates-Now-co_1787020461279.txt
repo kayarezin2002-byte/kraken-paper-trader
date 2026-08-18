@@ -1,0 +1,158 @@
+Keep the new Gold and Silver any-5/6 entry gates.
+
+Now complete the multi-asset LONG + SHORT opportunity system for:
+
+BTC
+ETH
+SOL
+XRP
+GOLD
+SILVER
+
+My goal is to give the bot more legitimate opportunities to make money in both rising and falling markets.
+
+For EVERY asset:
+
+1. Calculate an independent LONG score and an independent SHORT score at the same time.
+
+2. Do not determine one directional bias first and then only test that direction.
+
+3. Continuously evaluate BOTH directions.
+
+Example:
+
+BTC
+LONG: 3/6
+SHORT: 5/6
+Decision: SHORT
+
+GOLD
+LONG: 5/6
+SHORT: 2/6
+Decision: LONG
+
+4. Allow different assets to hold different positions simultaneously.
+
+For example, this should be possible:
+
+BTC SHORT
+ETH LONG
+SOL SHORT
+XRP LONG
+GOLD SHORT
+SILVER LONG
+
+5. Keep a maximum of ONE open directional position per individual asset for now.
+
+Do not hold LONG and SHORT on the same asset simultaneously.
+
+6. Even while an asset has an open position, continue monitoring BOTH LONG and SHORT scores and log any strong opposite signal.
+
+Do not automatically reverse the position yet.
+
+7. Preserve Gold and Silver at ANY 5/6.
+
+8. Do NOT loosen BTC, ETH, SOL or XRP entry thresholds yet.
+
+First implement proper LONG and SHORT evaluation using their current rules.
+
+We will backtest their thresholds separately afterwards.
+
+9. SHORT trades must work correctly:
+
+- falling price = profit
+- rising price = loss
+- stop loss ABOVE entry
+- take profit BELOW entry
+
+LONG trades:
+
+- rising price = profit
+- falling price = loss
+- stop loss BELOW entry
+- take profit ABOVE entry
+
+10. FIX THE CONFIRMED SAFETY-PAUSE BUG.
+
+The code review found that after 3 consecutive losses an asset may remain paused forever because it needs another win to reset, but it cannot trade while paused.
+
+Change this so the safety pause automatically resets at the intended time/day.
+
+Test that an asset:
+
+- reaches 3 consecutive losses
+- enters safety pause
+- remains blocked during the safety period
+- automatically becomes eligible again after the reset
+- does NOT require a manual restart
+
+Keep the safety protection itself.
+
+11. Do not increase risk per trade.
+
+More opportunities must not mean uncontrolled risk.
+
+12. Preserve:
+
+- all balances
+- existing open positions
+- trade history
+- activity history
+- existing risk settings
+
+Do NOT reset the paper trader.
+
+13. Keep:
+
+PAPER_TRADING = true
+LIVE_TRADING = false
+
+No real orders may be possible.
+
+14. Update the dashboard so every asset clearly shows:
+
+LONG score
+SHORT score
+Current decision
+Current position, if any
+
+15. Test:
+
+- LONG winning trade
+- LONG losing trade
+- SHORT winning trade
+- SHORT losing trade
+- LONG stop loss
+- LONG take profit
+- SHORT stop loss
+- SHORT take profit
+- duplicate entry prevention
+- multiple different assets open simultaneously
+- one position maximum per asset
+- safety pause and automatic recovery
+- completed-candle entry logic
+
+16. IMPORTANT:
+
+Do not simply invert every LONG rule and assume it creates a valid SHORT strategy.
+
+Make sure RSI, MACD, trend, MA and other conditions genuinely represent bearish conditions.
+
+17. When finished, tell me exactly:
+
+- LONG rules for each of the 6 assets
+- SHORT rules for each of the 6 assets
+- threshold for each direction
+- how simultaneous opportunities work
+- how SHORT P&L works
+- risk per trade
+- whether the safety-pause bug is fixed
+- tests passed/failed
+- confirmation balances/history were preserved
+- confirmation LIVE_TRADING remains impossible
+
+Do not add range trading yet.
+
+Do not optimise BTC/ETH/SOL/XRP thresholds yet.
+
+Once this is working, the next task will be to backtest LONG and SHORT separately for BTC, ETH, SOL and XRP to find which thresholds produce the best balance of profitability and trade frequency.

@@ -297,7 +297,28 @@ components:
           enum: [BULLISH, BEARISH, NEUTRAL]
         indicators:
           $ref: "#/components/schemas/IndicatorSnapshot"
+        long:
+          $ref: "#/components/schemas/DirectionEval"
+        short:
+          $ref: "#/components/schemas/DirectionEval"
+        decision:
+          type: string
+          enum: [LONG, SHORT, NO_TRADE]
       required: [conditions, passCount, totalCount, bias, signal, oneHourTrend, fourHourTrend, indicators]
+
+    # ── Per-direction evaluation (dual-direction system) ────────────────────
+    DirectionEval:
+      type: object
+      properties:
+        conditions:
+          type: array
+          items:
+            $ref: "#/components/schemas/StrategyCondition"
+        passCount:
+          type: number
+        score:
+          type: number
+      required: [conditions, passCount, score]
 
     # ── Proposed trade (when signal is present but no position open) ────────
     ProposedTrade:
@@ -573,7 +594,7 @@ components:
       description: >
         Independent LONG and SHORT setup evaluation (all six assets).
         Crypto scores are weighted (max 8, gate >= 6); metals are raw condition
-        counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when
+        counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when
         its score reaches its own threshold. PAPER TRADING ONLY.
       properties:
         longScore:

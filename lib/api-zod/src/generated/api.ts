@@ -61,7 +61,28 @@ export const GetPaperTraderStateResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -93,7 +114,7 @@ export const GetPaperTraderStateResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -239,7 +260,28 @@ export const RefreshPaperTraderResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -271,7 +313,7 @@ export const RefreshPaperTraderResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -471,7 +513,28 @@ export const ResetPaperTraderResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -503,7 +566,7 @@ export const ResetPaperTraderResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -651,7 +714,28 @@ export const GetMultiCoinStateResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -683,7 +767,7 @@ export const GetMultiCoinStateResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -824,7 +908,28 @@ export const GetMultiCoinStateResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -856,7 +961,7 @@ export const GetMultiCoinStateResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -997,7 +1102,28 @@ export const GetMultiCoinStateResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -1029,7 +1155,7 @@ export const GetMultiCoinStateResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -1170,7 +1296,28 @@ export const GetMultiCoinStateResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -1202,7 +1349,7 @@ export const GetMultiCoinStateResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -1343,7 +1490,28 @@ export const GetMultiCoinStateResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -1375,7 +1543,7 @@ export const GetMultiCoinStateResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -1516,7 +1684,28 @@ export const GetMultiCoinStateResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -1548,7 +1737,7 @@ export const GetMultiCoinStateResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -1697,7 +1886,28 @@ export const RefreshMultiCoinResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -1729,7 +1939,7 @@ export const RefreshMultiCoinResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -1870,7 +2080,28 @@ export const RefreshMultiCoinResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -1902,7 +2133,7 @@ export const RefreshMultiCoinResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -2043,7 +2274,28 @@ export const RefreshMultiCoinResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -2075,7 +2327,7 @@ export const RefreshMultiCoinResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -2216,7 +2468,28 @@ export const RefreshMultiCoinResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -2248,7 +2521,7 @@ export const RefreshMultiCoinResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -2389,7 +2662,28 @@ export const RefreshMultiCoinResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -2421,7 +2715,7 @@ export const RefreshMultiCoinResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -2562,7 +2856,28 @@ export const RefreshMultiCoinResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -2594,7 +2909,7 @@ export const RefreshMultiCoinResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -2866,7 +3181,28 @@ export const ResetAllCoinsResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -2898,7 +3234,7 @@ export const ResetAllCoinsResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -3039,7 +3375,28 @@ export const ResetAllCoinsResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -3071,7 +3428,7 @@ export const ResetAllCoinsResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -3212,7 +3569,28 @@ export const ResetAllCoinsResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -3244,7 +3622,7 @@ export const ResetAllCoinsResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -3385,7 +3763,28 @@ export const ResetAllCoinsResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -3417,7 +3816,7 @@ export const ResetAllCoinsResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -3558,7 +3957,28 @@ export const ResetAllCoinsResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -3590,7 +4010,7 @@ export const ResetAllCoinsResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),
@@ -3731,7 +4151,28 @@ export const ResetAllCoinsResponse = zod.object({
   "ema20": zod.number().nullable(),
   "ema50": zod.number().nullable(),
   "volume": zod.number().nullable()
-})
+}),
+  "long": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "short": zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "score": zod.number()
+}).optional(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']).optional()
 }),zod.null()]).optional(),
   "proposedTrade": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
@@ -3763,7 +4204,7 @@ export const ResetAllCoinsResponse = zod.object({
   "requiredValue": zod.string(),
   "pass": zod.boolean()
 }))
-}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 5). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "executionDiagnostics": zod.union([zod.object({
   "eligible": zod.boolean(),
   "blockers": zod.array(zod.string()),

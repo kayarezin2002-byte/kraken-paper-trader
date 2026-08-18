@@ -112,7 +112,7 @@ RISK_PER_TRADE      = 0.01     # 1 %
 DAILY_LOSS_LIMIT    = 0.03     # 3 % of starting balance
 MAX_CONSECUTIVE_LOSSES = 3
 GOLD_MIN_PASS       = 5        # GOLD paper gate: at least 5/6 directional conditions (backtest-validated)
-SILVER_MIN_PASS     = 6        # SILVER stays strict 6/6 until backtest evidence supports loosening
+SILVER_MIN_PASS     = 5        # SILVER any-5/6 — user-chosen after 365d backtest review (Aug 2026)
 
 # ── Per-asset directional entry thresholds ─────────────────────────────────
 # Every asset evaluates LONG and SHORT INDEPENDENTLY each completed candle.
@@ -653,139 +653,65 @@ def trend_for(rows: list[list[Any]]) -> str:
         if close < e20 < e50 and macd < sig:
             return "BEARISH"
     return "NEUTRAL"
-
-
-# ---------------------------------------------------------------------------
-# Strategy evaluation — exposed conditions for the dashboard
-# ---------------------------------------------------------------------------
-
 def evaluate_conditions(
     one_hour: list[list[Any]],
     four_hour: list[list[Any]],
 ) -> dict[str, Any]:
     """
-    Evaluate the exact same strategy conditions used by the engine.
-    Returns a structured conditions breakdown for the dashboard.
+    Evaluate the strategy conditions used by the engine — for BOTH directions
+    independently (dual-direction system, Aug 2026).
+
+    LONG and SHORT each get their own 6-condition evaluation and weighted
+    score every scan; neither direction is gated behind a pre-computed bias.
+    `bias` is the direction with the higher pass count (NEUTRAL on a tie) and
+    the legacy `conditions`/`passCount` fields mirror that direction so
+    existing dashboard components keep working.
     """
+    _empty = {
+        "conditions": [],
+        "passCount": 0,
+        "totalCount": 0,
+        "bias": "NEUTRAL",
+        "signal": "NO_TRADE",
+        "oneHourTrend": "NEUTRAL",
+        "fourHourTrend": "NEUTRAL",
+        "indicators": {
+            "rsi": None, "macd": None, "macdSignal": None,
+            "atr": None, "ema20": None, "ema50": None, "volume": None,
+        },
+        "long":  {"conditions": [], "passCount": 0, "score": 0},
+        "short": {"conditions": [], "passCount": 0, "score": 0},
+    }
     if len(one_hour) < 55 or len(four_hour) < 55:
-        return {
-            "conditions": [],
-            "passCount": 0,
-            "totalCount": 0,
-            "bias": "NEUTRAL",
-            "signal": "NO_TRADE",
-            "oneHourTrend": "NEUTRAL",
-            "fourHourTrend": "NEUTRAL",
-            "indicators": {
-                "rsi": None, "macd": None, "macdSignal": None,
-                "atr": None, "ema20": None, "ema50": None, "volume": None,
-            },
-        }
+        return _empty
 
     snap  = indicator_snapshot(one_hour)
     close = float(one_hour[-1][4])
-    avg_vol = snap.get("_avg_volume") or 0.0
-    volume  = snap["volume"] or 0.0
 
     one_hour_trend  = trend_for(one_hour)
     four_hour_trend = trend_for(four_hour)
 
-    # Decide which direction we're evaluating
-    # (bearish conditions are the mirror of bullish)
-    if one_hour_trend == "BULLISH" or four_hour_trend == "BULLISH":
-        direction = "LONG"
-    elif one_hour_trend == "BEARISH" or four_hour_trend == "BEARISH":
-        direction = "SHORT"
+    long_conds  = _direction_conditions("LONG",  snap, close, one_hour_trend, four_hour_trend)
+    short_conds = _direction_conditions("SHORT", snap, close, one_hour_trend, four_hour_trend)
+    long_pass   = sum(1 for cd in long_conds if cd["pass"])
+    short_pass  = sum(1 for cd in short_conds if cd["pass"])
+    long_score  = sum(w for w, cd in zip(OPP_WEIGHTS, long_conds)  if cd["pass"])
+    short_score = sum(w for w, cd in zip(OPP_WEIGHTS, short_conds) if cd["pass"])
+
+    # Display bias = direction with the higher pass count (tie → NEUTRAL).
+    if long_pass > short_pass:
+        bias, conds, pass_count = "LONG", long_conds, long_pass
+    elif short_pass > long_pass:
+        bias, conds, pass_count = "SHORT", short_conds, short_pass
     else:
-        direction = "NEUTRAL"
+        # Tie (usually only the direction-neutral Volume condition passing
+        # on both sides) — no meaningful directional edge.
+        bias = "NEUTRAL"
+        conds, pass_count = long_conds, long_pass
 
-    def c(name: str, current_val: str, required_val: str, passed: bool) -> dict[str, Any]:
-        return {
-            "name": name,
-            "currentValue": current_val,
-            "requiredValue": required_val,
-            "pass": passed,
-        }
-
-    rsi_val  = snap["rsi"]
-    macd_val = snap["macd"]
-    sig_val  = snap["macdSignal"]
-    e20      = snap["ema20"]
-    e50      = snap["ema50"]
-
-    if direction == "LONG":
-        cond_4h    = four_hour_trend == "BULLISH"
-        cond_1h    = one_hour_trend == "BULLISH"
-        cond_rsi   = rsi_val is not None and rsi_val >= 50
-        cond_macd  = macd_val is not None and sig_val is not None and macd_val > sig_val
-        cond_price = e20 is not None and e50 is not None and close > e20 > e50
-        cond_vol   = avg_vol > 0 and volume >= avg_vol * 0.7
-
-        conds = [
-            c("4h Trend",     four_hour_trend,
-              "BULLISH",      cond_4h),
-            c("1h Trend",     one_hour_trend,
-              "BULLISH",      cond_1h),
-            c("RSI",          f"{rsi_val:.1f}" if rsi_val is not None else "—",
-              "≥ 50",         cond_rsi),
-            c("MACD Momentum",
-              f"{macd_val:.4f} > {sig_val:.4f}" if (macd_val is not None and sig_val is not None) else "—",
-              "MACD above signal", cond_macd),
-            c("Price vs MA",
-              f"{close:.2f} > EMA20 {e20:.2f}" if e20 else "—",
-              "Price > EMA20 > EMA50", cond_price),
-            c("Volume",
-              f"{volume:.4f}",
-              f"≥ {avg_vol * 0.7:.4f} (70% avg)", cond_vol),
-        ]
-
-    elif direction == "SHORT":
-        cond_4h    = four_hour_trend == "BEARISH"
-        cond_1h    = one_hour_trend == "BEARISH"
-        cond_rsi   = rsi_val is not None and rsi_val <= 50
-        cond_macd  = macd_val is not None and sig_val is not None and macd_val < sig_val
-        cond_price = e20 is not None and e50 is not None and close < e20 < e50
-        cond_vol   = avg_vol > 0 and volume >= avg_vol * 0.7
-
-        conds = [
-            c("4h Trend",     four_hour_trend,
-              "BEARISH",      cond_4h),
-            c("1h Trend",     one_hour_trend,
-              "BEARISH",      cond_1h),
-            c("RSI",          f"{rsi_val:.1f}" if rsi_val is not None else "—",
-              "≤ 50",         cond_rsi),
-            c("MACD Momentum",
-              f"{macd_val:.4f} < {sig_val:.4f}" if (macd_val is not None and sig_val is not None) else "—",
-              "MACD below signal", cond_macd),
-            c("Price vs MA",
-              f"{close:.2f} < EMA20 {e20:.2f}" if e20 else "—",
-              "Price < EMA20 < EMA50", cond_price),
-            c("Volume",
-              f"{volume:.4f}",
-              f"≥ {avg_vol * 0.7:.4f} (70% avg)", cond_vol),
-        ]
-
-    else:
-        conds = [
-            c("4h Trend",     four_hour_trend, "BULLISH or BEARISH", False),
-            c("1h Trend",     one_hour_trend,  "BULLISH or BEARISH", False),
-            c("RSI",          f"{rsi_val:.1f}" if rsi_val is not None else "—",
-              "≥ 50 (long) or ≤ 50 (short)", False),
-            c("MACD Momentum", "—", "MACD above/below signal", False),
-            c("Price vs MA",   "—", "Price aligned with EMA20/50", False),
-            c("Volume",        f"{volume:.4f}", "≥ 70% of 20-period average", False),
-        ]
-
-    pass_count = sum(1 for cd in conds if cd["pass"])
-
-    # Overall signal (same dual-timeframe rule as refresh())
-    if all(cd["pass"] for cd in conds):
-        if direction == "LONG":
-            signal = "LONG"
-        elif direction == "SHORT":
-            signal = "SHORT"
-        else:
-            signal = "NO_TRADE"
+    # Legacy strict signal: full 6/6 pass in the bias direction
+    if bias in ("LONG", "SHORT") and all(cd["pass"] for cd in conds):
+        signal = bias
     else:
         signal = "NO_TRADE"
 
@@ -795,11 +721,13 @@ def evaluate_conditions(
         "conditions": conds,
         "passCount": pass_count,
         "totalCount": len(conds),
-        "bias": direction,
+        "bias": bias,
         "signal": signal,
         "oneHourTrend": one_hour_trend,
         "fourHourTrend": four_hour_trend,
         "indicators": indicators,
+        "long":  {"conditions": long_conds,  "passCount": long_pass,  "score": long_score},
+        "short": {"conditions": short_conds, "passCount": short_pass, "score": short_score},
     }
 
 
@@ -1621,13 +1549,14 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
 
     # ── Weighted opportunity scoring (paper mode) ──────────────────────────
     opp       = evaluate_opportunity(cond_eval, one_hour, current_price, spread_pct)
-    score     = opp["score"]
     mode      = opp["mode"]
+    score     = opp["score"]
     trend_dir = decision if decision in ("LONG", "SHORT") else cond_eval["bias"]
 
-    # Entry gate: either direction may qualify independently at its own
-    # threshold (same validated >= 6/8 weighted score as before). Hard safety
-    # rule preserved: never trade against a clear 4h trend.
+    # Dual-direction entry gate (Aug 2026): either direction may qualify
+    # independently at its own threshold (same validated >= 6/8 weighted
+    # score as before). Hard safety rule preserved: never trade against a
+    # clear opposing 4h trend.
     trend_entry_ok = (
         mode == "TREND"
         and decision in ("LONG", "SHORT")
@@ -1644,6 +1573,7 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
         signal = "NO_TRADE"
     cond_eval = dict(cond_eval)
     cond_eval["signal"] = signal
+    cond_eval["decision"] = signal
 
     completed_candle_at = datetime.fromtimestamp(
         float(one_hour[-1][0]), timezone.utc
@@ -2078,8 +2008,12 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
     except Exception as error:
         scan_note = f"Scan data unavailable (Yahoo Finance): {error}"
 
+    # Metals entry gate: any 5/6 conditions per direction for BOTH metals —
+    # chosen by user after 365-day backtest review (Aug 2026):
+    #   any-5/6 → +26.6% ROI, Sharpe 1.73; strict 6/6 → +12.0% ROI, Sharpe 1.01
+    # (thresholds live in DIRECTIONAL_THRESHOLDS / GOLD_MIN_PASS / SILVER_MIN_PASS)
     if cond_eval is not None:
-        signal          = cond_eval["signal"]      # GOLD: 5/6 directional; SILVER: strict 6/6
+        signal          = cond_eval["signal"]      # per-metal directional gate
         one_hour_trend  = cond_eval["oneHourTrend"]
         four_hour_trend = cond_eval["fourHourTrend"]
         indicators      = cond_eval["indicators"]
@@ -2280,6 +2214,11 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
                 opened_this_cycle = True
                 opened_position = position
                 open_position = position
+
+    if cond_eval is not None:
+        cond_eval = dict(cond_eval)
+        cond_eval["signal"] = signal
+        cond_eval["decision"] = signal
 
     # --- Status / opportunity panel ---
     current_m = coin_metrics(connection, metal, load_coin_state(connection, metal))
