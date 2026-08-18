@@ -952,6 +952,15 @@ def coin_metrics(connection: sqlite3.Connection, coin: str, state: sqlite3.Row) 
             consecutive += 1
         else:
             break
+    # Day the streak most recently extended at-or-above MAX_CONSECUTIVE_LOSSES.
+    # Using the most recent loss ensures the pause is re-applied each new day
+    # as long as the streak continues (matches metals_backtest.py behaviour).
+    # The pause expires at the next UTC midnight so the bot can resume without
+    # requiring a winning trade to break the deadlock.
+    streak_block_day: str | None = None
+    if consecutive >= MAX_CONSECUTIVE_LOSSES:
+        # trades[-1] is the most recent trade and is always a loss here
+        streak_block_day = trades[-1]["closed_at"][:10]
     return {
         "virtualBalance":     balance,
         "startingBalance":    starting,
@@ -965,6 +974,7 @@ def coin_metrics(connection: sqlite3.Connection, coin: str, state: sqlite3.Row) 
         "maximumDrawdown":    max_dd,
         "dailyLoss":          daily_loss,
         "consecutiveLosses":  consecutive,
+        "streakBlockDay":     streak_block_day,
     }
 
 
@@ -1334,9 +1344,15 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
     if is_new_candle and open_position is None:
         m = coin_metrics(connection, coin, state)
         daily_limit = float(state["starting_balance"]) * DAILY_LOSS_LIMIT
+        # Streak pause expires at the next UTC day boundary so the bot resumes
+        # automatically without needing a winning trade to break the deadlock.
+        streak_paused = (
+            m["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES
+            and m.get("streakBlockDay") == date_key()
+        )
         risk_paused = (
             m["dailyLoss"] >= daily_limit
-            or m["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES
+            or streak_paused
             or float(state["balance"]) <= 0
         )
         if risk_paused:
@@ -1432,8 +1448,12 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
     # --- Update snapshot (re-read state after any writes above) ---
     current_m = coin_metrics(connection, coin, load_coin_state(connection, coin))
     status = "READY"
+    _streak_paused_now = (
+        current_m["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES
+        and current_m.get("streakBlockDay") == date_key()
+    )
     if current_m["dailyLoss"] >= float(state["starting_balance"]) * DAILY_LOSS_LIMIT or \
-       current_m["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES:
+       _streak_paused_now:
         status = "RISK_PAUSED"
 
     # --- Opportunity status block for the dashboard ---
@@ -1686,9 +1706,14 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
     if is_new_candle and open_position is None and cond_eval is not None:
         m = coin_metrics(connection, metal, state)
         daily_limit = float(state["starting_balance"]) * DAILY_LOSS_LIMIT
+        # Streak pause expires at the next UTC day boundary (same rule as crypto).
+        streak_paused = (
+            m["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES
+            and m.get("streakBlockDay") == date_key()
+        )
         risk_paused = (
             m["dailyLoss"] >= daily_limit
-            or m["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES
+            or streak_paused
             or float(state["balance"]) <= 0
         )
         if risk_paused and signal in ("LONG", "SHORT"):
@@ -1767,8 +1792,12 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
     # --- Status / opportunity panel ---
     current_m = coin_metrics(connection, metal, load_coin_state(connection, metal))
     status = "READY"
+    _streak_paused_now = (
+        current_m["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES
+        and current_m.get("streakBlockDay") == date_key()
+    )
     if current_m["dailyLoss"] >= float(state["starting_balance"]) * DAILY_LOSS_LIMIT or \
-       current_m["consecutiveLosses"] >= MAX_CONSECUTIVE_LOSSES:
+       _streak_paused_now:
         status = "RISK_PAUSED"
 
     if open_position or opened_this_cycle:

@@ -280,11 +280,10 @@ def simulate(
     position: dict[str, Any] | None = None
     armed = True
     consecutive_losses = 0
-    # DOCUMENTED DEVIATION from live: the live engine's consecutive-loss pause
-    # never un-pauses (the streak only breaks on a win, but no trades can occur
-    # while paused) — replicated literally it would halt every variant after the
-    # first 3-loss streak. Here a streak >= 3 blocks entries for the remainder
-    # of the UTC day and the streak still only resets on a winning trade.
+    # Consecutive-loss pause: a streak >= MAX_CONSECUTIVE_LOSSES blocks entries
+    # for the remainder of the UTC day only. The streak counter still only resets
+    # on a winning trade, but the day-boundary expiry prevents permanent deadlock.
+    # This matches the fixed live engine rule (Aug 2026 fix).
     daily_abs_loss: dict[str, float] = {}   # live rule: sum |losing trades| per UTC day
     streak_block_day: str | None = None
     equity_peak = balance
