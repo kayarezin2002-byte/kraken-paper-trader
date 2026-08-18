@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DirectionalEvaluation } from './directionalEvaluation';
+import type { ExecutionDiagnostics } from './executionDiagnostics';
 import type { IndicatorSnapshot } from './indicatorSnapshot';
 import type { OpenPosition } from './openPosition';
 import type { Opportunity } from './opportunity';
@@ -31,6 +32,7 @@ export interface PaperTraderState {
   strategyConditions?: StrategyConditions | null;
   proposedTrade?: ProposedTrade | null;
   directional?: DirectionalEvaluation | null;
+  executionDiagnostics?: ExecutionDiagnostics | null;
   opportunity: Opportunity;
   position: OpenPosition | null;
   metrics: PaperTraderMetrics;

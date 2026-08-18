@@ -1,0 +1,240 @@
+STOP making strategy improvements for now.
+
+We have spent a lot of time modifying the strategy but we STILL have not observed a single actual paper trade.
+
+I now want an EXECUTION DIAGNOSTIC and controlled PAPER-TRADE test.
+
+DO NOT enable real trading.
+LIVE_TRADING must remain false.
+
+GOAL:
+Prove that the complete paper execution pipeline actually works:
+
+signal -> entry -> open position -> P&L updates -> exit -> trade history -> balance update.
+
+1. AUDIT WHY ZERO TRADES HAVE OCCURRED
+
+Check every possible blocking condition for all 6 assets:
+
+BTC
+ETH
+SOL
+XRP
+GOLD
+SILVER
+
+Report for each asset:
+
+- current LONG score
+- current SHORT score
+- required LONG threshold
+- required SHORT threshold
+- whether entry is currently eligible
+- whether a position is already open
+- whether duplicate-entry protection is blocking
+- whether new-candle protection is blocking
+- whether cooldown is active
+- whether safety pause is active
+- whether portfolio risk limit is blocking
+- whether market data is valid
+- whether indicator data is valid
+- whether volume=0 is blocking
+- whether stale-data protection is blocking
+- whether any other execution gate is blocking
+
+I want the exact reason why no paper trade has occurred.
+
+2. ADD AN EXECUTION DIAGNOSTICS PANEL
+
+For each asset show:
+
+SIGNAL STATUS
+LONG score
+SHORT score
+threshold
+ENTRY ELIGIBLE: YES/NO
+
+If NO, display every blocker.
+
+Example:
+
+GOLD
+SHORT 5/6
+Threshold 5/6
+
+ENTRY ELIGIBLE: NO
+
+Blocked by:
+- waiting for completed 1h candle
+
+Do not just show "NO TRADE".
+
+3. CONTROLLED PAPER EXECUTION TEST
+
+Create a developer/test-only function that can force ONE simulated paper trade.
+
+This must NEVER call any external trading API.
+
+Example:
+
+TEST_PAPER_TRADE(
+ asset="BTC",
+ direction="LONG",
+ entry=100,
+ stop=98,
+ target=104
+)
+
+Use deterministic fake prices.
+
+Verify:
+
+A. trade is created
+B. open position appears on dashboard
+C. unrealised P&L updates
+D. stop loss closes correctly
+E. take profit closes correctly
+F. trade appears in Trade History
+G. balance updates correctly
+H. win/loss count updates
+I. activity log records everything
+
+Then repeat for a SHORT:
+
+entry = 100
+stop = 102
+target = 96
+
+Verify:
+
+price 100 -> 95 = profit
+
+price 100 -> 103 = loss
+
+4. DO NOT MIX TEST TRADES WITH REAL FORWARD-TEST RESULTS
+
+The forced diagnostic trades must be clearly marked:
+
+TEST / DIAGNOSTIC
+
+Do not count them in actual strategy ROI, win rate, balance, or performance statistics.
+
+If necessary use a temporary test database or rollback the test transaction afterwards.
+
+5. TEST A REAL STRATEGY SIGNAL PATH
+
+After proving manual paper execution works, simulate or replay a historical candle where one of the strategies genuinely met its entry requirements.
+
+Run that signal through the REAL strategy engine.
+
+Verify that it reaches the same paper execution function.
+
+This is important.
+
+I want proof that:
+
+REAL SIGNAL
+-> ENTRY GATE
+-> PAPER EXECUTION
+
+works.
+
+6. CHECK THE 1-HOUR CANDLE GATE
+
+We keep seeing:
+
+"Next entry: Next completed 1h candle"
+
+Audit this carefully.
+
+Make sure the bot is not repeatedly deciding that every candle is incomplete because of:
+
+- timezone problems
+- UTC/local-time conversion
+- timestamp rounding
+- Yahoo candle timestamps
+- stale candle detection
+- refresh timing
+
+Show the last completed candle timestamp and the next eligible evaluation timestamp.
+
+7. CHECK METALS VOLUME
+
+Gold and Silver have repeatedly displayed:
+
+Volume = 0.0000
+
+Determine whether this is a legitimate market-hours value or a data problem.
+
+Do not allow a broken volume feed to permanently prevent metals from trading.
+
+Report exactly where the value comes from.
+
+Do NOT change the strategy based on this yet.
+
+8. CHECK BOT RUNTIME
+
+Confirm that the strategy evaluator actually continues running while nobody has the webpage open.
+
+Report:
+
+- evaluation interval
+- whether Replit deployment must remain running
+- whether it sleeps
+- whether scans continue when my phone/browser is closed
+- whether app restarts lose scheduled scans
+- whether there are any deployment/runtime limitations preventing continuous scanning
+
+This is extremely important.
+
+9. ADD LAST-SCAN INFORMATION
+
+Dashboard should show:
+
+LAST STRATEGY SCAN:
+timestamp
+
+NEXT STRATEGY SCAN:
+timestamp
+
+LAST COMPLETED 1H CANDLE:
+timestamp
+
+ENGINE STATUS:
+RUNNING / PAUSED / ERROR
+
+10. DO NOT CHANGE ENTRY THRESHOLDS
+
+Keep:
+
+Gold = any 5/6
+Silver = any 5/6
+
+Keep the current crypto thresholds.
+
+Do not optimise anything else during this task.
+
+11. FINAL ANSWER
+
+When finished, tell me:
+
+WHY ZERO TRADES HAVE OCCURRED SO FAR
+
+Then report:
+
+- paper execution test PASS/FAIL
+- LONG execution PASS/FAIL
+- SHORT execution PASS/FAIL
+- SL execution PASS/FAIL
+- TP execution PASS/FAIL
+- trade-history recording PASS/FAIL
+- balance update PASS/FAIL
+- real strategy signal -> execution PASS/FAIL
+- candle timing PASS/FAIL
+- safety pause PASS/FAIL
+- market-data status
+- bot runtime status
+
+If there is any bug capable of preventing legitimate trades from opening, FIX IT and clearly explain what was wrong.
+
+Do not add any new trading strategy in this task.

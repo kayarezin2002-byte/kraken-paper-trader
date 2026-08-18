@@ -21,6 +21,7 @@ import type {
 
 import type {
   ActivityEvent,
+  EngineStatus,
   ErrorResponse,
   HealthStatus,
   ListActivityLogParams,
@@ -590,6 +591,83 @@ export const useRefreshMultiCoin = <TError = ErrorType<ErrorResponse>,
       > => {
       return useMutation(getRefreshMultiCoinMutationOptions(options));
     }
+
+export const getGetEngineStatusUrl = () => {
+
+
+
+
+  return `/api/paper-trader/engine`
+}
+
+/**
+ * @summary Background strategy-scan engine status (server-side scheduler)
+ */
+export const getEngineStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<EngineStatus> => {
+
+  return customFetch<EngineStatus>(getGetEngineStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEngineStatusQueryKey = () => {
+    return [
+    `/api/paper-trader/engine`
+    ] as const;
+    }
+
+
+export const getGetEngineStatusQueryOptions = <TData = Awaited<ReturnType<typeof getEngineStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEngineStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEngineStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEngineStatus>>> = ({ signal }) => getEngineStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEngineStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEngineStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getEngineStatus>>>
+export type GetEngineStatusQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Background strategy-scan engine status (server-side scheduler)
+ */
+
+export function useGetEngineStatus<TData = Awaited<ReturnType<typeof getEngineStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEngineStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEngineStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetPortfolioSummaryUrl = () => {
 

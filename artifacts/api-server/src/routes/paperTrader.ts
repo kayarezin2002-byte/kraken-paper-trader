@@ -1,9 +1,8 @@
-import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
-import path from "node:path";
-import { promisify } from "node:util";
 import { Router, type IRouter } from "express";
+import { runBot } from "../lib/bot";
+import { engineStatus } from "../lib/botScheduler";
 import {
+  GetEngineStatusResponse,
   GetMultiCoinStateResponse,
   GetPaperTraderStateResponse,
   GetPortfolioSummaryResponse,
@@ -21,30 +20,7 @@ import {
   ResetPaperTraderResponse,
 } from "@workspace/api-zod";
 
-const execFileAsync = promisify(execFile);
 const router: IRouter = Router();
-
-function botScriptPath() {
-  const candidates = [
-    path.resolve(__dirname, "../../../python_bot/paper_trader.py"),
-    path.resolve(process.cwd(), "python_bot/paper_trader.py"),
-  ];
-  const script = candidates.find((c) => existsSync(c));
-  if (!script) {
-    throw new Error("Python paper trader script was not found");
-  }
-  return script;
-}
-
-async function runBot(command: string, ...args: string[]) {
-  const scriptArgs = [botScriptPath(), command, ...args];
-  const { stdout } = await execFileAsync("python3", scriptArgs, {
-    cwd: path.dirname(botScriptPath()),
-    maxBuffer: 8 * 1024 * 1024,
-    timeout: 60_000,
-  });
-  return JSON.parse(stdout.trim()) as unknown;
-}
 
 // ── Legacy BTC-only endpoints (backward compat) ──────────────────────────────
 
@@ -114,6 +90,10 @@ router.post("/paper-trader/multi-refresh", async (req, res) => {
     req.log.error({ err: error }, "Unable to refresh multi-coin state");
     res.status(502).json({ error: "Unable to refresh Kraken market data for all coins" });
   }
+});
+
+router.get("/paper-trader/engine", (_req, res) => {
+  res.json(GetEngineStatusResponse.parse(engineStatus()));
 });
 
 router.get("/paper-trader/portfolio", async (req, res) => {

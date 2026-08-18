@@ -8,6 +8,7 @@ import {
 import {
   getGetMultiCoinStateQueryKey,
   getListActivityLogQueryKey,
+  useGetEngineStatus,
   useGetMultiCoinState,
   useRefreshMultiCoin,
   useResetAllCoins,
@@ -180,6 +181,55 @@ function DirectionalPanel({ directional, coin }: { directional: NonNullable<Pape
       {d.reason && (
         <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">{d.reason}</p>
       )}
+    </div>
+  );
+}
+
+// ─── Execution diagnostics panel (why is an entry NOT happening right now?) ──
+function ExecutionDiagnosticsPanel({ diag, coin }: { diag: NonNullable<PaperTraderState['executionDiagnostics']>; coin: string }) {
+  return (
+    <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5" data-testid={`exec-diag-${coin}`}>
+      <div className="flex items-center gap-1.5">
+        <span className="font-mono-data text-[10px] font-bold uppercase tracking-wider text-foreground">Execution diagnostics</span>
+        <span className={`ml-auto rounded-full px-2 py-0.5 font-mono-data text-[9px] font-semibold uppercase tracking-wider ${
+          diag.eligible ? 'bg-accent/10 text-accent' : 'bg-muted text-muted-foreground'
+        }`}>
+          Entry eligible: {diag.eligible ? 'YES' : 'NO'}
+        </span>
+      </div>
+      {!diag.eligible && diag.blockers.length > 0 && (
+        <ul className="mt-1.5 space-y-0.5">
+          {diag.blockers.map((b) => (
+            <li key={b} className="flex items-start gap-1.5 text-[10px] leading-relaxed text-muted-foreground">
+              <XCircle size={10} className="mt-0.5 shrink-0 text-destructive/70" />
+              <span>{b}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ─── Engine status strip (server-side scan scheduler) ───────────────────────
+function EngineStatusStrip({ lastCandleAt }: { lastCandleAt: string | null | undefined }) {
+  const { data: engine } = useGetEngineStatus({ query: { queryKey: ['engine-status'], refetchInterval: 30000 } });
+  if (!engine) return null;
+  const tone =
+    engine.status === 'RUNNING' ? 'text-accent'
+    : engine.status === 'ERROR' ? 'text-destructive'
+    : 'text-muted-foreground';
+  return (
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-border/60 bg-card px-4 py-2.5" data-testid="engine-status">
+      <span className="flex items-center gap-1.5 font-mono-data text-[10px] font-bold uppercase tracking-wider">
+        <span className={`h-1.5 w-1.5 rounded-full ${engine.status === 'RUNNING' ? 'bg-accent pulse-dot' : engine.status === 'ERROR' ? 'bg-destructive' : 'bg-muted-foreground'}`} />
+        Engine <span className={tone}>{engine.status}</span>
+      </span>
+      <span className="font-mono-data text-[10px] text-muted-foreground">Last strategy scan: <span className="text-foreground">{dateTime(engine.lastScanAt)}</span></span>
+      <span className="font-mono-data text-[10px] text-muted-foreground">Next strategy scan: <span className="text-foreground">{dateTime(engine.nextScanAt)}</span></span>
+      <span className="font-mono-data text-[10px] text-muted-foreground">Last completed 1h candle: <span className="text-foreground">{dateTime(lastCandleAt)}</span></span>
+      <span className="font-mono-data text-[10px] text-muted-foreground">scans every {engine.intervalSeconds}s server-side (browser can be closed)</span>
+      {engine.lastError && <span className="font-mono-data text-[10px] text-destructive">last error: {engine.lastError.slice(0, 120)}</span>}
     </div>
   );
 }
@@ -393,6 +443,9 @@ function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
 
         {/* Independent LONG/SHORT directional scores (all assets) */}
         {state.directional && <DirectionalPanel directional={state.directional} coin={coin} />}
+
+        {/* Why is an entry not happening right now? */}
+        {state.executionDiagnostics && <ExecutionDiagnosticsPanel diag={state.executionDiagnostics} coin={coin} />}
 
         {/* Strategy conditions */}
         <StrategyConditionsPanel
@@ -709,6 +762,9 @@ export default function Dashboard() {
             ))}
           </div>
         </section>
+
+        {/* ─── Background engine status (scans continue with browser closed) ── */}
+        <EngineStatusStrip lastCandleAt={multiState.BTC?.market.lastCompletedCandleAt} />
 
         {/* ─── Latest strategy scan strip ───────────────────────────────── */}
         <LatestScanStrip coins={COINS} multiState={multiState as unknown as Record<string, PaperTraderState>} />

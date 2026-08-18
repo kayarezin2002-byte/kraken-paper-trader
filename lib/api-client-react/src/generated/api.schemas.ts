@@ -379,6 +379,18 @@ export interface DirectionalEvaluation {
   shortConditions: StrategyCondition[];
 }
 
+/**
+ * Explicit entry-eligibility report — every active blocker, named.
+ */
+export interface ExecutionDiagnostics {
+  eligible: boolean;
+  blockers: string[];
+  /** @nullable */
+  lastCompletedCandleAt?: string | null;
+  /** @nullable */
+  checkedAt?: string | null;
+}
+
 export type OpportunityMode = typeof OpportunityMode[keyof typeof OpportunityMode];
 
 
@@ -420,6 +432,7 @@ export interface PaperTraderState {
   strategyConditions?: StrategyConditions | null;
   proposedTrade?: ProposedTrade | null;
   directional?: DirectionalEvaluation | null;
+  executionDiagnostics?: ExecutionDiagnostics | null;
   opportunity: Opportunity;
   position: OpenPosition | null;
   metrics: PaperTraderMetrics;
@@ -440,6 +453,30 @@ export interface MultiCoinState {
   XRP: PaperTraderState;
   GOLD: PaperTraderState;
   SILVER: PaperTraderState;
+}
+
+export type EngineStatusStatus = typeof EngineStatusStatus[keyof typeof EngineStatusStatus];
+
+
+export const EngineStatusStatus = {
+  RUNNING: 'RUNNING',
+  ERROR: 'ERROR',
+  STARTING: 'STARTING',
+} as const;
+
+/**
+ * Status of the background strategy-scan scheduler in the API server.
+ */
+export interface EngineStatus {
+  status: EngineStatusStatus;
+  /** @nullable */
+  lastScanAt: string | null;
+  /** @nullable */
+  nextScanAt: string | null;
+  intervalSeconds: number;
+  /** @nullable */
+  lastError: string | null;
+  scansCompleted: number;
 }
 
 export type PortfolioSummaryCoins = {[key: string]: PaperTraderMetrics};

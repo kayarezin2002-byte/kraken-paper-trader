@@ -14,7 +14,7 @@ import os
 import sqlite3
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -183,7 +183,10 @@ def round_amount(value: float | None) -> float | None:
 
 def db() -> sqlite3.Connection:
     os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
-    connection = sqlite3.connect(DB_PATH)
+    # busy_timeout: defense-in-depth against "database is locked" if two bot
+    # processes ever overlap (the API server also serializes invocations).
+    connection = sqlite3.connect(DB_PATH, timeout=30.0)
+    connection.execute("PRAGMA busy_timeout = 30000")
     connection.row_factory = sqlite3.Row
     return connection
 
@@ -987,6 +990,80 @@ def _directional_diag_block(dir_eval: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def build_execution_diagnostics(
+    *,
+    dir_eval: dict[str, Any] | None,
+    open_position: dict[str, Any] | None,
+    is_new_candle: bool,
+    armed: bool,
+    risk_paused: bool,
+    danger_reason: str | None,
+    portfolio_block: str | None,
+    completed_candle_at: str | None,
+    data_error: str | None = None,
+    volume: float | None = None,
+    counter_trend_block: str | None = None,
+    signal: str = "NO_TRADE",
+) -> dict[str, Any]:
+    """Explicit per-asset entry-eligibility report: every active blocker, named.
+
+    Powers the dashboard 'Execution diagnostics' panel so 'NO TRADE' is never
+    shown without the exact reasons.
+    """
+    blockers: list[str] = []
+    if data_error:
+        blockers.append(f"Market data problem: {data_error}")
+    if dir_eval is None:
+        if not data_error:
+            blockers.append("No indicator data (scan feed unavailable)")
+    elif signal not in ("LONG", "SHORT"):
+        # A live LONG/SHORT signal (trend gate passed, or a valid range setup)
+        # supersedes the raw directional scores — only report the score gate
+        # as a blocker when there is genuinely no entry signal.
+        ls, ss = dir_eval["long"]["score"], dir_eval["short"]["score"]
+        mx = dir_eval["maxScore"]
+        lg, sg = dir_eval["threshold"], dir_eval["shortThreshold"]
+        if ls < lg and ss < sg:
+            blockers.append(
+                f"Signal below threshold (LONG {ls}/{mx} needs {lg}, SHORT {ss}/{mx} needs {sg})")
+        elif dir_eval["decision"] == "NO_TRADE":
+            blockers.append(f"Directional conflict: {dir_eval['decisionReason']}")
+    if open_position is not None:
+        blockers.append(
+            f"Position already open ({open_position['direction']}) — one position per asset")
+    if not is_new_candle:
+        nxt = None
+        if completed_candle_at:
+            try:
+                # completed_candle_at is the candle's START time; the NEXT
+                # candle (start +1h) finishes — and becomes evaluable — at +2h.
+                nxt = (datetime.fromisoformat(completed_candle_at)
+                       + timedelta(hours=2)).isoformat()
+            except ValueError:
+                nxt = None
+        blockers.append(
+            "Waiting for a new completed 1h candle"
+            + (f" (last completed candle started {completed_candle_at}; next one completes ~{nxt})" if nxt else ""))
+    if not armed:
+        blockers.append("Duplicate-entry protection: same setup already traded — needs the signal to reset")
+    if risk_paused:
+        blockers.append("Safety pause active (daily loss limit or 3-loss streak — resets next UTC day)")
+    if danger_reason:
+        blockers.append(f"DANGER mode: {danger_reason}")
+    if counter_trend_block:
+        blockers.append(counter_trend_block)
+    if portfolio_block:
+        blockers.append(portfolio_block)
+    if volume is not None and volume <= 0:
+        blockers.append("Latest candle volume is 0 (fails the Volume condition while the 20-period average is > 0)")
+    return {
+        "eligible": len(blockers) == 0,
+        "blockers": blockers,
+        "lastCompletedCandleAt": completed_candle_at,
+        "checkedAt": now_iso(),
+    }
+
+
 def portfolio_open_risk(connection: sqlite3.Connection) -> dict[str, Any]:
     """Aggregate open risk across all six paper accounts.
 
@@ -1324,6 +1401,19 @@ def build_coin_state(
     # that API_ERROR (with null currentPrice) survives multi-state reads without
     # reverting to the "WAITING_FOR_DATA" default.
     status = data.get("botStatus") or status
+    # On data-error / no-data states, never show stale diagnostics: report the
+    # data problem itself as the current blocker.
+    exec_diag = data.get("executionDiagnostics")
+    if status in ("API_ERROR", "WAITING_FOR_DATA"):
+        exec_diag = {
+            "eligible": False,
+            "blockers": [
+                f"Market data problem: {current_message}" if current_message
+                else "Waiting for market data (no successful scan yet)"
+            ],
+            "lastCompletedCandleAt": data.get("lastCompletedCandleAt"),
+            "checkedAt": now_iso(),
+        }
     metrics = coin_metrics(connection, coin, state)
 
     # Compute unrealised PnL for open position
@@ -1358,6 +1448,7 @@ def build_coin_state(
         "strategyConditions": data.get("strategyConditions"),
         "proposedTrade":      data.get("proposedTrade"),
         "directional":        data.get("directional"),
+        "executionDiagnostics": exec_diag,
         "opportunity":        _opportunity_with_last_trade(connection, coin, data, open_position),
         "position":           open_position,
         "metrics":            metrics,
@@ -1605,6 +1696,7 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
     prop_trade: dict[str, Any] | None = None
     execution_block_reason: str | None = None
     opened_this_cycle = False
+    opened_position: dict[str, Any] | None = None
 
     # Re-arm re-entry protection: requires a NEW candle AND the previous setup
     # actually going away (changed signal state / threshold no longer crossed).
@@ -1752,6 +1844,7 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
                     f"| SL £{stop_loss:,.2f} | TP £{take_profit:,.2f} | risk £{risk_amount:.2f}",
                 )
                 opened_this_cycle = True
+                opened_position = position
         elif signal in ("LONG", "SHORT") and open_position is None:
             prop_trade = proposed_trade(signal, current_price, indicators, float(state["balance"]))
 
@@ -1861,6 +1954,23 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
         "strategyConditions":     cond_eval,
         "proposedTrade":          prop_trade,
         "directional":            _directional_snapshot_block(dir_eval),
+        "executionDiagnostics":   build_execution_diagnostics(
+            dir_eval=dir_eval,
+            open_position=open_position or opened_position,
+            is_new_candle=is_new_candle,
+            armed=armed,
+            risk_paused=(status == "RISK_PAUSED"),
+            danger_reason=opp.get("dangerReason") if mode == "DANGER" else None,
+            portfolio_block=execution_block_reason,
+            completed_candle_at=completed_candle_at,
+            volume=indicators.get("volume"),
+            signal=signal,
+            counter_trend_block=(
+                f"Hard rule: cannot go {decision} against a {four_hour_trend} 4h trend"
+                if (decision in ("LONG", "SHORT") and not trend_entry_ok and mode == "TREND")
+                else None
+            ),
+        ),
         "opportunity":            opportunity,
         "botStatus":              status,
     }
@@ -2038,6 +2148,7 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
     )
     execution_block_reason: str | None = None
     opened_this_cycle = False
+    opened_position: dict[str, Any] | None = None
 
     # Re-arm re-entry protection: needs a new candle AND the signal to change
     candidate_signal = signal if signal in ("LONG", "SHORT") else "NONE"
@@ -2167,6 +2278,7 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
                     f"| conditions: {position['entryConditions'] or 'none'}",
                 )
                 opened_this_cycle = True
+                opened_position = position
                 open_position = position
 
     # --- Status / opportunity panel ---
@@ -2268,6 +2380,19 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
         "proposedTrade":         None,
         "directional":           (
             _directional_snapshot_block(dir_eval) if dir_eval is not None else None
+        ),
+        "executionDiagnostics":  build_execution_diagnostics(
+            dir_eval=dir_eval,
+            open_position=open_position or opened_position,
+            is_new_candle=is_new_candle,
+            armed=armed,
+            risk_paused=(status == "RISK_PAUSED"),
+            danger_reason=None,
+            portfolio_block=execution_block_reason,
+            completed_candle_at=completed_candle_at,
+            data_error=scan_note,
+            volume=(indicators or {}).get("volume") if indicators else None,
+            signal=signal,
         ),
         "opportunity":           metal_opportunity,
         "botStatus":             status,

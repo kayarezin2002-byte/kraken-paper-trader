@@ -133,6 +133,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /paper-trader/engine:
+    get:
+      operationId: getEngineStatus
+      tags: [paper-trader]
+      summary: Background strategy-scan engine status (server-side scheduler)
+      responses:
+        "200":
+          description: Engine status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EngineStatus"
+
   /paper-trader/portfolio:
     get:
       operationId: getPortfolioSummary
@@ -492,6 +505,10 @@ components:
           oneOf:
             - $ref: "#/components/schemas/DirectionalEvaluation"
             - type: "null"
+        executionDiagnostics:
+          oneOf:
+            - $ref: "#/components/schemas/ExecutionDiagnostics"
+            - type: "null"
         opportunity:
           $ref: "#/components/schemas/Opportunity"
         position:
@@ -631,6 +648,42 @@ components:
         SILVER:
           $ref: "#/components/schemas/PaperTraderState"
       required: [BTC, ETH, SOL, XRP, GOLD, SILVER]
+
+    # ── Engine (server-side scan scheduler) ─────────────────────────────────
+    EngineStatus:
+      type: object
+      description: Status of the background strategy-scan scheduler in the API server.
+      properties:
+        status:
+          type: string
+          enum: [RUNNING, ERROR, STARTING]
+        lastScanAt:
+          type: ["string", "null"]
+        nextScanAt:
+          type: ["string", "null"]
+        intervalSeconds:
+          type: number
+        lastError:
+          type: ["string", "null"]
+        scansCompleted:
+          type: number
+      required: [status, lastScanAt, nextScanAt, intervalSeconds, lastError, scansCompleted]
+
+    ExecutionDiagnostics:
+      type: object
+      description: Explicit entry-eligibility report — every active blocker, named.
+      properties:
+        eligible:
+          type: boolean
+        blockers:
+          type: array
+          items:
+            type: string
+        lastCompletedCandleAt:
+          type: ["string", "null"]
+        checkedAt:
+          type: ["string", "null"]
+      required: [eligible, blockers]
 
     # ── Portfolio ───────────────────────────────────────────────────────────
     PortfolioSummary:
