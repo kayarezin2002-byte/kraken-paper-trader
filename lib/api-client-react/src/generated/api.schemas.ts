@@ -5,6 +5,34 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface PnlDataPoint {
+  /** ISO timestamp when the trade closed */
+  ts: string;
+  /** Cumulative profit/loss in account currency up to this trade */
+  cumulativePnl: number;
+  /** Cumulative P&L as a percentage of starting balance */
+  cumulativePnlPct: number;
+  /** Account balance after this trade (absent for combined CRYPTO series) */
+  balance?: number | null;
+}
+
+/**
+ * Map of asset key (BTC, ETH, SOL, XRP, GOLD, SILVER, CRYPTO) to its data points
+ */
+export type PnlSeriesResultSeries = {[key: string]: PnlDataPoint[]};
+
+/**
+ * Starting balance per asset key
+ */
+export type PnlSeriesResultStartingBalances = {[key: string]: number};
+
+export interface PnlSeriesResult {
+  /** Map of asset key (BTC, ETH, SOL, XRP, GOLD, SILVER, CRYPTO) to its data points */
+  series: PnlSeriesResultSeries;
+  /** Starting balance per asset key */
+  startingBalances: PnlSeriesResultStartingBalances;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -167,6 +195,21 @@ export interface OpenPosition {
   unrealisedPct?: number | null;
   /** @nullable */
   currentPrice?: number | null;
+  /**
+     * Best (most favourable) price seen while the position has been open.
+     * @nullable
+     */
+  bestPrice?: number | null;
+  /**
+     * Worst (most adverse) price seen while the position has been open.
+     * @nullable
+     */
+  worstPrice?: number | null;
+  /**
+     * Stop-loss at entry, before any break-even/trailing tightening.
+     * @nullable
+     */
+  initialStop?: number | null;
 }
 
 export type PaperTradeDirection = typeof PaperTradeDirection[keyof typeof PaperTradeDirection];
@@ -193,6 +236,7 @@ export const PaperTradeExitReason = {
   TAKE_PROFIT: 'TAKE_PROFIT',
   STOP_LOSS: 'STOP_LOSS',
   SIGNAL_REVERSAL: 'SIGNAL_REVERSAL',
+  MAX_HOLD_TIME: 'MAX_HOLD_TIME',
   MANUAL: 'MANUAL',
 } as const;
 
@@ -259,6 +303,21 @@ export interface PaperTrade {
      * @nullable
      */
   strategy?: string | null;
+  /**
+     * Estimated exchange fees (taker, both sides). Recorded only; paper fills are cost-free.
+     * @nullable
+     */
+  estFees?: number | null;
+  /**
+     * Estimated slippage (half entry-time spread per side).
+     * @nullable
+     */
+  estSlippage?: number | null;
+  /**
+     * profitLoss minus estimated fees and slippage.
+     * @nullable
+     */
+  pnlNet?: number | null;
 }
 
 export interface PaperTraderMetrics {
@@ -486,6 +545,18 @@ export const ActiveStrategyStateFifteenTrend = {
 } as const;
 
 /**
+ * @nullable
+ */
+export type ActiveStrategyStateThresholdMode = typeof ActiveStrategyStateThresholdMode[keyof typeof ActiveStrategyStateThresholdMode] | null;
+
+
+export const ActiveStrategyStateThresholdMode = {
+  CONSERVATIVE: 'CONSERVATIVE',
+  NORMAL: 'NORMAL',
+  AGGRESSIVE: 'AGGRESSIVE',
+} as const;
+
+/**
  * Latest scan state of the parallel ACTIVE 15-minute strategy.
  */
 export interface ActiveStrategyState {
@@ -514,6 +585,25 @@ export interface ActiveStrategyState {
   fifteenTrend?: ActiveStrategyStateFifteenTrend;
   /** @nullable */
   blockReason?: string | null;
+  /**
+     * When the next 15m candle completes and entries are re-evaluated.
+     * @nullable
+     */
+  nextEvaluationAt?: string | null;
+  /** @nullable */
+  thresholdMode?: ActiveStrategyStateThresholdMode;
+  /**
+     * True when a qualified signal has no remaining blocker (or just executed).
+     * @nullable
+     */
+  entryEligible?: boolean | null;
+  /**
+     * Exact remaining blocker, or "No blocker — order should execute…".
+     * @nullable
+     */
+  executionBlocker?: string | null;
+  /** @nullable */
+  hasOpenPosition?: boolean | null;
 }
 
 export interface PaperTraderState {
@@ -566,6 +656,16 @@ export interface StrategyStatsBlock {
   /** @nullable */
   profitFactor: number | null;
   maxDrawdown: number;
+  /**
+     * Sum of estimated fees + slippage across the bucket.
+     * @nullable
+     */
+  estCosts?: number | null;
+  /**
+     * pnl minus estCosts (expectancy after trading costs).
+     * @nullable
+     */
+  pnlNet?: number | null;
 }
 
 export interface StrategyStats {
@@ -696,6 +796,19 @@ export interface EngineHealthStatus {
 
 export type PortfolioSummaryCoins = {[key: string]: PaperTraderMetrics};
 
+/**
+ * Current ACTIVE strategy threshold mode (user-selected, never auto-switched).
+ * @nullable
+ */
+export type PortfolioSummaryActiveMode = typeof PortfolioSummaryActiveMode[keyof typeof PortfolioSummaryActiveMode] | null;
+
+
+export const PortfolioSummaryActiveMode = {
+  CONSERVATIVE: 'CONSERVATIVE',
+  NORMAL: 'NORMAL',
+  AGGRESSIVE: 'AGGRESSIVE',
+} as const;
+
 export interface PortfolioSummary {
   /** @nullable */
   openPositions?: number | null;
@@ -720,6 +833,16 @@ export interface PortfolioSummary {
   overallWinRate: number;
   coins: PortfolioSummaryCoins;
   strategyStats?: StrategyStats | null;
+  /**
+     * Current ACTIVE strategy threshold mode (user-selected, never auto-switched).
+     * @nullable
+     */
+  activeMode?: PortfolioSummaryActiveMode;
+  /**
+     * Conditions required by the current ACTIVE mode (3, 4, or 5 of 6).
+     * @nullable
+     */
+  activeThreshold?: number | null;
 }
 
 export interface ActivityEvent {
@@ -728,6 +851,29 @@ export interface ActivityEvent {
   event: string;
   message: string;
   ts: string;
+}
+
+export type SetActiveModeInputMode = typeof SetActiveModeInputMode[keyof typeof SetActiveModeInputMode];
+
+
+export const SetActiveModeInputMode = {
+  CONSERVATIVE: 'CONSERVATIVE',
+  NORMAL: 'NORMAL',
+  AGGRESSIVE: 'AGGRESSIVE',
+} as const;
+
+export interface SetActiveModeInput {
+  mode: SetActiveModeInputMode;
+}
+
+export interface SetActiveModeResult {
+  ok: boolean;
+  /** @nullable */
+  mode?: string | null;
+  /** @nullable */
+  threshold?: number | null;
+  /** @nullable */
+  error?: string | null;
 }
 
 export interface ResetPaperTraderInput {
@@ -798,23 +944,4 @@ export type ListAllTradesParams = {
  */
 limit?: number;
 };
-
-// ── P&L series ───────────────────────────────────────────────────────────────
-export interface PnlDataPoint {
-  /** ISO timestamp when the trade closed */
-  ts: string;
-  /** Cumulative profit/loss in account currency */
-  cumulativePnl: number;
-  /** Cumulative P&L as % of starting balance */
-  cumulativePnlPct: number;
-  /** Account balance after trade (absent for CRYPTO combined series) */
-  balance?: number | null;
-}
-
-export interface PnlSeriesResult {
-  /** Map of asset key (BTC, ETH, SOL, XRP, GOLD, SILVER, CRYPTO) to data points */
-  series: Record<string, PnlDataPoint[]>;
-  /** Starting balance per asset key */
-  startingBalances: Record<string, number>;
-}
 

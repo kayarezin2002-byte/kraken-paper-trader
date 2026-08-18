@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  AlertTriangle, ArrowDownRight, ArrowUpRight, BarChart3, CandlestickChart, CheckCircle2,
+  AlertTriangle, ArrowDownRight, ArrowUpRight, BarChart3, Briefcase, CandlestickChart, CheckCircle2,
   ChevronDown, ChevronUp, Clock3, RefreshCw, RotateCcw, ScanSearch,
   ShieldAlert, Target, TrendingDown, TrendingUp, Wallet, XCircle, Zap,
 } from 'lucide-react';
@@ -15,6 +15,7 @@ import {
   useListAllTrades,
   useRefreshMultiCoin,
   useResetAllCoins,
+  useSetActiveMode,
   useListActivityLog,
   type PaperTraderState,
 } from '@workspace/api-client-react';
@@ -23,6 +24,7 @@ import { StrategyConditionsPanel } from '@/components/strategy-conditions';
 import { AssetChart } from '@/components/asset-chart';
 import { PnlChart } from '@/components/pnl-chart';
 import { LineChart } from 'lucide-react';
+import { Link } from 'wouter';
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
 const money = (v: number | null | undefined, d = 2, sym = '£') =>
@@ -280,13 +282,48 @@ function noTradeReason(state: PaperTraderState): string | null {
   return 'Failed: ' + failed.join(', ');
 }
 
+const ACTIVE_MODE_GATES: Record<string, number> = { CONSERVATIVE: 5, NORMAL: 4, AGGRESSIVE: 3 };
+
+function ActiveModeSelector({ multiState }: { multiState: Record<string, PaperTraderState> }) {
+  const queryClient = useQueryClient();
+  const setMode = useSetActiveMode();
+  const current = Object.values(multiState).find((s) => s?.active?.thresholdMode)?.active?.thresholdMode ?? 'NORMAL';
+  return (
+    <div className="flex items-center gap-1" data-testid="active-mode-selector">
+      <span className="font-mono-data text-[9px] uppercase tracking-wider text-muted-foreground">Active gate:</span>
+      {(['CONSERVATIVE', 'NORMAL', 'AGGRESSIVE'] as const).map((m) => (
+        <button
+          key={m}
+          type="button"
+          disabled={setMode.isPending}
+          data-testid={`active-mode-${m.toLowerCase()}`}
+          onClick={() => {
+            if (m === current) return;
+            if (m === 'AGGRESSIVE' && !window.confirm('Switch the ACTIVE strategy to the AGGRESSIVE 3/6 gate? This produces more (lower-quality) paper trades. It is never switched automatically.')) return;
+            setMode.mutate({ data: { mode: m } }, {
+              onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetMultiCoinStateQueryKey() }),
+            });
+          }}
+          className={`rounded px-1.5 py-0.5 font-mono-data text-[9px] font-bold uppercase ${
+            m === current ? 'bg-cyan-500/20 text-cyan-500' : 'text-muted-foreground hover:bg-muted'
+          }`}
+        >
+          {m.slice(0, 4)} {ACTIVE_MODE_GATES[m]}/6
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function LatestScanStrip({ coins, multiState }: { coins: readonly string[]; multiState: Record<string, PaperTraderState> }) {
+  const activeGate = Object.values(multiState).find((s) => s?.active?.threshold != null)?.active?.threshold ?? 4;
   return (
     <section className="rise-in overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_10px_32px_hsl(215_35%_13%_/_0.05)]">
-      <div className="flex items-center gap-2 border-b border-border/70 px-5 py-4 sm:px-6">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border/70 px-5 py-4 sm:px-6">
         <ScanSearch size={16} className="text-sky-400" />
         <h2 className="text-sm font-extrabold">Latest strategy scan</h2>
-        <span className="ml-auto font-mono-data text-[10px] uppercase tracking-wider text-muted-foreground">CORE: crypto ≥ 6/8 weighted · metals ≥ 5/6 conditions · ACTIVE: 15m ≥ 4/6 · + hard safety rules</span>
+        <span className="ml-auto font-mono-data text-[10px] uppercase tracking-wider text-muted-foreground">HIGH-CONFIDENCE: crypto ≥ 6/8 weighted · metals ≥ 5/6 conditions · ACTIVE: 15m ≥ {activeGate}/6 · + hard safety rules</span>
+        <ActiveModeSelector multiState={multiState} />
       </div>
       <div className="divide-y divide-border/50">
         {coins.map((coin) => {
@@ -453,6 +490,10 @@ function ActiveStrategyPanel({ coin, state }: { coin: string; state: PaperTrader
   if (!a) return null;
   const threshold = a.threshold ?? 4;
   const max = a.maxScore ?? 6;
+  const nextEval = a.nextEvaluationAt
+    ? new Date(a.nextEvaluationAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : null;
+  const qualified = a.decision === 'LONG' || a.decision === 'SHORT';
   const side = (label: string, score: number | null | undefined, conds: NonNullable<typeof a.longConditions>, hot: boolean, tone: 'long' | 'short') => (
     <div className={`rounded-lg border px-2.5 py-2 ${hot ? (tone === 'long' ? 'border-accent/40 bg-accent/5' : 'border-destructive/40 bg-destructive/5') : 'border-border/60 bg-muted/20'}`}>
       <div className="flex items-center justify-between">
@@ -474,10 +515,13 @@ function ActiveStrategyPanel({ coin, state }: { coin: string; state: PaperTrader
     <div className="rounded-lg border border-cyan-500/25 bg-cyan-500/5 px-3 py-2.5" data-testid={`active-strategy-${coin}`}>
       <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between">
         <span className="font-mono-data text-[10px] font-bold uppercase tracking-wider text-cyan-500">
-          ACTIVE · 15m entries · 1h context
+          ACTIVE · 15m entries · 1h context{a.thresholdMode && a.thresholdMode !== 'NORMAL' ? ` · ${a.thresholdMode}` : ''}
         </span>
         <span className="font-mono-data text-[9px] uppercase tracking-wider text-muted-foreground">
-          {a.status === 'API_ERROR' ? 'data error' : a.decision === 'NO_TRADE' || !a.decision ? 'waiting' : a.decision}
+          {a.status === 'API_ERROR' ? 'data error'
+            : a.hasOpenPosition ? 'ACTIVE — in position'
+            : qualified ? `${a.decision} QUALIFIED`
+            : 'WAIT'}
           {open ? ' ▴' : ' ▾'}
         </span>
       </button>
@@ -492,9 +536,23 @@ function ActiveStrategyPanel({ coin, state }: { coin: string; state: PaperTrader
           {open && a.decisionReason && (
             <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">{a.decisionReason}</p>
           )}
-          {a.blockReason && (
-            <p className="mt-1.5 text-[10px] text-amber-500">{a.blockReason}</p>
-          )}
+          {/* EXECUTION diagnostics: exact remaining blocker, never a vague "no" */}
+          <div className="mt-2 rounded-md border border-border/60 bg-muted/20 px-2 py-1.5" data-testid={`active-execution-${coin}`}>
+            <div className="flex items-center justify-between">
+              <span className="font-mono-data text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Execution</span>
+              <span className={`font-mono-data text-[9px] font-bold uppercase ${a.entryEligible ? 'text-accent' : 'text-muted-foreground'}`}>
+                {a.entryEligible ? `ELIGIBLE${qualified ? ` · ${a.decision}` : ''}` : 'NOT ELIGIBLE'}
+              </span>
+            </div>
+            {a.executionBlocker && (
+              <p className={`mt-0.5 text-[10px] leading-relaxed ${a.executionBlocker.startsWith('No blocker') ? 'text-accent' : 'text-amber-500'}`}>
+                {a.executionBlocker}
+              </p>
+            )}
+            {nextEval && (
+              <p className="mt-0.5 text-[9px] text-muted-foreground">Next 15m evaluation ≈ {nextEval}</p>
+            )}
+          </div>
         </>
       )}
     </div>
@@ -694,7 +752,13 @@ function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
 
 // ─── Open positions summary section ──────────────────────────────────────────
 function OpenPositionsSummary({ coins }: { coins: Record<string, PaperTraderState> }) {
-  const openPositions = Object.entries(coins).filter(([, s]) => s.position != null);
+  // Both slots per asset: HIGH-CONFIDENCE (1h) and ACTIVE (15m)
+  const openPositions = Object.entries(coins).flatMap(([coin, s]) => {
+    const rows: { coin: string; state: PaperTraderState; pos: NonNullable<PaperTraderState['position']>; strategy: 'HIGH-CONF' | 'ACTIVE' }[] = [];
+    if (s.position) rows.push({ coin, state: s, pos: s.position, strategy: 'HIGH-CONF' });
+    if (s.activePosition) rows.push({ coin, state: s, pos: s.activePosition, strategy: 'ACTIVE' });
+    return rows;
+  });
   if (openPositions.length === 0) return null;
 
   return (
@@ -709,6 +773,7 @@ function OpenPositionsSummary({ coins }: { coins: Record<string, PaperTraderStat
           <thead>
             <tr className="border-b border-border/70 text-[10px] uppercase tracking-[0.13em] text-muted-foreground">
               <th className="px-5 py-3 font-bold sm:px-6">Coin</th>
+              <th className="px-3 py-3 font-bold">Strategy</th>
               <th className="px-3 py-3 font-bold">Side</th>
               <th className="px-3 py-3 font-bold">Entry</th>
               <th className="px-3 py-3 font-bold">Current</th>
@@ -718,16 +783,18 @@ function OpenPositionsSummary({ coins }: { coins: Record<string, PaperTraderStat
             </tr>
           </thead>
           <tbody>
-            {openPositions.map(([coin, state]) => {
-              const pos = state.position!;
+            {openPositions.map(({ coin, state, pos, strategy }) => {
               const meta = COIN_META[coin] ?? COIN_META.BTC;
               const pnl = pos.unrealisedPnl ?? null;
               const sym = curSym(state.instrument.currency);
               return (
-                <tr key={coin} className="border-b border-border/50 last:border-0">
+                <tr key={`${coin}-${strategy}`} className="border-b border-border/50 last:border-0">
                   <td className="px-5 py-3.5 sm:px-6">
                     <span className={`font-mono-data text-xs font-bold ${meta.accent}`}>{coin}</span>
                     <p className="text-[10px] text-muted-foreground">{state.market.pair}</p>
+                  </td>
+                  <td className="px-3 py-3.5">
+                    <span className={`rounded px-1.5 py-0.5 font-mono-data text-[9px] font-bold uppercase ${strategy === 'ACTIVE' ? 'bg-cyan-500/15 text-cyan-500' : 'bg-blue-500/10 text-blue-500'}`}>{strategy}</span>
                   </td>
                   <td className="px-3 py-3.5">
                     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono-data text-[10px] font-medium ${pos.direction === 'LONG' ? 'bg-accent/10 text-accent' : 'bg-destructive/10 text-destructive'}`}>
@@ -857,10 +924,23 @@ export default function Dashboard() {
   const totalPnl      = totalBalance - totalStarting;
   const totalRoi      = totalStarting > 0 ? totalPnl / totalStarting * 100 : 0;
   const totalTrades   = COINS.reduce((s, c) => s + (multiState[c]?.metrics.numberOfTrades ?? 0), 0);
-  const openPositions = COINS.filter((c) => multiState[c]?.position != null).length;
-  const allStarting   = COINS.reduce((s, c) => s + (multiState[c]?.metrics.startingBalance ?? 0), 0);
-  const capitalAtRisk = COINS.reduce((s, c) => s + (multiState[c]?.position?.riskAmount ?? 0), 0);
-  const riskPct       = allStarting > 0 ? (capitalAtRisk / allStarting) * 100 : 0;
+  const openTradeRows = COINS.flatMap((c) => {
+    const s = multiState[c];
+    const rows: { coin: string; strategy: 'HIGH-CONF' | 'ACTIVE'; direction: string; pnl: number | null; sym: string }[] = [];
+    const sym = s?.instrument?.currency === 'USD' ? '$' : '£';
+    if (s?.position) rows.push({ coin: c, strategy: 'HIGH-CONF', direction: s.position.direction, pnl: s.position.unrealisedPnl ?? null, sym });
+    if (s?.activePosition) rows.push({ coin: c, strategy: 'ACTIVE', direction: s.activePosition.direction, pnl: s.activePosition.unrealisedPnl ?? null, sym });
+    return rows;
+  });
+  const openPositions = openTradeRows.length;
+  // Currency-separated capital at risk (both position slots per asset — never mixed)
+  const riskFor = (coins: readonly string[]) => coins.reduce((s, c) => {
+    const st = multiState[c as keyof typeof multiState];
+    return s + (st?.position?.riskAmount ?? 0) + (st?.activePosition?.riskAmount ?? 0);
+  }, 0);
+  const riskGbp = riskFor(CRYPTO_COINS);
+  const riskUsd = riskFor(['GOLD', 'SILVER']);
+  const riskPct = totalStarting > 0 ? (riskGbp / totalStarting) * 100 : 0;
 
   const handleRefresh = () => {
     refreshTick.current += 1;
@@ -935,7 +1015,7 @@ export default function Dashboard() {
               { label: 'Starting capital', value: money(totalStarting), sub: 'across 4 crypto accounts (£)', tone: '' },
               { label: 'Total P&L', value: `${totalPnl >= 0 ? '+' : ''}${money(totalPnl)}`, sub: `crypto ROI ${pct(totalRoi)}`, tone: totalPnl >= 0 ? 'text-accent' : 'text-destructive' },
               { label: 'Total trades', value: num(totalTrades, 0), sub: 'across all 6 accounts', tone: '' },
-              { label: 'Open positions', value: `${num(openPositions, 0)}/6`, sub: `capital at risk ${num(capitalAtRisk)} (${riskPct.toFixed(2)}% · ceiling 2%)`, tone: openPositions > 0 ? 'text-primary' : '' },
+              { label: 'Open positions', value: `${num(openPositions, 0)}/12`, sub: `at risk £${num(riskGbp)} (${riskPct.toFixed(2)}% of crypto · ceiling 2%)${riskUsd > 0 ? ` + $${num(riskUsd)} metals` : ''}`, tone: openPositions > 0 ? 'text-primary' : '' },
             ].map(({ label, value, sub, tone }) => (
               <div key={label} className="rounded-xl border border-border/60 bg-background px-4 py-3.5">
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
@@ -944,6 +1024,33 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* ─── Compact open-positions summary ───────────────────────────── */}
+        <section className="rise-in rounded-2xl border border-border/80 bg-card p-5 shadow-[0_10px_32px_hsl(215_35%_13%_/_0.05)] sm:p-6" data-testid="dashboard-open-positions">
+          <div className="flex items-center gap-2">
+            <Briefcase size={16} className="text-primary" />
+            <h2 className="text-sm font-extrabold">Open positions — {openPositions}</h2>
+            <Link href="/open" data-testid="link-view-all-open-trades" className="ml-auto rounded-lg border border-primary/25 bg-primary/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-primary transition-colors hover:bg-primary/15">
+              View all open trades
+            </Link>
+          </div>
+          {openPositions === 0 ? (
+            <p className="mt-3 text-xs text-muted-foreground">No open paper positions right now.</p>
+          ) : (
+            <div className="mt-3 space-y-1">
+              {openTradeRows.map((r) => (
+                <div key={`${r.coin}-${r.strategy}`} className="flex items-center gap-3 font-mono-data text-xs">
+                  <span className="w-14 font-bold">{r.coin}</span>
+                  <span className={`rounded px-1 py-0.5 text-[9px] font-bold uppercase ${r.strategy === 'ACTIVE' ? 'bg-cyan-500/15 text-cyan-500' : 'bg-blue-500/10 text-blue-500'}`}>{r.strategy}</span>
+                  <span className={r.direction === 'LONG' ? 'text-accent' : 'text-destructive'}>{r.direction}</span>
+                  <span className={`ml-auto font-semibold ${(r.pnl ?? 0) >= 0 ? 'text-accent' : 'text-destructive'}`}>
+                    {r.pnl == null ? '—' : `${r.pnl >= 0 ? '+' : ''}${r.sym}${Math.abs(r.pnl) < 0.005 && r.pnl !== 0 ? r.pnl.toFixed(3) : r.pnl.toFixed(2)}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* ─── Background engine status (scans continue with browser closed) ── */}

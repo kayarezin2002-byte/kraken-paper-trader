@@ -141,6 +141,18 @@ ACTIVE_MAX_SCORE       = 6
 ACTIVE_ATR_MULTIPLIER  = 1.5    # stop = 1.5 × ATR(15m)
 ACTIVE_REWARD_TO_RISK  = 1.5    # faster targets than CORE's 2.0
 ACTIVE_STALE_SECONDS   = 2700   # last completed 15m candle older than 45min = stale
+# Configurable ACTIVE entry gate (user-selectable; NEVER auto-switched):
+#   CONSERVATIVE 5/6 · NORMAL 4/6 (default) · AGGRESSIVE 3/6
+ACTIVE_THRESHOLD_MODES = {"CONSERVATIVE": 5, "NORMAL": 4, "AGGRESSIVE": 3}
+ACTIVE_DEFAULT_MODE    = "NORMAL"
+# ACTIVE exit engine (small-move capture):
+ACTIVE_MAX_HOLD_SECONDS     = 6 * 3600  # time-stop: exit any ACTIVE trade after 6h
+ACTIVE_BREAKEVEN_R          = 1.0       # once +1R in favour, stop moves to entry
+ACTIVE_TRAIL_ATR_MULTIPLIER = 1.0       # then trails 1×ATR(15m) behind best price
+# Cost model (recorded per trade so expectancy can be judged AFTER costs;
+# paper fills themselves stay cost-free): Kraken taker fee per side + half
+# the observed spread per side as slippage estimate.
+EST_FEE_RATE_PER_SIDE = 0.0026
 
 # ── Portfolio-level risk ceiling ────────────────────────────────────────────
 # Maximum aggregate open risk (sum of riskAmount across all open positions)
@@ -285,6 +297,15 @@ def init_db(connection: sqlite3.Connection) -> None:
     if "strategy" not in trades_cols_now:
         connection.execute("ALTER TABLE trades ADD COLUMN strategy TEXT")
         connection.execute("UPDATE trades SET strategy = 'CORE' WHERE strategy IS NULL")
+    # Cost-model audit columns (Aug 2026): estimated fees/slippage + net P&L
+    # so expectancy can be judged after trading costs. Nullable for old rows.
+    for col in ("est_fees", "est_slippage", "pnl_net"):
+        if col not in trades_cols_now:
+            connection.execute(f"ALTER TABLE trades ADD COLUMN {col} REAL")
+    # Global bot configuration (e.g. ACTIVE threshold mode).
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS bot_config (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+    )
     # Migrate old single-coin bot_state if present
     has_old = connection.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='bot_state'"
@@ -1311,6 +1332,10 @@ def trade_from_row(row: sqlite3.Row) -> dict[str, Any]:
         "entryThreshold":  row["entry_threshold"]  if "entry_threshold"  in row.keys() else None,
         # Strategy attribution: CORE (1h) or ACTIVE (15m). Pre-upgrade rows → CORE.
         "strategy":        (row["strategy"] if "strategy" in row.keys() and row["strategy"] else "CORE"),
+        # Cost model (recorded estimates; paper fills stay cost-free)
+        "estFees":         row["est_fees"]     if "est_fees"     in row.keys() else None,
+        "estSlippage":     row["est_slippage"] if "est_slippage" in row.keys() else None,
+        "pnlNet":          row["pnl_net"]      if "pnl_net"      in row.keys() else None,
     }
 
 
@@ -1478,6 +1503,13 @@ def close_position(
         result_val = "BREAKEVEN"
     else:
         result_val = "WIN" if pnl > 0 else "LOSS"
+    # Cost estimates (recorded only — paper fills stay cost-free): taker fee
+    # per side + half the entry-time spread per side as slippage.
+    notional_in, notional_out = entry * quantity, exit_price * quantity
+    est_fees = round((notional_in + notional_out) * EST_FEE_RATE_PER_SIDE, 4)
+    spread_pct_at_entry = safe_float(position.get("entrySpreadPct")) or 0.0
+    est_slippage = round((notional_in + notional_out) * (spread_pct_at_entry / 100.0) / 2.0, 4)
+    pnl_net = round(pnl - est_fees - est_slippage, 4)
     connection.execute(
         """
         INSERT INTO trades
@@ -1486,8 +1518,9 @@ def close_position(
              profit_loss, account_balance, exit_reason,
              risk_amount, r_multiple, pnl_pct, duration_seconds, result,
              entry_score, pass_count, trend_1h, entry_mode, entry_conditions,
-             long_score, short_score, entry_threshold, strategy)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             long_score, short_score, entry_threshold, strategy,
+             est_fees, est_slippage, pnl_net)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             coin, position["openedAt"], closed_at, direction,
@@ -1500,6 +1533,7 @@ def close_position(
             position.get("entryConditions"),
             safe_float(position.get("longScore")), safe_float(position.get("shortScore")),
             safe_float(position.get("entryThreshold")), strategy,
+            est_fees, est_slippage, pnl_net,
         ),
     )
     # Disarm re-entry protection on the strategy's own slot: no same-signal
@@ -1536,7 +1570,8 @@ def close_position(
         f"{strategy} {direction} position closed ({reason.replace('_',' ')}) | exit {cur}{exit_price:,.2f} "
         f"| P&L {pnl_str}{r_str} | {result_word}{audit} "
         f"| SL {cur}{float(position['stopLoss']):,.2f} | TP {cur}{float(position['takeProfit']):,.2f} "
-        f"| risk {cur}{risk_amount:.2f} | balance {cur}{balance:.2f}",
+        f"| risk {cur}{risk_amount:.2f} | est costs {cur}{est_fees + est_slippage:.2f} "
+        f"(net {cur}{pnl_net:+.2f}) | balance {cur}{balance:.2f}",
     )
     connection.commit()
 
@@ -1661,6 +1696,37 @@ def _active_direction_conditions(
     ]
 
 
+def get_active_mode(connection: sqlite3.Connection) -> tuple[str, int]:
+    """Current ACTIVE threshold mode + gate. Never auto-switched by the bot."""
+    row = connection.execute(
+        "SELECT value FROM bot_config WHERE key = 'active_threshold_mode'"
+    ).fetchone()
+    mode = row["value"] if row and row["value"] in ACTIVE_THRESHOLD_MODES else ACTIVE_DEFAULT_MODE
+    return mode, ACTIVE_THRESHOLD_MODES[mode]
+
+
+def set_active_mode_command(mode: str) -> dict[str, Any]:
+    mode = (mode or "").upper()
+    if mode not in ACTIVE_THRESHOLD_MODES:
+        return {"ok": False, "error": f"Invalid mode '{mode}'. Valid: {sorted(ACTIVE_THRESHOLD_MODES)}"}
+    connection = db()
+    init_db(connection)
+    try:
+        connection.execute(
+            "INSERT INTO bot_config (key, value) VALUES ('active_threshold_mode', ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (mode,),
+        )
+        add_activity(
+            connection, "BTC", "CONFIG_CHANGED",
+            f"ACTIVE threshold mode set to {mode} ({ACTIVE_THRESHOLD_MODES[mode]}/6) — user action",
+        )
+        connection.commit()
+        return {"ok": True, "mode": mode, "threshold": ACTIVE_THRESHOLD_MODES[mode]}
+    finally:
+        connection.close()
+
+
 def evaluate_active_directional(
     fifteen: list[list[Any]],
     one_hour_trend: str,
@@ -1719,6 +1785,22 @@ def evaluate_active_directional(
     }
 
 
+def _update_price_extremes(position: dict, current_price: float) -> bool:
+    """Track the best/worst price seen while a position is open (direction
+    aware). Returns True when either extreme moved. Used for trailing stops
+    and for the best/worst unrealised P&L display."""
+    is_long = position["direction"] == "LONG"
+    entry = float(position["entry"])
+    best = float(position.get("bestPrice", entry))
+    worst = float(position.get("worstPrice", entry))
+    new_best = max(best, current_price) if is_long else min(best, current_price)
+    new_worst = min(worst, current_price) if is_long else max(worst, current_price)
+    changed = new_best != position.get("bestPrice") or new_worst != position.get("worstPrice")
+    position["bestPrice"] = new_best
+    position["worstPrice"] = new_worst
+    return changed
+
+
 def refresh_active(
     connection: sqlite3.Connection,
     coin: str,
@@ -1731,36 +1813,72 @@ def refresh_active(
     the CORE strategy is never touched. PAPER ONLY."""
     state = load_coin_state(connection, coin)
     active_position = json.loads(state["active_position"]) if state["active_position"] else None
+    gate_mode, gate = get_active_mode(connection)
 
     # ── Manage existing ACTIVE position FIRST (every scan, live price) ────
     # Exit management must never depend on 15m candle availability: we have a
-    # live price, so SL/TP protection runs before any entry-data fetch.
+    # live price, so SL/TP/trailing/time-stop protection runs before any
+    # entry-data fetch.
     if active_position:
-        hit_stop = (
-            current_price <= active_position["stopLoss"]
-            if active_position["direction"] == "LONG"
-            else current_price >= active_position["stopLoss"]
-        )
+        direction = active_position["direction"]
+        is_long   = direction == "LONG"
+        entry     = float(active_position["entry"])
+
+        # Break-even + trailing stop: once the trade is +1R in favour, the
+        # stop moves to entry; from then on it trails 1×ATR(15m) behind the
+        # best price seen. Stops only ever tighten — never loosen.
+        initial_stop = float(active_position.get("initialStop", active_position["stopLoss"]))
+        r_dist  = abs(entry - initial_stop)
+        changed = _update_price_extremes(active_position, current_price)
+        best    = float(active_position["bestPrice"])
+        favour  = (best - entry) if is_long else (entry - best)
+        stop    = float(active_position["stopLoss"])
+        if r_dist > 0 and favour >= r_dist * ACTIVE_BREAKEVEN_R:
+            trail_dist = (safe_float(active_position.get("entryAtr")) or r_dist) * ACTIVE_TRAIL_ATR_MULTIPLIER
+            candidates = [stop, entry]  # break-even protection
+            candidates.append(best - trail_dist if is_long else best + trail_dist)
+            new_stop = max(candidates) if is_long else min(c for c in candidates)
+            if new_stop != stop:
+                stop, changed = new_stop, True
+        if changed:
+            active_position["stopLoss"]  = round_price(stop)
+            active_position.setdefault("initialStop", initial_stop)
+            connection.execute(
+                "UPDATE coin_state SET active_position = ?, updated_at = ? WHERE coin = ?",
+                (json.dumps(active_position), now_iso(), coin),
+            )
+            connection.commit()
+
+        hit_stop   = current_price <= stop if is_long else current_price >= stop
         hit_target = (
-            current_price >= active_position["takeProfit"]
-            if active_position["direction"] == "LONG"
+            current_price >= active_position["takeProfit"] if is_long
             else current_price <= active_position["takeProfit"]
         )
-        if hit_stop or hit_target:
+        held_seconds: float | None = None
+        try:
+            held_seconds = (
+                datetime.fromisoformat(now_iso()) - datetime.fromisoformat(active_position["openedAt"])
+            ).total_seconds()
+        except (ValueError, TypeError, KeyError):
+            pass
+        hit_time = held_seconds is not None and held_seconds >= ACTIVE_MAX_HOLD_SECONDS
+
+        if hit_stop or hit_target or hit_time:
             if hit_stop:
                 # Adverse fill model: if price gapped THROUGH the stop between
                 # scans, fill at the observed live price, not the stop — never
                 # understate the loss.
-                if active_position["direction"] == "LONG":
-                    exit_price = min(current_price, active_position["stopLoss"])
-                else:
-                    exit_price = max(current_price, active_position["stopLoss"])
-            else:
+                exit_price = min(current_price, stop) if is_long else max(current_price, stop)
+                reason = "STOP_LOSS"
+            elif hit_target:
                 # Take-profit is a limit order: fill at target by policy.
-                exit_price = active_position["takeProfit"]
+                exit_price = float(active_position["takeProfit"])
+                reason = "TAKE_PROFIT"
+            else:
+                exit_price = current_price
+                reason = "MAX_HOLD_TIME"
             close_position(
-                connection, coin, state, active_position, exit_price,
-                "STOP_LOSS" if hit_stop else "TAKE_PROFIT",
+                connection, coin, state, active_position, exit_price, reason,
                 strategy="ACTIVE",
             )
             state = load_coin_state(connection, coin)
@@ -1776,7 +1894,7 @@ def refresh_active(
         })
         return
 
-    dir_eval = evaluate_active_directional(fifteen, one_hour_trend, ACTIVE_MIN_PASS)
+    dir_eval = evaluate_active_directional(fifteen, one_hour_trend, gate)
     decision = dir_eval["decision"]
     indicators = dir_eval["indicators"]
 
@@ -1785,6 +1903,17 @@ def refresh_active(
         if fifteen else None
     )
     is_new_candle = completed_candle_at is not None and completed_candle_at != state["active_last_candle_at"]
+
+    # ── Signal-reversal exit: a qualified OPPOSITE signal on a new 15m candle
+    # closes the open ACTIVE position at the live price. ────────────────────
+    if active_position and is_new_candle and decision in ("LONG", "SHORT") \
+            and decision != active_position["direction"]:
+        close_position(
+            connection, coin, state, active_position, current_price,
+            "SIGNAL_REVERSAL", strategy="ACTIVE",
+        )
+        state = load_coin_state(connection, coin)
+        active_position = None
 
     # ── Safety filters (never weakened) ────────────────────────────────────
     danger: str | None = None
@@ -1881,7 +2010,10 @@ def refresh_active(
                     "entryMode":  "ACTIVE",
                     "longScore":  dir_eval["long"]["score"],
                     "shortScore": dir_eval["short"]["score"],
-                    "entryThreshold": ACTIVE_MIN_PASS,
+                    "entryThreshold": gate,
+                    "entrySpreadPct": spread_pct,
+                    "initialStop":  round_price(stop_loss),
+                    "bestPrice":    round_price(current_price),
                     "entryConditions": ", ".join(
                         cd["name"] for cd in dir_eval[decision.lower()]["conditions"] if cd["pass"]
                     ),
@@ -1894,7 +2026,7 @@ def refresh_active(
                     connection, coin, "TRADE_OPENED",
                     f"ACTIVE {decision} opened at {cur}{current_price:,.2f} "
                     f"| LONG {dir_eval['long']['score']}/6 vs SHORT {dir_eval['short']['score']}/6 "
-                    f"(gate {ACTIVE_MIN_PASS}/6) | passed: {opened['entryConditions']} "
+                    f"(gate {gate}/6 {gate_mode}) | passed: {opened['entryConditions']} "
                     f"| SL {cur}{stop_loss:,.2f} | TP {cur}{take_profit:,.2f} | risk {cur}{risk_amount:.2f}",
                 )
                 active_position = opened
@@ -1922,21 +2054,51 @@ def refresh_active(
             (completed_candle_at, now_iso(), coin),
         )
 
+    # ── Execution diagnostics: exact remaining blocker, never a vague "no" ──
+    # A qualified ACTIVE signal is NEVER vetoed by the CORE strategy; the only
+    # possible blockers are the ones listed here.
+    if opened is not None:
+        exec_blocker = None
+    elif decision not in ("LONG", "SHORT"):
+        exec_blocker = dir_eval["decisionReason"]  # score below threshold / tie
+    elif block_reason is not None:
+        exec_blocker = block_reason
+    elif active_position is not None:
+        exec_blocker = "Existing ACTIVE position on this asset"
+    elif not is_new_candle:
+        exec_blocker = "Waiting for the next completed 15m candle"
+    else:
+        exec_blocker = "No blocker — order should execute on this evaluation"
+    next_eval_at = None
+    if completed_candle_at:
+        try:
+            next_eval_at = (
+                datetime.fromisoformat(completed_candle_at) + timedelta(minutes=15)
+            ).isoformat()
+        except ValueError:
+            pass
+
     _write_active_snapshot(connection, coin, {
         "status": "READY" if not danger else "DANGER",
         "message": danger,
         "updatedAt": now_iso(),
         "lastCompletedCandleAt": completed_candle_at,
+        "nextEvaluationAt": next_eval_at,
         "decision": decision,
         "decisionReason": dir_eval["decisionReason"],
         "longScore": dir_eval["long"]["score"],
         "shortScore": dir_eval["short"]["score"],
-        "threshold": ACTIVE_MIN_PASS,
+        "threshold": gate,
+        "thresholdMode": gate_mode,
         "maxScore": ACTIVE_MAX_SCORE,
         "longConditions": dir_eval["long"]["conditions"],
         "shortConditions": dir_eval["short"]["conditions"],
         "fifteenTrend": dir_eval.get("fifteenTrend", "NEUTRAL"),
         "blockReason": block_reason,
+        "entryEligible": decision in ("LONG", "SHORT") and (opened is not None or exec_blocker is None
+                                                            or exec_blocker.startswith("No blocker")),
+        "executionBlocker": exec_blocker,
+        "hasOpenPosition": active_position is not None,
     })
     connection.commit()
 
@@ -2048,6 +2210,12 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
 
     # --- Check stop/target on existing position ---
     if open_position:
+        if _update_price_extremes(open_position, current_price):
+            connection.execute(
+                "UPDATE coin_state SET open_position = ?, updated_at = ? WHERE coin = ?",
+                (json.dumps(open_position), now_iso(), coin),
+            )
+            connection.commit()
         hit_stop = (
             current_price <= open_position["stopLoss"]
             if open_position["direction"] == "LONG"
@@ -2880,6 +3048,11 @@ def _strategy_stats_block(trades: list[sqlite3.Row]) -> dict[str, Any]:
     wins = sum(1 for t in trades if (t["profit_loss"] or 0) > 0)
     losses = n - wins
     pnl = sum(float(t["profit_loss"] or 0) for t in trades)
+    est_costs = sum(
+        (float(t["est_fees"] or 0) + float(t["est_slippage"] or 0))
+        for t in trades if "est_fees" in t.keys()
+    )
+    pnl_net = pnl - est_costs
     gross_win  = sum(float(t["profit_loss"]) for t in trades if (t["profit_loss"] or 0) > 0)
     gross_loss = -sum(float(t["profit_loss"]) for t in trades if (t["profit_loss"] or 0) < 0)
     profit_factor = (gross_win / gross_loss) if gross_loss > 0 else (None if gross_win == 0 else float("inf"))
@@ -2895,6 +3068,8 @@ def _strategy_stats_block(trades: list[sqlite3.Row]) -> dict[str, Any]:
         "losses":   losses,
         "winRate":  round(wins / n * 100, 2) if n else 0.0,
         "pnl":      round(pnl, 2),
+        "estCosts": round(est_costs, 2),
+        "pnlNet":   round(pnl_net, 2),
         "profitFactor": (round(profit_factor, 3) if isinstance(profit_factor, float) and profit_factor != float("inf") else None),
         "maxDrawdown":  round(max_dd, 2),
     }
@@ -2903,7 +3078,7 @@ def _strategy_stats_block(trades: list[sqlite3.Row]) -> dict[str, Any]:
 def strategy_stats(connection: sqlite3.Connection) -> dict[str, Any]:
     """CORE / ACTIVE / COMBINED performance stats from the trades table."""
     rows = connection.execute(
-        "SELECT profit_loss, closed_at, strategy FROM trades"
+        "SELECT profit_loss, closed_at, strategy, est_fees, est_slippage, pnl_net FROM trades"
     ).fetchall()
     core   = [r for r in rows if (r["strategy"] or "CORE") == "CORE"]
     active = [r for r in rows if (r["strategy"] or "CORE") == "ACTIVE"]
@@ -2956,6 +3131,8 @@ def portfolio_summary() -> dict[str, Any]:
             "overallWinRate": win_rate,
             "coins":          coins_summary,
             "strategyStats":  strategy_stats(connection),
+            "activeMode":     get_active_mode(connection)[0],
+            "activeThreshold": get_active_mode(connection)[1],
         }
     finally:
         connection.close()
@@ -3355,6 +3532,9 @@ def main() -> None:
     elif command == "all-trades":
         limit = int(sys.argv[2]) if len(sys.argv) > 2 else 200
         result = all_trades(limit)
+    elif command == "set-active-mode":
+        mode = sys.argv[2] if len(sys.argv) > 2 else ""
+        result = set_active_mode_command(mode)
     elif command == "pnl-series":
         result = pnl_series()
     elif command == "chart":

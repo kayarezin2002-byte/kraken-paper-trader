@@ -9,6 +9,7 @@ import type { ActiveConditionCheck } from './activeConditionCheck';
 import type { ActiveStrategyStateDecision } from './activeStrategyStateDecision';
 import type { ActiveStrategyStateFifteenTrend } from './activeStrategyStateFifteenTrend';
 import type { ActiveStrategyStateStatus } from './activeStrategyStateStatus';
+import type { ActiveStrategyStateThresholdMode } from './activeStrategyStateThresholdMode';
 
 /**
  * Latest scan state of the parallel ACTIVE 15-minute strategy.
@@ -39,4 +40,23 @@ export interface ActiveStrategyState {
   fifteenTrend?: ActiveStrategyStateFifteenTrend;
   /** @nullable */
   blockReason?: string | null;
+  /**
+     * When the next 15m candle completes and entries are re-evaluated.
+     * @nullable
+     */
+  nextEvaluationAt?: string | null;
+  /** @nullable */
+  thresholdMode?: ActiveStrategyStateThresholdMode;
+  /**
+     * True when a qualified signal has no remaining blocker (or just executed).
+     * @nullable
+     */
+  entryEligible?: boolean | null;
+  /**
+     * Exact remaining blocker, or "No blocker — order should execute…".
+     * @nullable
+     */
+  executionBlocker?: string | null;
+  /** @nullable */
+  hasOpenPosition?: boolean | null;
 }

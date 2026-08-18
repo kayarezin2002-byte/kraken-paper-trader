@@ -202,7 +202,7 @@ export function AssetChart({ asset, trades, position, activePosition, currentPri
       const entryTime = snap(t.openedAt);
       const exitTime = snap(t.closedAt);
       const isLong = t.direction === 'LONG';
-      const strat = (t.strategy ?? 'CORE').toUpperCase();
+      const strat = (t.strategy ?? 'CORE').toUpperCase() === 'ACTIVE' ? 'ACTIVE' : 'HI-CONF';
       if (entryTime != null) {
         markers.push({
           time: entryTime,
@@ -267,7 +267,7 @@ export function AssetChart({ asset, trades, position, activePosition, currentPri
           position: p.direction === 'SHORT' ? 'aboveBar' : 'belowBar',
           shape: 'circle',
           color: '#f59e0b',
-          text: `POTENTIAL ${p.strategy} ${p.direction} ${p.score}/${p.maxScore}`,
+          text: `POTENTIAL ${p.strategy === 'ACTIVE' ? 'ACTIVE' : 'HI-CONF'} ${p.direction} ${p.score}/${p.maxScore}`,
           _kind: 'potential',
         });
       }
@@ -285,7 +285,7 @@ export function AssetChart({ asset, trades, position, activePosition, currentPri
     }
 
     // ── open position levels (CORE + ACTIVE) ────────────────────────────
-    for (const [label, pos] of [['CORE', position], ['ACTIVE', activePosition]] as const) {
+    for (const [label, pos] of [['HI-CONF', position], ['ACTIVE', activePosition]] as const) {
       if (!pos) continue;
       candleSeries.createPriceLine({ price: pos.entry, color: '#3b82f6', lineWidth: 1, lineStyle: LineStyle.Solid, title: `${label} ENTRY ${pos.direction}` });
       candleSeries.createPriceLine({ price: pos.stopLoss, color: '#dc2626', lineWidth: 1, lineStyle: LineStyle.Dashed, title: `${label} SL` });
@@ -409,7 +409,7 @@ export function AssetChart({ asset, trades, position, activePosition, currentPri
         <p className="text-[10px] leading-tight text-muted-foreground">
           {data.interval ?? (data.intervalSeconds === 14400 ? '4h' : data.intervalSeconds === 900 ? '15m' : '1h')} candles · UTC · {data.dataSource}
           {data.currentPrice != null ? ` · price ${fmtMoney(data.currentPrice, currency)}` : ''}
-          {position ? ` · CORE ${position.direction} open — unrealised ${fmtMoney(position.unrealisedPnl, currency)}` : ''}
+          {position ? ` · HIGH-CONFIDENCE ${position.direction} open — unrealised ${fmtMoney(position.unrealisedPnl, currency)}` : ''}
           {activePosition ? ` · ACTIVE ${activePosition.direction} open — unrealised ${fmtMoney(activePosition.unrealisedPnl, currency)}` : ''}
         </p>
       )}
@@ -421,7 +421,7 @@ export function AssetChart({ asset, trades, position, activePosition, currentPri
             <span className="font-bold">
               {selectedTrade.coin} {selectedTrade.direction}
               <span className={`ml-1.5 rounded px-1 py-0.5 text-[9px] font-bold ${(selectedTrade.strategy ?? 'CORE') === 'ACTIVE' ? 'bg-cyan-500/20 text-cyan-600' : 'bg-blue-500/15 text-blue-600'}`}>
-                {selectedTrade.strategy ?? 'CORE'}
+                {(selectedTrade.strategy ?? 'CORE') === 'ACTIVE' ? 'ACTIVE' : 'HIGH-CONFIDENCE'}
               </span>
               {isTestTrade(selectedTrade) && <span className="ml-1.5 rounded bg-amber-500/20 px-1 py-0.5 text-[9px] font-bold text-amber-600">TEST</span>}
             </span>

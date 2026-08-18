@@ -19,4 +19,14 @@ export interface StrategyStatsBlock {
   /** @nullable */
   profitFactor: number | null;
   maxDrawdown: number;
+  /**
+     * Sum of estimated fees + slippage across the bucket.
+     * @nullable
+     */
+  estCosts?: number | null;
+  /**
+     * pnl minus estCosts (expectancy after trading costs).
+     * @nullable
+     */
+  pnlNet?: number | null;
 }

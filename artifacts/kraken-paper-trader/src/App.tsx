@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import Dashboard from '@/pages/dashboard';
 import History from '@/pages/history';
+import OpenTrades from '@/pages/open-trades';
 import ActivityLog from '@/pages/activity';
 import {
   Route,
@@ -21,6 +22,7 @@ function Router() {
     <RoutedErrorBoundary>
       <Switch>
         <Route path="/"         component={Dashboard}   />
+        <Route path="/open"     component={OpenTrades}  />
         <Route path="/history"  component={History}     />
         <Route path="/activity" component={ActivityLog} />
         <Route component={NotFound} />

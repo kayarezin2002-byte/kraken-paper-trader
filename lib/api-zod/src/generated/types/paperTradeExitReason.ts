@@ -13,5 +13,6 @@ export const PaperTradeExitReason = {
   TAKE_PROFIT: 'TAKE_PROFIT',
   STOP_LOSS: 'STOP_LOSS',
   SIGNAL_REVERSAL: 'SIGNAL_REVERSAL',
+  MAX_HOLD_TIME: 'MAX_HOLD_TIME',
   MANUAL: 'MANUAL',
 } as const;

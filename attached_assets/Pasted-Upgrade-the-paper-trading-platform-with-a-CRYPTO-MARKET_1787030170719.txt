@@ -1,0 +1,492 @@
+Upgrade the paper-trading platform with a CRYPTO MARKET SCANNER and a dedicated CRYPTOCURRENCIES section inspired by the market-navigation concept used on CoinsKid.
+
+Do not copy CoinsKid branding, design, code or proprietary indicators.
+
+Build our own implementation using the market data and indicators already available to this project.
+
+## 1. Add CRYPTO to the main navigation
+
+The main navigation should now include:
+
+Dashboard | Markets | Open Trades | Trade History | Activity Log
+
+Inside Markets, create:
+
+Crypto
+Gold
+Silver
+
+The Crypto section should contain the full cryptocurrency scanner and directory.
+
+## 2. Cryptocurrency directory
+
+Add a searchable list of cryptocurrencies.
+
+Initially support at least the most liquid major assets available through our existing market-data provider, including where available:
+
+BTC — Bitcoin  
+ETH — Ethereum  
+SOL — Solana  
+XRP — XRP  
+BNB — BNB  
+DOGE — Dogecoin  
+ADA — Cardano  
+AVAX — Avalanche  
+LINK — Chainlink  
+DOT — Polkadot  
+LTC — Litecoin  
+BCH — Bitcoin Cash  
+TRX — TRON  
+SUI — Sui  
+TON — Toncoin  
+XLM — Stellar  
+HBAR — Hedera  
+UNI — Uniswap  
+AAVE — Aave  
+NEAR — NEAR Protocol  
+APT — Aptos  
+ARB — Arbitrum  
+OP — Optimism  
+ICP — Internet Computer  
+ETC — Ethereum Classic  
+FIL — Filecoin  
+ATOM — Cosmos  
+SHIB — Shiba Inu  
+PEPE — Pepe  
+POL — Polygon
+
+Only include assets for which reliable price/candle data is actually available.
+
+Do not fabricate market data for unsupported assets.
+
+## 3. Crypto list layout
+
+For every cryptocurrency show:
+
+Rank
+Asset icon
+Ticker
+Name
+Current price
+24h change
+24h high
+24h low
+Volume
+15m direction
+1h direction
+4h direction
+LONG score
+SHORT score
+Overall signal
+
+Overall signal should display:
+
+STRONG LONG
+LONG
+NEUTRAL
+SHORT
+STRONG SHORT
+
+Do not claim these are guaranteed buy/sell recommendations.
+
+They are algorithmic signal classifications for PAPER TRADING.
+
+## 4. Search and filters
+
+Add a search bar:
+
+Search cryptocurrency...
+
+Allow searching by:
+
+- ticker
+- cryptocurrency name
+
+Add filters:
+
+ALL
+STRONG LONG
+LONG
+NEUTRAL
+SHORT
+STRONG SHORT
+OPEN POSITION
+
+Add sorting by:
+
+- strongest LONG score
+- strongest SHORT score
+- biggest 24h gain
+- biggest 24h loss
+- highest volume
+- newest signal
+- alphabetical
+
+## 5. Market heatmap
+
+Add a visual CRYPTO HEATMAP.
+
+Each cryptocurrency tile should show:
+
+Ticker  
+Price change  
+Current directional signal
+
+Example:
+
+BTC
++2.4%
+STRONG LONG
+
+Tile strength should visually represent the strength of the signal.
+
+Tapping a tile should open that cryptocurrency's detailed market page.
+
+The heatmap must work well on mobile.
+
+## 6. Best Opportunities section
+
+At the top of the Crypto page add:
+
+### BEST LONG OPPORTUNITIES
+
+Display the highest-ranking current LONG candidates.
+
+### BEST SHORT OPPORTUNITIES
+
+Display the highest-ranking current SHORT candidates.
+
+For example:
+
+SOL
+LONG 5/6
+1h bullish
+15m momentum ↑
+
+LINK
+LONG 4/6
+RSI reversal
+EMA confirmation
+
+And similarly for SHORT opportunities.
+
+Do not create trades merely because an asset appears here.
+
+This section ranks signals.
+
+## 7. Whole-market scanner
+
+Expand the ACTIVE strategy so it scans all enabled cryptocurrencies.
+
+Each crypto should be evaluated independently.
+
+For every completed 15-minute candle calculate:
+
+LONG score
+SHORT score
+
+using the existing ACTIVE strategy logic.
+
+Default ACTIVE threshold remains:
+
+4/6
+
+The scanner should rank every crypto from strongest LONG opportunity through strongest SHORT opportunity.
+
+## 8. Do not force trades
+
+Increasing the number of cryptocurrencies is intended to increase the number of genuine opportunities available.
+
+Do NOT lower standards just because more assets are being scanned.
+
+Keep the initial ACTIVE threshold at:
+
+4/6
+
+The idea is:
+
+more markets + same reasonable threshold = more opportunities
+
+rather than:
+
+fewer markets + extremely weak entry requirements.
+
+## 9. Liquidity filter
+
+Do not allow the trading engine to enter very illiquid cryptocurrencies simply because they generate a technical signal.
+
+Create a configurable minimum liquidity/volume requirement.
+
+The scanner may display lower-liquidity assets, but they should show:
+
+TRADE DISABLED — LOW LIQUIDITY
+
+if they do not meet the trading requirements.
+
+## 10. Individual cryptocurrency page
+
+Tapping any cryptocurrency should open its own detailed page.
+
+Show:
+
+Asset name
+Ticker
+Current price
+24h change
+Current market state
+
+Then show:
+
+ACTIVE ENGINE
+LONG: X/6
+SHORT: X/6
+Threshold: 4
+
+HIGH-CONFIDENCE ENGINE
+LONG: X/8
+SHORT: X/8
+Threshold: 6
+
+Show the reason for every point.
+
+Example:
+
+LONG 5/6
+
+✓ EMA trend  
+✓ RSI  
+✓ MACD momentum  
+✓ Price vs EMA  
+✓ momentum  
+✗ volume
+
+## 11. Crypto charts
+
+Every cryptocurrency page should have the improved interactive chart system.
+
+Time ranges:
+
+6H | 24H | 3D | 7D | 30D | 90D | 1Y | ALL
+
+Candle intervals:
+
+5m | 15m | 1h | 4h | 1D
+
+Allow:
+
+- pinch zoom
+- drag backwards through history
+- dynamically load older candles
+- LIVE button
+- auto scale
+- indicator toggles
+
+Indicators:
+
+EMA20
+EMA50
+RSI
+MACD
+Volume
+Signals
+
+## 12. Display trade information directly on crypto charts
+
+Show:
+
+LONG entry marker  
+SHORT entry marker  
+Exit marker  
+Stop loss  
+Take profit  
+Trailing stop  
+Current price
+
+Tapping a completed trade marker should show:
+
+Entry  
+Exit  
+Direction  
+Strategy  
+P&L  
+Duration  
+Entry score  
+Exit reason
+
+## 13. Market overview statistics
+
+At the top of the Crypto page display:
+
+Crypto scanned: X
+
+Strong Long: X
+
+Long: X
+
+Neutral: X
+
+Short: X
+
+Strong Short: X
+
+Open crypto trades: X
+
+Next scan: HH:MM
+
+## 14. Signal movement
+
+Add a useful section called:
+
+FASTEST CHANGING SIGNALS
+
+This should detect cryptocurrencies whose scoring has recently changed significantly.
+
+Examples:
+
+BTC  
+LONG score 2 → 4
+
+SOL  
+SHORT score 3 → 5
+
+ETH  
+LONG score 5 → 3
+
+This should help identify new opportunities before simply looking at price gainers.
+
+## 15. Watchlist
+
+Allow the user to tap:
+
+☆
+
+next to any cryptocurrency.
+
+This adds it to a personal WATCHLIST.
+
+Create a Watchlist filter showing only selected assets.
+
+Watchlist assets are still analysed using exactly the same engine.
+
+## 16. Scanner diagnostics
+
+For each cryptocurrency record:
+
+Last scan  
+Next scan  
+LONG score  
+SHORT score  
+Current winning direction  
+Entry threshold  
+Current position  
+Last trade  
+Last signal change  
+Trading enabled YES/NO  
+Reason if disabled
+
+## 17. Open Trades integration
+
+Any crypto position opened by the bot must automatically appear inside the new OPEN TRADES page.
+
+The card must show:
+
+Crypto  
+LONG/SHORT  
+Strategy  
+Entry price  
+Current price  
+Live P&L  
+Stop loss  
+Take profit  
+Time open  
+Signal score
+
+When it closes, automatically move it into Trade History.
+
+## 18. Portfolio protection
+
+Even though many cryptocurrencies are being scanned, do NOT allow unlimited simultaneous positions.
+
+Make these configurable:
+
+Maximum open crypto positions
+Maximum total portfolio risk
+Maximum risk per trade
+Maximum exposure to highly correlated assets
+
+For initial PAPER testing use sensible conservative limits.
+
+Do not let 10 cryptocurrencies all take essentially the same BTC-driven market movement and accidentally multiply portfolio risk.
+
+## 19. Strategy statistics by cryptocurrency
+
+Track performance separately for every asset.
+
+Example:
+
+BTC
+Trades: 14
+Win rate: 57%
+P&L: +£2.18
+Profit factor: 1.42
+
+SOL
+Trades: 19
+Win rate: 63%
+P&L: +£3.07
+Profit factor: 1.66
+
+This will eventually allow us to disable assets where the algorithm consistently performs badly.
+
+## 20. Strategy statistics by signal
+
+Also record which signals were present at entry.
+
+Later we need to be able to determine things such as:
+
+Trades with RSI + MACD confirmation:
+Win rate X
+Profit factor X
+
+EMA + momentum:
+Win rate X
+Profit factor X
+
+This data must be stored from now on even if the full analytics screen is added later.
+
+## 21. Performance requirements
+
+Do NOT fetch huge amounts of candle data for every cryptocurrency on every page refresh.
+
+Build this efficiently.
+
+The scanner should use lightweight recent data for signal calculation.
+
+Load deeper chart history only when the user actually opens an asset or requests an older chart range.
+
+Cache market data where appropriate.
+
+Do not allow adding more cryptocurrencies to make the mobile dashboard slow or unstable.
+
+## 22. PAPER TRADING ONLY
+
+Everything remains PAPER MODE.
+
+Do not connect exchange API keys.
+
+Do not execute real-money orders.
+
+The purpose of expanding the market universe is to produce more simulated opportunities so we can collect enough results to properly evaluate the strategy.
+
+After implementation show me:
+
+1. Number of cryptocurrencies currently supported.
+2. Full list of supported cryptocurrencies.
+3. Number currently eligible for automated paper trading.
+4. Current strongest 5 LONG opportunities.
+5. Current strongest 5 SHORT opportunities.
+6. Any assets disabled because of liquidity/data issues.
+7. Current open crypto positions.
+8. Confirmation that each cryptocurrency is scanned independently every completed 15-minute candle.
+9. Confirmation that ACTIVE remains 4/6.
+10. Confirmation that expanding the crypto list has not changed the existing GOLD and SILVER systems.

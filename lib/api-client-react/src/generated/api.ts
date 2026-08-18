@@ -35,7 +35,9 @@ import type {
   PaperTraderState,
   PnlSeriesResult,
   PortfolioSummary,
-  ResetPaperTraderInput
+  ResetPaperTraderInput,
+  SetActiveModeInput,
+  SetActiveModeResult
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -1084,6 +1086,155 @@ export function useListAllTrades<TData = Awaited<ReturnType<typeof listAllTrades
 
 
 
+export const getGetPnlSeriesUrl = () => {
+
+
+
+
+  return `/api/paper-trader/pnl-series`
+}
+
+/**
+ * Returns a per-coin (and combined crypto) time-series of cumulative profit/loss, suitable for plotting an equity curve. Covers all historical paper trades from the database.
+ * @summary Cumulative P&L time-series for all coins
+ */
+export const getPnlSeries = async ( options?: Parameters<typeof customFetch>[1]): Promise<PnlSeriesResult> => {
+
+  return customFetch<PnlSeriesResult>(getGetPnlSeriesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPnlSeriesQueryKey = () => {
+    return [
+    `/api/paper-trader/pnl-series`
+    ] as const;
+    }
+
+
+export const getGetPnlSeriesQueryOptions = <TData = Awaited<ReturnType<typeof getPnlSeries>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPnlSeries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPnlSeriesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPnlSeries>>> = ({ signal }) => getPnlSeries({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPnlSeries>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPnlSeriesQueryResult = NonNullable<Awaited<ReturnType<typeof getPnlSeries>>>
+export type GetPnlSeriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Cumulative P&L time-series for all coins
+ */
+
+export function useGetPnlSeries<TData = Awaited<ReturnType<typeof getPnlSeries>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPnlSeries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPnlSeriesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSetActiveModeUrl = () => {
+
+
+
+
+  return `/api/paper-trader/active-mode`
+}
+
+/**
+ * @summary Set the ACTIVE strategy threshold mode (CONSERVATIVE 5/6, NORMAL 4/6, AGGRESSIVE 3/6)
+ */
+export const setActiveMode = async (setActiveModeInput: SetActiveModeInput, options?: Parameters<typeof customFetch>[1]): Promise<SetActiveModeResult> => {
+
+  return customFetch<SetActiveModeResult>(getSetActiveModeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(setActiveModeInput)
+  }
+);}
+
+
+
+
+
+export const getSetActiveModeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setActiveMode>>, TError,{data: BodyType<SetActiveModeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setActiveMode>>, TError,{data: BodyType<SetActiveModeInput>}, TContext> => {
+
+const mutationKey = ['setActiveMode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setActiveMode>>, {data: BodyType<SetActiveModeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  setActiveMode(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetActiveModeMutationResult = NonNullable<Awaited<ReturnType<typeof setActiveMode>>>
+    export type SetActiveModeMutationBody = BodyType<SetActiveModeInput>
+    export type SetActiveModeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Set the ACTIVE strategy threshold mode (CONSERVATIVE 5/6, NORMAL 4/6, AGGRESSIVE 3/6)
+ */
+export const useSetActiveMode = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setActiveMode>>, TError,{data: BodyType<SetActiveModeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setActiveMode>>,
+        TError,
+        {data: BodyType<SetActiveModeInput>},
+        TContext
+      > => {
+      return useMutation(getSetActiveModeMutationOptions(options));
+    }
+
 export const getResetAllCoinsUrl = () => {
 
 
@@ -1155,40 +1306,4 @@ export const useResetAllCoins = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getResetAllCoinsMutationOptions(options));
     }
-
-// ── P&L series ───────────────────────────────────────────────────────────────
-
-export const getPnlSeriesUrl = () => `/api/paper-trader/pnl-series`;
-
-/**
- * @summary Cumulative P&L time-series for all coins
- */
-export const getPnlSeries = async (options?: Parameters<typeof customFetch>[1]): Promise<PnlSeriesResult> => {
-  return customFetch<PnlSeriesResult>(getPnlSeriesUrl(), { ...options, method: 'GET' });
-};
-
-export const getGetPnlSeriesQueryKey = () => [`/api/paper-trader/pnl-series`] as const;
-
-export const getGetPnlSeriesQueryOptions = <TData = Awaited<ReturnType<typeof getPnlSeries>>, TError = ErrorType<unknown>>(
-  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof getPnlSeries>>, TError, TData>; request?: SecondParameter<typeof customFetch> }
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-  const queryKey = queryOptions?.queryKey ?? getGetPnlSeriesQueryKey();
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPnlSeries>>> = ({ signal }) => getPnlSeries({ signal, ...requestOptions });
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<Awaited<ReturnType<typeof getPnlSeries>>, TError, TData> & { queryKey: QueryKey };
-};
-
-export type GetPnlSeriesQueryResult = NonNullable<Awaited<ReturnType<typeof getPnlSeries>>>;
-export type GetPnlSeriesQueryError = ErrorType<unknown>;
-
-/**
- * @summary Cumulative P&L time-series for all coins
- */
-export function useGetPnlSeries<TData = Awaited<ReturnType<typeof getPnlSeries>>, TError = ErrorType<unknown>>(
-  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof getPnlSeries>>, TError, TData>; request?: SecondParameter<typeof customFetch> }
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetPnlSeriesQueryOptions(options);
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
-  return withQueryKey(query, queryOptions.queryKey);
-}
 

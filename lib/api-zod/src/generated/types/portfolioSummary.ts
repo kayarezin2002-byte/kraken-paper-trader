@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PortfolioSummaryActiveMode } from './portfolioSummaryActiveMode';
 import type { PortfolioSummaryCoins } from './portfolioSummaryCoins';
 import type { StrategyStats } from './strategyStats';
 
@@ -32,4 +33,14 @@ export interface PortfolioSummary {
   overallWinRate: number;
   coins: PortfolioSummaryCoins;
   strategyStats?: StrategyStats | null;
+  /**
+     * Current ACTIVE strategy threshold mode (user-selected, never auto-switched).
+     * @nullable
+     */
+  activeMode?: PortfolioSummaryActiveMode;
+  /**
+     * Conditions required by the current ACTIVE mode (3, 4, or 5 of 6).
+     * @nullable
+     */
+  activeThreshold?: number | null;
 }

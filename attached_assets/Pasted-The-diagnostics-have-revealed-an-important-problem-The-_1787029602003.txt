@@ -1,0 +1,212 @@
+The diagnostics have revealed an important problem.
+
+The new 15-minute opportunity engine is reaching its entry threshold, but the old 1-hour 6/8 strategy is still preventing execution.
+
+For example, the dashboard currently shows:
+
+15M ACTIVE ENGINE
+LONG = 4/6
+Required = 4
+
+Therefore this is a valid LONG signal according to the active strategy.
+
+However:
+
+ENTRY ELIGIBLE = NO
+
+because the older strategy says LONG 2/8 needs 6 and because it is waiting for a completed 1-hour candle.
+
+This means the new higher-frequency strategy is not actually able to execute independently.
+
+## 1. Separate the two strategies
+
+Create two genuinely independent paper-trading strategies:
+
+### STRATEGY A — HIGH-CONFIDENCE
+- Existing 1h/4h system
+- 6/8 threshold
+- Lower-frequency trades
+- Keep this strategy intact for comparison.
+
+### STRATEGY B — ACTIVE / SCALP
+- 15-minute entry signals
+- 1-hour context
+- LONG and SHORT evaluated independently.
+- Default threshold = 4/6
+- This strategy MUST be capable of opening a paper position without Strategy A reaching 6/8.
+
+A failed Strategy A signal MUST NOT veto a valid Strategy B signal.
+
+## 2. Do not wait for a new 1-hour candle to enter
+
+The ACTIVE strategy should evaluate entries whenever a new 15-minute candle completes.
+
+1-hour and 4-hour candles can provide trend/context information, but the ACTIVE strategy must not wait an entire hour before reconsidering an entry.
+
+Expected behaviour:
+
+New 15m candle closes → recalculate LONG/SHORT score → check risk/cooldown → execute qualifying paper trade.
+
+## 3. Current example should be eligible
+
+With the current display showing:
+
+LONG 4/6 (needs 4)
+
+the system should report something like:
+
+ACTIVE LONG SIGNAL QUALIFIED — 4/6
+
+If no position is opened, diagnostics must state the exact remaining blocker.
+
+Do not display a valid 4/6 signal while simply saying "entry eligible: no" because an unrelated strategy failed.
+
+## 4. Allow multiple assets to trade independently
+
+BTC, ETH, SOL, XRP, GOLD and SILVER should each have their own independent strategy state.
+
+A BTC position must not prevent GOLD from trading.
+
+A GOLD LONG must not prevent ETH from opening a SHORT.
+
+Allow simultaneous paper positions across different assets, subject to portfolio risk limits.
+
+## 5. LONG and SHORT
+
+Evaluate both sides every 15 minutes.
+
+If:
+
+LONG score >= threshold and LONG score > SHORT score → consider LONG.
+
+SHORT score >= threshold and SHORT score > LONG score → consider SHORT.
+
+If both are equal and qualify, WAIT unless another tie-breaker provides a clear direction.
+
+## 6. Add an optional 3/6 aggressive threshold
+
+Make the ACTIVE threshold configurable:
+
+CONSERVATIVE: 5/6
+NORMAL: 4/6
+AGGRESSIVE: 3/6
+
+Start the live paper test on NORMAL 4/6.
+
+Do NOT automatically switch to 3/6 merely to generate trades.
+
+We first want to see whether 4/6 produces enough opportunities.
+
+## 7. Small-trade exit engine
+
+The ACTIVE strategy is intended to capture relatively small market movements.
+
+Make exits configurable and support:
+
+- Take profit
+- Stop loss
+- Trailing stop
+- Break-even protection
+- Signal reversal exit
+- Maximum holding time
+
+Do not assume that taking many tiny profits guarantees profitability.
+
+The system must record fees/slippage estimates so we can determine whether the small-trade strategy actually has positive expectancy after trading costs.
+
+## 8. Improve execution diagnostics
+
+Replace the confusing diagnostics with separate sections:
+
+HIGH-CONFIDENCE ENGINE
+LONG: X/8
+SHORT: X/8
+Threshold: 6/8
+Status: WAIT / QUALIFIED / ACTIVE
+
+ACTIVE ENGINE
+LONG: X/6
+SHORT: X/6
+Threshold: 4/6
+Next evaluation: [time of next 15m candle]
+Status: WAIT / QUALIFIED / ACTIVE
+
+EXECUTION
+Entry eligible: YES/NO
+Direction: LONG/SHORT
+Winning strategy: ACTIVE/HIGH-CONFIDENCE
+Remaining blocker: [exact reason]
+
+Possible blockers should include:
+
+- score below threshold
+- existing position on this asset
+- portfolio risk limit
+- cooldown
+- stale/missing market data
+- spread/slippage too high
+- conflicting signal
+- no blocker — order should execute
+
+## 9. Fix trade-history statistics
+
+The Trade History currently shows:
+
+0 trades · 0W / 0L
+
+That is acceptable if this section represents CLOSED trades only.
+
+However, add separate statistics:
+
+OPEN POSITIONS
+CLOSED TRADES
+WINS
+LOSSES
+
+An active position should appear immediately under OPEN POSITIONS.
+
+Only move it to CLOSED TRADES after an exit.
+
+## 10. Add strategy labels to every trade
+
+Every entry should record:
+
+Asset
+Direction
+Strategy
+Entry score
+Entry price
+Entry time
+Take profit
+Stop loss
+Exit price
+Exit time
+P&L £
+P&L %
+Duration
+Exit reason
+
+Strategy must show either:
+
+ACTIVE
+or
+HIGH-CONFIDENCE
+
+This will allow us to compare which engine actually makes more money.
+
+## 11. Important — PAPER MODE ONLY
+
+Keep this entirely in simulated paper trading.
+
+Our immediate objective is NOT to connect real funds.
+
+We want enough simulated trades to determine whether the ACTIVE strategy has positive expectancy.
+
+After implementing the changes, show me:
+
+1. Whether the ACTIVE 4/6 strategy can now execute independently.
+2. The exact current LONG and SHORT scores for every asset.
+3. The next 15-minute evaluation time.
+4. Any current qualifying signals.
+5. All open paper positions.
+6. Confirmation that the old 6/8 gate can no longer veto ACTIVE trades.

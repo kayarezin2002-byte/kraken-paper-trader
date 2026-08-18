@@ -1,0 +1,132 @@
+Add a dedicated OPEN TRADES page/tab to the paper-trading dashboard.
+
+The main navigation should become:
+
+Dashboard | Open Trades | Trade History | Activity Log
+
+## OPEN TRADES PAGE
+
+This page must show every currently active paper position across every asset in one place.
+
+At the top show:
+
+OPEN POSITIONS: X
+
+TOTAL UNREALISED P&L: £X.XX
+
+TOTAL CAPITAL AT RISK: £X.XX
+
+LONG POSITIONS: X
+
+SHORT POSITIONS: X
+
+Then display one card for every active trade.
+
+Each trade card should show:
+
+- Asset
+- LONG or SHORT
+- Strategy: ACTIVE / HIGH-CONFIDENCE
+- Entry price
+- Current price
+- Position size
+- Entry time
+- Time currently open
+- Entry signal score
+- Stop-loss price
+- Take-profit price
+- Current unrealised P&L £
+- Current unrealised P&L %
+- Current distance to stop loss
+- Current distance to take profit
+- Break-even status
+- Trailing-stop status
+
+Use obvious visual labels for:
+
+LONG
+SHORT
+PROFIT
+LOSS
+
+## LIVE UPDATES
+
+The Open Trades page should update automatically as market prices update.
+
+The user should not need to refresh the page manually.
+
+Current price, unrealised P&L and stop/target distances should update live.
+
+## TRADE PROGRESS
+
+Add a simple progress display showing where price currently sits between:
+
+STOP LOSS ← ENTRY → TAKE PROFIT
+
+For SHORT positions this should correctly account for the reversed price direction.
+
+Also display:
+
+Best unrealised profit reached
+Worst unrealised loss reached
+
+for the current trade.
+
+## OPEN TRADE CHART
+
+Each open trade should have a button:
+
+VIEW TRADE
+
+When opened, show the asset chart with:
+
+- Entry marker
+- Current price
+- Stop-loss line
+- Take-profit line
+- Trailing-stop line if active
+- Break-even line if active
+
+The chart should centre around the time the position was entered while still allowing the user to scroll backwards and forwards.
+
+## FILTERS
+
+Add quick filters:
+
+ALL
+LONG
+SHORT
+ACTIVE STRATEGY
+HIGH-CONFIDENCE
+
+Also allow filtering by asset.
+
+## CLOSED TRADE BEHAVIOUR
+
+As soon as a trade closes:
+
+1. Remove it from OPEN TRADES.
+2. Move it into TRADE HISTORY.
+3. Record the complete final result.
+4. Update portfolio balance and statistics immediately.
+
+Do not delete or overwrite any trade data.
+
+## DASHBOARD SUMMARY
+
+Also add a compact OPEN POSITIONS section near the top of the main Dashboard.
+
+Example:
+
+OPEN POSITIONS — 3
+BTC LONG     +£0.18
+GOLD SHORT   -£0.04
+ETH LONG     +£0.07
+
+Add:
+
+VIEW ALL OPEN TRADES
+
+which opens the dedicated Open Trades page.
+
+Everything remains PAPER MODE ONLY.

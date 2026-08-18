@@ -21,6 +21,8 @@ import {
   ResetAllCoinsResponse,
   ResetPaperTraderBody,
   ResetPaperTraderResponse,
+  SetActiveModeBody,
+  SetActiveModeResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -155,6 +157,17 @@ router.get("/paper-trader/all-trades", async (req, res) => {
   } catch (error) {
     req.log.error({ err: error }, "Unable to list all trades");
     res.status(500).json({ error: "Unable to read all trade history" });
+  }
+});
+
+router.post("/paper-trader/active-mode", async (req, res) => {
+  try {
+    const body = SetActiveModeBody.parse(req.body);
+    const data = SetActiveModeResponse.parse(await runBot("set-active-mode", body.mode));
+    res.json(data);
+  } catch (error) {
+    req.log.error({ err: error }, "Unable to set ACTIVE mode");
+    res.status(500).json({ error: "Unable to set ACTIVE strategy mode" });
   }
 });
 

@@ -85,7 +85,7 @@ function StrategyDiagnosticPanel({ diag }: { diag: StrategyDiagnostic }) {
       {/* Header row */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px]">
         <span className={`rounded px-1.5 py-0.5 font-mono-data text-[9px] font-bold uppercase tracking-wider ${(diag.strategy ?? 'CORE') === 'ACTIVE' ? 'bg-cyan-500/15 text-cyan-500' : 'bg-blue-500/10 text-blue-500'}`}>
-          {diag.strategy ?? 'CORE'}
+          {(diag.strategy ?? 'CORE') === 'ACTIVE' ? 'ACTIVE' : 'HIGH-CONF'}
         </span>
         <div>
           <span className="text-muted-foreground">Price </span>
@@ -206,7 +206,7 @@ function StrategyCollapsedSummary({ diag }: { diag: StrategyDiagnostic }) {
 
   return (
     <p className="mt-0.5 text-[11px] text-muted-foreground">
-      <span className="font-semibold text-muted-foreground/80">{diag.strategy ?? 'CORE'}</span>
+      <span className="font-semibold text-muted-foreground/80">{(diag.strategy ?? 'CORE') === 'ACTIVE' ? 'ACTIVE' : 'HIGH-CONF'}</span>
       <span className="mx-1.5 text-border">·</span>
       <span className={`font-mono-data font-semibold ${signalColor}`}>{diag.signal.replace('_', ' ')}</span>
       <span className="mx-1.5 text-border">·</span>

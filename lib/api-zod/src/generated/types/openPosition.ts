@@ -37,4 +37,19 @@ export interface OpenPosition {
   unrealisedPct?: number | null;
   /** @nullable */
   currentPrice?: number | null;
+  /**
+     * Best (most favourable) price seen while the position has been open.
+     * @nullable
+     */
+  bestPrice?: number | null;
+  /**
+     * Worst (most adverse) price seen while the position has been open.
+     * @nullable
+     */
+  worstPrice?: number | null;
+  /**
+     * Stop-loss at entry, before any break-even/trailing tightening.
+     * @nullable
+     */
+  initialStop?: number | null;
 }

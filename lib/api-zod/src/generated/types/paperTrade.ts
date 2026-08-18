@@ -61,4 +61,19 @@ export interface PaperTrade {
      * @nullable
      */
   strategy?: string | null;
+  /**
+     * Estimated exchange fees (taker, both sides). Recorded only; paper fills are cost-free.
+     * @nullable
+     */
+  estFees?: number | null;
+  /**
+     * Estimated slippage (half entry-time spread per side).
+     * @nullable
+     */
+  estSlippage?: number | null;
+  /**
+     * profitLoss minus estimated fees and slippage.
+     * @nullable
+     */
+  pnlNet?: number | null;
 }

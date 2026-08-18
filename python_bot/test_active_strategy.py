@@ -252,6 +252,83 @@ class TestActiveExecution(_DBTestCase):
         self.assertEqual(pos["passCount"], pos["entryScore"])
         self.assertEqual(pos["maxScore"], pt.ACTIVE_MAX_SCORE)
 
+    def test_max_hold_time_exit(self) -> None:
+        self._run_active("BTC", _candles(80, "UP"))
+        pos = self._active_pos("BTC")
+        pos["openedAt"] = "2020-01-01T00:00:00+00:00"  # long past the time stop
+        self.conn.execute(
+            "UPDATE coin_state SET active_position = ? WHERE coin = 'BTC'", (json.dumps(pos),)
+        )
+        self.conn.commit()
+        self._run_active("BTC", _candles(80, "UP"), price=pos["entry"])
+        row = self.conn.execute("SELECT * FROM trades ORDER BY id DESC LIMIT 1").fetchone()
+        self.assertEqual(row["exit_reason"], "MAX_HOLD_TIME")
+        self.assertEqual(row["strategy"], "ACTIVE")
+
+    def test_breakeven_and_trailing_stop_tighten(self) -> None:
+        self._run_active("BTC", _candles(80, "UP"))
+        pos = self._active_pos("BTC")
+        r_dist = pos["entry"] - pos["initialStop"]
+        # move +1.2R in favour (below the 1.5R take-profit) on the same candle set
+        up_px = pos["entry"] + 1.2 * r_dist
+        self._run_active("BTC", _candles(80, "UP"), price=up_px)
+        pos2 = self._active_pos("BTC")
+        self.assertIsNotNone(pos2, "position should still be open")
+        self.assertGreaterEqual(pos2["stopLoss"], pos["entry"],
+                                "stop must be at/above entry once +1R (break-even armed)")
+        self.assertGreater(pos2["stopLoss"], pos["stopLoss"], "stop must have tightened")
+        # a later scan must never loosen the stop
+        self._run_active("BTC", _candles(80, "UP"), price=pos2["stopLoss"] + r_dist * 0.5)
+        pos3 = self._active_pos("BTC")
+        if pos3 is not None:
+            self.assertGreaterEqual(pos3["stopLoss"], pos2["stopLoss"])
+
+    def test_signal_reversal_exit(self) -> None:
+        self._run_active("BTC", _candles(80, "UP"))
+        pos = self._active_pos("BTC")
+        self.assertEqual(pos["direction"], "LONG")
+        # New candle set with a qualified SHORT signal → reversal exit. The
+        # live price stays above the stop so the reversal (not the stop) fires.
+        down = _candles(90, "DOWN")
+        self._run_active("BTC", down, price=pos["entry"] * 0.999, trend="BEARISH")
+        row = self.conn.execute(
+            "SELECT * FROM trades WHERE exit_reason = 'SIGNAL_REVERSAL' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        self.assertIsNotNone(row, "qualified opposite signal must close the position")
+        self.assertEqual(row["strategy"], "ACTIVE")
+
+    def test_threshold_mode_config(self) -> None:
+        mode, gate = pt.get_active_mode(self.conn)
+        self.assertEqual((mode, gate), ("NORMAL", 4))
+        self.conn.execute(
+            "INSERT INTO bot_config (key, value) VALUES ('active_threshold_mode', 'CONSERVATIVE')"
+        )
+        self.conn.commit()
+        mode, gate = pt.get_active_mode(self.conn)
+        self.assertEqual((mode, gate), ("CONSERVATIVE", 5))
+        # invalid stored value falls back to default
+        self.conn.execute("UPDATE bot_config SET value = 'BOGUS' WHERE key = 'active_threshold_mode'")
+        self.conn.commit()
+        self.assertEqual(pt.get_active_mode(self.conn), ("NORMAL", 4))
+
+    def test_cost_estimates_recorded_on_close(self) -> None:
+        self._run_active("BTC", _candles(80, "UP"), spread=0.10)
+        pos = self._active_pos("BTC")
+        self._run_active("BTC", _candles(80, "UP"), price=pos["takeProfit"] * 1.01, spread=0.10)
+        row = self.conn.execute("SELECT * FROM trades ORDER BY id DESC LIMIT 1").fetchone()
+        self.assertIsNotNone(row["est_fees"])
+        self.assertGreater(row["est_fees"], 0)
+        self.assertGreater(row["est_slippage"], 0)
+        self.assertAlmostEqual(
+            row["pnl_net"], row["profit_loss"] - row["est_fees"] - row["est_slippage"], places=3
+        )
+        # aggregate stats must surface the estimated costs, not report gross as net
+        stats = pt.strategy_stats(self.conn)
+        self.assertGreater(stats["active"]["estCosts"], 0)
+        self.assertAlmostEqual(
+            stats["active"]["pnlNet"], stats["active"]["pnl"] - stats["active"]["estCosts"], places=3
+        )
+
     def test_fetch_failure_writes_api_error_snapshot(self) -> None:
         with patch.object(pt, "fetch_active_candles", side_effect=RuntimeError("boom")):
             pt.refresh_active(self.conn, "BTC", 100.0, "NEUTRAL", 0.01)

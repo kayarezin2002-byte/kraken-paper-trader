@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, BookOpen, Filter, History as HistoryIcon, X } from 'lucide-react';
-import { useListAllTrades, getListAllTradesQueryKey, useGetPortfolioSummary, getGetPortfolioSummaryQueryKey, type PaperTrade } from '@workspace/api-client-react';
+import { useListAllTrades, getListAllTradesQueryKey, useGetPortfolioSummary, getGetPortfolioSummaryQueryKey, useGetMultiCoinState, getGetMultiCoinStateQueryKey, type PaperTrade } from '@workspace/api-client-react';
 import { TradingShell } from '@/components/trading-shell';
 import { AssetChart, type ChartRange } from '@/components/asset-chart';
 
@@ -71,6 +71,18 @@ export default function History() {
   const allTrades = tradesQuery.data ?? [];
   const portfolioQuery = useGetPortfolioSummary({ query: { queryKey: getGetPortfolioSummaryQueryKey(), staleTime: 60_000 } });
   const strategyStats = portfolioQuery.data?.strategyStats ?? null;
+  const multiStateQuery = useGetMultiCoinState({ query: { queryKey: getGetMultiCoinStateQueryKey(), staleTime: 30_000 } });
+  const openPositions = useMemo(() => {
+    const ms = multiStateQuery.data;
+    if (!ms) return [];
+    const out: { coin: string; strategy: 'HIGH-CONFIDENCE' | 'ACTIVE'; direction: string; entry: number; openedAt: string }[] = [];
+    for (const coin of ['BTC', 'ETH', 'SOL', 'XRP', 'GOLD', 'SILVER'] as const) {
+      const s = (ms as Record<string, any>)[coin];
+      if (s?.position) out.push({ coin, strategy: 'HIGH-CONFIDENCE', direction: s.position.direction, entry: s.position.entry, openedAt: s.position.openedAt });
+      if (s?.activePosition) out.push({ coin, strategy: 'ACTIVE', direction: s.activePosition.direction, entry: s.activePosition.entry, openedAt: s.activePosition.openedAt });
+    }
+    return out;
+  }, [multiStateQuery.data]);
 
   const filtered = useMemo(
     () => coinFilter === 'ALL' ? allTrades : allTrades.filter((t) => t.coin === coinFilter),
@@ -148,19 +160,51 @@ export default function History() {
           </div>
         </section>
 
-        {/* ─── Strategy performance: CORE vs ACTIVE vs COMBINED ─────────── */}
+        {/* ─── Open vs closed at a glance ───────────────────────────────── */}
+        <section className="rise-in rounded-2xl border border-border/80 bg-card p-5 shadow-[0_10px_32px_hsl(215_35%_13%_/_0.05)] sm:p-6" data-testid="position-summary">
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+            {([
+              ['Open positions', openPositions.length, 'text-cyan-500'],
+              ['Closed trades', allTrades.length, 'text-foreground'],
+              ['Wins', allTrades.filter((t) => t.profitLoss > 0).length, 'text-accent'],
+              ['Losses', allTrades.filter((t) => t.profitLoss <= 0).length, 'text-destructive'],
+            ] as const).map(([label, v, tone]) => (
+              <div key={label} className="rounded-xl bg-background p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+                <p className={`mt-2 font-mono-data text-xl ${tone}`}>{v}</p>
+              </div>
+            ))}
+          </div>
+          {openPositions.length > 0 && (
+            <div className="mt-3 space-y-1.5">
+              {openPositions.map((p) => (
+                <div key={`${p.coin}-${p.strategy}`} className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background px-3 py-2 text-[11px]" data-testid={`open-position-${p.coin}-${p.strategy}`}>
+                  <span className={`rounded px-1.5 py-0.5 font-mono-data text-[10px] font-bold uppercase ${COIN_COLORS[p.coin] ?? ''}`}>{p.coin}</span>
+                  <span className={`rounded px-1.5 py-0.5 font-mono-data text-[9px] font-bold uppercase ${p.strategy === 'ACTIVE' ? 'bg-cyan-500/15 text-cyan-500' : 'bg-blue-500/10 text-blue-500'}`}>{p.strategy}</span>
+                  <span className={`font-mono-data font-semibold ${p.direction === 'LONG' ? 'text-accent' : 'text-destructive'}`}>{p.direction}</span>
+                  <span className="text-muted-foreground">entry {num(p.entry, p.entry < 10 ? 4 : 2)} · opened {dateTime(p.openedAt)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* ─── Strategy performance: HIGH-CONFIDENCE vs ACTIVE vs COMBINED ── */}
         {strategyStats && (
           <section className="rise-in rounded-2xl border border-border/80 bg-card p-5 shadow-[0_10px_32px_hsl(215_35%_13%_/_0.05)] sm:p-6" data-testid="strategy-stats">
             <h2 className="text-sm font-extrabold">Strategy performance</h2>
-            <p className="mt-1 text-xs text-muted-foreground">CORE trades on completed 1h candles; ACTIVE trades on completed 15m candles with 1h context. Both run in parallel on every asset.</p>
+            <p className="mt-1 text-xs text-muted-foreground">HIGH-CONFIDENCE trades on completed 1h candles; ACTIVE trades on completed 15m candles with 1h context. Both run in parallel on every asset. Net P&L subtracts estimated fees + slippage (recorded per trade; paper fills themselves are cost-free).</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              {([['CORE', strategyStats.core, 'text-blue-500'], ['ACTIVE', strategyStats.active, 'text-cyan-500'], ['COMBINED', strategyStats.combined, 'text-foreground']] as const).map(([label, s, tone]) => (
+              {([['HIGH-CONFIDENCE', strategyStats.core, 'text-blue-500'], ['ACTIVE', strategyStats.active, 'text-cyan-500'], ['COMBINED', strategyStats.combined, 'text-foreground']] as const).map(([label, s, tone]) => (
                 <div key={label} className="rounded-xl border border-border/60 bg-background p-4">
                   <p className={`font-mono-data text-[10px] font-bold uppercase tracking-[0.14em] ${tone}`}>{label}</p>
                   <p className={`mt-2 font-mono-data text-xl ${s.pnl >= 0 ? 'text-accent' : 'text-destructive'}`}>{s.pnl >= 0 ? '+' : ''}{money(s.pnl)}</p>
                   <div className="mt-2 space-y-0.5 text-[11px] text-muted-foreground">
                     <p>{s.trades} trades · {s.wins}W / {s.losses}L · {num(s.winRate)}% win rate</p>
                     <p>ROI {num(s.roi, 3)}% · profit factor {s.profitFactor != null ? num(s.profitFactor) : '—'} · max DD {money(s.maxDrawdown)}</p>
+                    {s.estCosts != null && (
+                      <p>est. costs {money(s.estCosts)} · net P&L <span className={(s.pnlNet ?? 0) >= 0 ? 'text-accent' : 'text-destructive'}>{(s.pnlNet ?? 0) >= 0 ? '+' : ''}{money(s.pnlNet)}</span></p>
+                    )}
                   </div>
                 </div>
               ))}
@@ -240,7 +284,7 @@ export default function History() {
                       </td>
                       <td className="px-3 py-4">
                         <span className={`rounded px-1.5 py-0.5 font-mono-data text-[9px] font-bold uppercase ${(trade.strategy ?? 'CORE') === 'ACTIVE' ? 'bg-cyan-500/15 text-cyan-500' : 'bg-blue-500/10 text-blue-500'}`}>
-                          {trade.strategy ?? 'CORE'}
+                          {(trade.strategy ?? 'CORE') === 'ACTIVE' ? 'ACTIVE' : 'HIGH-CONF'}
                         </span>
                       </td>
                       <td className="px-3 py-4">

@@ -277,6 +277,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/PnlSeriesResult"
 
+  /paper-trader/active-mode:
+    post:
+      operationId: setActiveMode
+      tags: [paper-trader]
+      summary: Set the ACTIVE strategy threshold mode (CONSERVATIVE 5/6, NORMAL 4/6, AGGRESSIVE 3/6)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetActiveModeInput"
+      responses:
+        "200":
+          description: New mode applied (takes effect on the next scan)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SetActiveModeResult"
+
   /paper-trader/reset-all:
     post:
       operationId: resetAllCoins
@@ -493,6 +512,15 @@ components:
           type: ["number", "null"]
         currentPrice:
           type: ["number", "null"]
+        bestPrice:
+          type: ["number", "null"]
+          description: Best (most favourable) price seen while the position has been open.
+        worstPrice:
+          type: ["number", "null"]
+          description: Worst (most adverse) price seen while the position has been open.
+        initialStop:
+          type: ["number", "null"]
+          description: Stop-loss at entry, before any break-even/trailing tightening.
       required: [direction, entry, stopLoss, takeProfit, quantity, riskAmount, openedAt, entryRsi, entryMacd, entryAtr, trend4h]
 
     # ── Trades ──────────────────────────────────────────────────────────────
@@ -533,7 +561,7 @@ components:
           type: number
         exitReason:
           type: string
-          enum: [TAKE_PROFIT, STOP_LOSS, SIGNAL_REVERSAL, MANUAL]
+          enum: [TAKE_PROFIT, STOP_LOSS, SIGNAL_REVERSAL, MAX_HOLD_TIME, MANUAL]
         riskAmount:
           type: ["number", "null"]
         rMultiple:
@@ -564,6 +592,15 @@ components:
         strategy:
           type: ["string", "null"]
           description: CORE (1h strategy) or ACTIVE (15m strategy). Pre-upgrade rows report CORE.
+        estFees:
+          type: ["number", "null"]
+          description: Estimated exchange fees (taker, both sides). Recorded only; paper fills are cost-free.
+        estSlippage:
+          type: ["number", "null"]
+          description: Estimated slippage (half entry-time spread per side).
+        pnlNet:
+          type: ["number", "null"]
+          description: profitLoss minus estimated fees and slippage.
       required: [id, coin, openedAt, closedAt, direction, entry, exit, stopLoss, takeProfit, rsi, macd, atr, trend4h, profitLoss, accountBalance, exitReason]
 
     # ── Metrics ─────────────────────────────────────────────────────────────
@@ -840,6 +877,20 @@ components:
           enum: [BULLISH, BEARISH, NEUTRAL, null]
         blockReason:
           type: ["string", "null"]
+        nextEvaluationAt:
+          type: ["string", "null"]
+          description: When the next 15m candle completes and entries are re-evaluated.
+        thresholdMode:
+          type: ["string", "null"]
+          enum: [CONSERVATIVE, NORMAL, AGGRESSIVE, null]
+        entryEligible:
+          type: ["boolean", "null"]
+          description: True when a qualified signal has no remaining blocker (or just executed).
+        executionBlocker:
+          type: ["string", "null"]
+          description: Exact remaining blocker, or "No blocker — order should execute…".
+        hasOpenPosition:
+          type: ["boolean", "null"]
       required: [status]
 
     StrategyStatsBlock:
@@ -854,6 +905,12 @@ components:
         roi: { type: number }
         profitFactor: { type: ["number", "null"] }
         maxDrawdown: { type: number }
+        estCosts:
+          type: ["number", "null"]
+          description: Sum of estimated fees + slippage across the bucket.
+        pnlNet:
+          type: ["number", "null"]
+          description: pnl minus estCosts (expectancy after trading costs).
       required: [trades, wins, losses, winRate, pnl, roi, profitFactor, maxDrawdown]
 
     StrategyStats:
@@ -1028,6 +1085,13 @@ components:
           oneOf:
             - $ref: "#/components/schemas/StrategyStats"
             - type: "null"
+        activeMode:
+          type: ["string", "null"]
+          enum: [CONSERVATIVE, NORMAL, AGGRESSIVE, null]
+          description: Current ACTIVE strategy threshold mode (user-selected, never auto-switched).
+        activeThreshold:
+          type: ["number", "null"]
+          description: Conditions required by the current ACTIVE mode (3, 4, or 5 of 6).
       required: [totalStarting, totalBalance, totalPnl, totalRoi, totalTrades, totalWins, totalLosses, overallWinRate, coins]
 
     # ── Activity log ────────────────────────────────────────────────────────
@@ -1047,6 +1111,27 @@ components:
       required: [id, coin, event, message, ts]
 
     # ── Input schemas ───────────────────────────────────────────────────────
+    SetActiveModeInput:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [CONSERVATIVE, NORMAL, AGGRESSIVE]
+      required: [mode]
+
+    SetActiveModeResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        mode:
+          type: ["string", "null"]
+        threshold:
+          type: ["number", "null"]
+        error:
+          type: ["string", "null"]
+      required: [ok]
+
     ResetPaperTraderInput:
       type: object
       properties:

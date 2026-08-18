@@ -1,4 +1,4 @@
-import { Activity, BookOpen, CircleHelp, Gauge, History, ShieldCheck, Waves, Zap } from 'lucide-react';
+import { Activity, BookOpen, Briefcase, CircleHelp, Gauge, History, ShieldCheck, Waves, Zap } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useHealthCheck } from '@workspace/api-client-react';
 import type { ReactNode } from 'react';
@@ -12,6 +12,7 @@ type TradingShellProps = {
 
 const NAV_LINKS = [
   { href: '/',         label: 'Dashboard',    Icon: Gauge,   testId: 'link-dashboard'  },
+  { href: '/open',     label: 'Open trades',  Icon: Briefcase, testId: 'link-open-trades' },
   { href: '/history',  label: 'Trade history', Icon: History,  testId: 'link-history'   },
   { href: '/activity', label: 'Activity log',  Icon: Zap,      testId: 'link-activity'  },
 ];
