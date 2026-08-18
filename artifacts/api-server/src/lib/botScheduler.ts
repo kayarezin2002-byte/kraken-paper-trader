@@ -26,6 +26,8 @@ const ALERT_THRESHOLD = parseInt(process.env.ALERT_CONSECUTIVE_ERRORS ?? "3", 10
  */
 const ALERT_WEBHOOK_URL = process.env.ALERT_WEBHOOK_URL ?? null;
 
+/** Minimum gap between test-alert deliveries (protects the webhook from spam). */
+export const TEST_ALERT_COOLDOWN_MS = 60_000;
 type EngineState = {
   status: "RUNNING" | "ERROR" | "STARTING";
   lastScanAt: string | null;
@@ -86,6 +88,86 @@ async function fireAlert(message: string, detail: string | null): Promise<void> 
   }
 }
 
+/**
+ * Send a test webhook alert to verify ALERT_WEBHOOK_URL connectivity.
+ *
+ * Protected by:
+ *  - Single-flight: rejects if a test is already in-flight.
+ *  - Rate limit: rejects if called within TEST_ALERT_COOLDOWN_MS of the last attempt.
+ *
+ * Returns { ok, message } — never throws.
+ */
+export async function fireTestAlert(): Promise<{ ok: boolean; message: string }> {
+  // Read at call time so tests can override via vi.stubEnv without reload
+  const webhookUrl = process.env.ALERT_WEBHOOK_URL ?? null;
+
+  if (!webhookUrl) {
+    return { ok: false, message: "ALERT_WEBHOOK_URL is not configured — set the env var first." };
+  }
+
+  // Single-flight: reject if already in progress
+  if (testAlertInProgress) {
+    return { ok: false, message: "A test alert is already in progress — please wait." };
+  }
+
+  // Rate limit: at most one test per TEST_ALERT_COOLDOWN_MS
+  if (lastTestAlertAt != null) {
+    const elapsed = Date.now() - lastTestAlertAt;
+    if (elapsed < TEST_ALERT_COOLDOWN_MS) {
+      const remainingSecs = Math.ceil((TEST_ALERT_COOLDOWN_MS - elapsed) / 1000);
+      return { ok: false, message: `Rate limited — please wait ${remainingSecs}s before retrying.` };
+    }
+  }
+
+  testAlertInProgress = true;
+  lastTestAlertAt = Date.now();
+
+  try {
+    const msg =
+      "[TEST] Kraken paper-trader webhook test — " +
+      "this is a connectivity check, not a real alert. " +
+      `Sent at ${new Date().toISOString()}.`;
+    const body = JSON.stringify({
+      // Slack-compatible field
+      text: msg,
+      // Extended fields for generic webhooks / Zapier / Make
+      alert: "bot_scan_failure",
+      test: true,
+      message: msg,
+      detail: "This is a test payload sent from the dashboard to verify webhook connectivity.",
+      consecutiveErrors: engine.consecutiveErrors,
+      threshold: ALERT_THRESHOLD,
+      lastScanAt: engine.lastScanAt,
+      nextScanAt: engine.nextScanAt,
+      timestamp: new Date().toISOString(),
+    });
+    const res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      const detail = `Webhook returned HTTP ${res.status}`;
+      logger.warn({ status: res.status }, "Test alert webhook returned non-2xx status");
+      return { ok: false, message: detail };
+    }
+    logger.info("Test alert webhook fired successfully");
+    return { ok: true, message: "Test alert delivered successfully." };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    logger.error({ err }, "Test alert webhook request failed");
+    return { ok: false, message: `Request failed: ${detail}` };
+  } finally {
+    testAlertInProgress = false;
+  }
+}
+
+/** Expose rate-limit state for tests. */
+export function _resetTestAlertState(): void {
+  lastTestAlertAt = null;
+  testAlertInProgress = false;
+}
 async function runScan(): Promise<void> {
   if (scanning) return; // overlap guard — never queue up scheduler scans
   scanning = true;
@@ -147,3 +229,9 @@ export function startBotScheduler(): void {
 export function engineStatus(): EngineState {
   return { ...engine };
 }
+
+/** Module-level state: last time a test alert was dispatched (epoch ms). */
+let lastTestAlertAt: number | null = null;
+
+/** True while a test-alert HTTP request is in-flight. */
+let testAlertInProgress = false;

@@ -223,6 +223,8 @@ function ExecutionDiagnosticsPanel({ diag, coin }: { diag: NonNullable<PaperTrad
 function EngineStatusStrip({ lastCandleAt }: { lastCandleAt: string | null | undefined }) {
   const { data: engine } = useGetEngineStatus({ query: { queryKey: ['engine-status'], refetchInterval: 30000 } });
   const { data: health } = useGetEngineHealthStatus({ query: { queryKey: ['engine-health'], refetchInterval: 30000 } });
+  const [copied, setCopied] = useState(false);
+
   if (!engine) return null;
   const tone =
     engine.status === 'RUNNING' ? 'text-accent'
@@ -230,6 +232,20 @@ function EngineStatusStrip({ lastCandleAt }: { lastCandleAt: string | null | und
     : 'text-muted-foreground';
   const hasConsecutiveErrors = engine.consecutiveErrors > 0;
   const isAlertBreached = hasConsecutiveErrors && health?.alertThreshold != null && engine.consecutiveErrors >= health.alertThreshold;
+
+  // Construct the curl command the user should run in the Replit shell.
+  // ALERT_ADMIN_TOKEN is never sent to the browser — the user supplies it
+  // in their terminal where it remains server-side.
+  const apiBase = `${window.location.origin}/api`;
+  const shellCmd = `curl -s -X POST ${apiBase}/engine/test-alert \\\n  -H "Authorization: Bearer $ALERT_ADMIN_TOKEN" \\\n  -H "Content-Type: application/json"`;
+
+  const copyCmd = () => {
+    navigator.clipboard.writeText(shellCmd.replace(/\\\n  /g, ' ')).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   return (
     <div className="space-y-2" data-testid="engine-status">
       {/* Main status row */}
@@ -250,22 +266,47 @@ function EngineStatusStrip({ lastCandleAt }: { lastCandleAt: string | null | und
         )}
         {engine.lastError && <span className="font-mono-data text-[10px] text-destructive">last error: {engine.lastError.slice(0, 120)}</span>}
       </div>
-      {/* Alert configuration status */}
+      {/* Alert configuration status + shell test command */}
       {health != null && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border/40 bg-card/60 px-4 py-2">
-          <span className="flex items-center gap-1.5 font-mono-data text-[10px] text-muted-foreground">
-            <span className={`h-1.5 w-1.5 rounded-full ${health.alertWebhookConfigured ? 'bg-accent' : 'bg-muted-foreground/40'}`} />
-            Webhook alerts: <span className="text-foreground">{health.alertWebhookConfigured ? `enabled (fires after ${health.alertThreshold} consecutive errors)` : 'not configured'}</span>
-          </span>
-          <span className="font-mono-data text-[10px] text-muted-foreground">
-            Health endpoint: <span className="text-foreground/80 select-all">/api/engine/status</span>
-            <span className="ml-1 text-muted-foreground/60">(point UptimeRobot / Better Uptime here)</span>
-          </span>
-          {!health.alertWebhookConfigured && (
-            <span className="font-mono-data text-[10px] text-amber-400/80">
-              Set <span className="font-bold text-amber-400">ALERT_WEBHOOK_URL</span> env var to enable webhook alerts
+        <div className="space-y-1.5 rounded-lg border border-border/40 bg-card/60 px-4 py-2.5">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="flex items-center gap-1.5 font-mono-data text-[10px] text-muted-foreground">
+              <span className={`h-1.5 w-1.5 rounded-full ${health.alertWebhookConfigured ? 'bg-accent' : 'bg-muted-foreground/40'}`} />
+              Webhook alerts: <span className="text-foreground">{health.alertWebhookConfigured ? `enabled (fires after ${health.alertThreshold} consecutive errors)` : 'not configured'}</span>
             </span>
-          )}
+            <span className="font-mono-data text-[10px] text-muted-foreground">
+              Health endpoint: <span className="text-foreground/80 select-all">/api/engine/status</span>
+              <span className="ml-1 text-muted-foreground/60">(point UptimeRobot / Better Uptime here)</span>
+            </span>
+            {!health.alertWebhookConfigured && (
+              <span className="font-mono-data text-[10px] text-amber-400/80">
+                Set <span className="font-bold text-amber-400">ALERT_WEBHOOK_URL</span> env var to enable webhook alerts
+              </span>
+            )}
+          </div>
+          {/* Test-alert: server-side shell command (token must not pass through the browser) */}
+          <div className="flex items-start gap-2 rounded border border-border/50 bg-muted/30 px-3 py-2">
+            <Zap size={11} className="mt-0.5 shrink-0 text-muted-foreground/60" />
+            <div className="min-w-0 flex-1">
+              <p className="font-mono-data text-[10px] font-semibold text-foreground/80">
+                Test alert — run in Replit shell
+              </p>
+              <p className="mt-0.5 font-mono-data text-[9px] text-muted-foreground/70">
+                ALERT_ADMIN_TOKEN stays server-side; paste this command in the shell tab, not the browser console.
+              </p>
+              <code className="mt-1 block select-all break-all font-mono-data text-[9px] text-foreground/70">
+                {shellCmd}
+              </code>
+            </div>
+            <button
+              type="button"
+              onClick={copyCmd}
+              className="shrink-0 rounded border border-border/50 bg-muted/40 px-2 py-1 font-mono-data text-[9px] font-semibold text-foreground/70 transition-colors hover:bg-muted/70"
+              title="Copy command to clipboard"
+            >
+              {copied ? <><CheckCircle2 size={10} className="inline" /> Copied</> : 'Copy'}
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -1152,6 +1152,16 @@ export interface EngineStatus {
 }
 
 /**
+ * Result of a test webhook alert delivery attempt.
+ */
+export interface TestAlertResult {
+  /** True when the webhook returned a 2xx response; false otherwise. */
+  ok: boolean;
+  /** Human-readable delivery result or error detail. */
+  message: string;
+}
+
+/**
  * "ok" when engine is RUNNING or STARTING; "error" when it is in ERROR state.
  */
 export type EngineHealthStatusStatus = typeof EngineHealthStatusStatus[keyof typeof EngineHealthStatusStatus];

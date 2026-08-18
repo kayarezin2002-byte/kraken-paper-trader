@@ -3946,6 +3946,20 @@ export const GetEngineStatusResponse = zod.object({
 
 
 /**
+ * Fires a clearly-marked test payload to ALERT_WEBHOOK_URL so you can
+ * confirm the webhook is wired correctly without waiting for 3 consecutive
+ * scan failures.  The payload includes `"test": true` and a `[TEST]` prefix
+ * in the message text.  Always returns HTTP 200 — check the `ok` field in
+ * the response body for actual delivery success or failure.
+ * @summary Send a test webhook alert to verify ALERT_WEBHOOK_URL connectivity
+ */
+export const TestEngineAlertResponse = zod.object({
+  "ok": zod.boolean().describe('True when the webhook returned a 2xx response; false otherwise.'),
+  "message": zod.string().describe('Human-readable delivery result or error detail.')
+}).describe('Result of a test webhook alert delivery attempt.')
+
+
+/**
  * Returns HTTP 200 when the background scheduler is RUNNING or STARTING.
  * Returns HTTP 503 when the scheduler is in ERROR state.
  *

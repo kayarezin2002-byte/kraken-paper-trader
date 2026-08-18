@@ -126,5 +126,6 @@ export * from './strategyConditionsOneHourTrend';
 export * from './strategyConditionsSignal';
 export * from './strategyStats';
 export * from './strategyStatsBlock';
+export * from './testAlertResult';
 export * from './toggleWatchlist200';
 export * from './watchlistToggleInput';

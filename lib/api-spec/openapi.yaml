@@ -146,6 +146,39 @@ paths:
               schema:
                 $ref: "#/components/schemas/EngineStatus"
 
+  /engine/test-alert:
+    post:
+      operationId: testEngineAlert
+      tags: [health]
+      summary: Send a test webhook alert to verify ALERT_WEBHOOK_URL connectivity
+      description: |
+        Fires a clearly-marked test payload to ALERT_WEBHOOK_URL so you can
+        confirm the webhook is wired correctly without waiting for 3 consecutive
+        scan failures.  The payload includes `"test": true` and a `[TEST]` prefix
+        in the message text.  Always returns HTTP 200 — check the `ok` field in
+        the response body for actual delivery success or failure.
+      security:
+        - bearerAdminToken: []
+      responses:
+        "200":
+          description: Test result (check `ok` for delivery success/failure)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestAlertResult"
+        "401":
+          description: Missing or invalid ALERT_ADMIN_TOKEN bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestAlertResult"
+        "503":
+          description: ALERT_ADMIN_TOKEN not configured on the server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestAlertResult"
+
   /engine/status:
     get:
       operationId: getEngineHealthStatus
@@ -1652,6 +1685,18 @@ components:
           type: number
           description: Number of consecutive failed scans since last success. Resets to 0 on recovery.
       required: [status, lastScanAt, nextScanAt, intervalSeconds, lastError, scansCompleted, consecutiveErrors]
+
+    TestAlertResult:
+      type: object
+      description: Result of a test webhook alert delivery attempt.
+      properties:
+        ok:
+          type: boolean
+          description: True when the webhook returned a 2xx response; false otherwise.
+        message:
+          type: string
+          description: Human-readable delivery result or error detail.
+      required: [ok, message]
 
     EngineHealthStatus:
       type: object
