@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: kraken-paper-trader
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && BASE_PATH=/ pnpm build
+    startCommand: pnpm start
+    healthCheckPath: /api/healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PAPER_TRADING_ONLY
+        value: "true"
