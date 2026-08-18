@@ -505,6 +505,11 @@ components:
           enum: [READY, WAITING_FOR_DATA, RISK_PAUSED, API_ERROR, MONITORING]
         message:
           type: string
+        scanNote:
+          oneOf:
+            - type: string
+            - type: "null"
+          description: Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.
         instrument:
           type: object
           description: Honest labelling of the instrument, its trading mode, and data source.

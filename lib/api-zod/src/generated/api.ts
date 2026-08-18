@@ -149,6 +149,7 @@ export const GetPaperTraderStateResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -292,6 +293,7 @@ export const RefreshPaperTraderResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -308,7 +310,6 @@ export const RefreshPaperTraderResponse = zod.object({
  */
 export const listPaperTradesQueryLimitDefault = 50;
 export const listPaperTradesQueryLimitMax = 200;
-
 
 
 export const ListPaperTradesQueryParams = zod.object({
@@ -350,7 +351,6 @@ export const ListPaperTradesResponse = zod.array(ListPaperTradesResponseItem)
  * @summary Reset the BTC virtual account
  */
 export const resetPaperTraderBodyStartingBalanceMin = 0;
-
 
 
 export const ResetPaperTraderBody = zod.object({
@@ -486,6 +486,7 @@ export const ResetPaperTraderResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -631,6 +632,7 @@ export const GetMultiCoinStateResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -769,6 +771,7 @@ export const GetMultiCoinStateResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -907,6 +910,7 @@ export const GetMultiCoinStateResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -1045,6 +1049,7 @@ export const GetMultiCoinStateResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -1183,6 +1188,7 @@ export const GetMultiCoinStateResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -1321,6 +1327,7 @@ export const GetMultiCoinStateResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -1467,6 +1474,7 @@ export const RefreshMultiCoinResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -1605,6 +1613,7 @@ export const RefreshMultiCoinResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -1743,6 +1752,7 @@ export const RefreshMultiCoinResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -1881,6 +1891,7 @@ export const RefreshMultiCoinResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -2019,6 +2030,7 @@ export const RefreshMultiCoinResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -2157,6 +2169,7 @@ export const RefreshMultiCoinResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -2205,7 +2218,6 @@ export const listActivityLogQueryLimitDefault = 50;
 export const listActivityLogQueryLimitMax = 200;
 
 
-
 export const ListActivityLogQueryParams = zod.object({
   "limit": zod.coerce.number().min(1).max(listActivityLogQueryLimitMax).default(listActivityLogQueryLimitDefault)
 })
@@ -2225,7 +2237,6 @@ export const ListActivityLogResponse = zod.array(ListActivityLogResponseItem)
  */
 export const listAllTradesQueryLimitDefault = 200;
 export const listAllTradesQueryLimitMax = 500;
-
 
 
 export const ListAllTradesQueryParams = zod.object({
@@ -2268,7 +2279,6 @@ export const ListAllTradesResponse = zod.array(ListAllTradesResponseItem)
  * @summary Reset all six virtual accounts
  */
 export const resetAllCoinsBodyStartingBalanceMin = 0;
-
 
 
 export const ResetAllCoinsBody = zod.object({
@@ -2405,6 +2415,7 @@ export const ResetAllCoinsResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -2543,6 +2554,7 @@ export const ResetAllCoinsResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -2681,6 +2693,7 @@ export const ResetAllCoinsResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -2819,6 +2832,7 @@ export const ResetAllCoinsResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -2957,6 +2971,7 @@ export const ResetAllCoinsResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -3095,6 +3110,7 @@ export const ResetAllCoinsResponse = zod.object({
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
+  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -3105,5 +3121,3 @@ export const ResetAllCoinsResponse = zod.object({
 }).describe('Honest labelling of the instrument, its trading mode, and data source.')
 })
 })
-
-

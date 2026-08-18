@@ -36,6 +36,12 @@ export interface PaperTraderState {
   recentTrades: PaperTrade[];
   botStatus: PaperTraderStateBotStatus;
   message: string;
+  /**
+   * Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded.
+   * Null otherwise.
+   * @nullable
+   */
+  scanNote?: string | null;
   /** Honest labelling of the instrument, its trading mode, and data source. */
   instrument: PaperTraderStateInstrument;
 }

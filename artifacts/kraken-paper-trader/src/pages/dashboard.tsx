@@ -302,6 +302,40 @@ function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
 
       {/* Body */}
       <div className="flex-1 space-y-4 px-5 py-4">
+        {/* Metal-specific feed-status notices */}
+        {state.instrument.kind === 'METAL' && state.botStatus === 'API_ERROR' && (
+          <div
+            className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/8 px-3 py-2.5"
+            data-testid={`metal-feed-error-${coin}`}
+          >
+            <AlertTriangle size={13} className="mt-0.5 shrink-0 text-destructive" />
+            <div>
+              <p className="font-mono-data text-[10px] font-bold uppercase tracking-wider text-destructive">
+                Spot price feed unavailable
+              </p>
+              <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
+                {state.message || 'gold-api.com is not responding — no current price data.'}
+              </p>
+            </div>
+          </div>
+        )}
+        {state.instrument.kind === 'METAL' && state.scanNote && (
+          <div
+            className="flex items-start gap-2 rounded-lg border border-amber-500/25 bg-amber-500/8 px-3 py-2.5"
+            data-testid={`metal-scan-unavailable-${coin}`}
+          >
+            <AlertTriangle size={13} className="mt-0.5 shrink-0 text-amber-400" />
+            <div>
+              <p className="font-mono-data text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                Scan data unavailable
+              </p>
+              <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
+                {state.scanNote} — spot price is still live.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Opportunity panel */}
         {state.opportunity && <OpportunityPanel opportunity={state.opportunity} coin={coin} />}
 

@@ -1040,8 +1040,10 @@ def build_coin_state(
         "SELECT * FROM trades WHERE coin = ? ORDER BY id DESC LIMIT 50", (coin,)
     ).fetchall()
     current_message = message or state["message"]
-    if data.get("currentPrice") is not None:
-        status = data.get("botStatus", status)
+    # Always propagate the persisted botStatus when one is stored — this ensures
+    # that API_ERROR (with null currentPrice) survives multi-state reads without
+    # reverting to the "WAITING_FOR_DATA" default.
+    status = data.get("botStatus") or status
     metrics = coin_metrics(connection, coin, state)
 
     # Compute unrealised PnL for open position
@@ -1088,6 +1090,9 @@ def build_coin_state(
         "recentTrades":  [trade_from_row(r) for r in recent_trades],
         "botStatus":     status,
         "message":       current_message,
+        # Surfaced only for metals when Yahoo Finance scan candles are unavailable
+        # but the gold-api.com spot price succeeded. Null for crypto and normal metals.
+        "scanNote":      data.get("scanNote"),
     }
 
 
@@ -1557,9 +1562,26 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
         )
     except Exception as error:
         add_activity(connection, metal, "API_ERROR", str(error))
-        _block_stale_opportunity(connection, metal, f"Spot price unavailable: {error}")
+        # Null out stale price in the stored snapshot so the dashboard shows
+        # API_ERROR honestly rather than displaying a stale price.
+        state_row = load_coin_state(connection, metal)
+        stored_snap = json.loads(state_row["snapshot"]) if state_row["snapshot"] else {}
+        error_msg = f"Spot price feed unavailable: {error}"
+        if stored_snap:
+            stored_snap["currentPrice"] = None
+            stored_snap["botStatus"] = "API_ERROR"
+        else:
+            # No prior snapshot — write a minimal one so multi_state reads
+            # know this coin is in API_ERROR, not WAITING_FOR_DATA.
+            stored_snap = {"currentPrice": None, "botStatus": "API_ERROR"}
+        # Persist both the cleared snapshot AND the error message so that
+        # subsequent multi_state / build_coin_state reads remain honest.
+        connection.execute(
+            "UPDATE coin_state SET snapshot = ?, message = ?, updated_at = ? WHERE coin = ?",
+            (json.dumps(stored_snap), error_msg, now_iso(), metal),
+        )
         connection.commit()
-        return build_coin_state(connection, metal, message=str(error), status="API_ERROR")
+        return build_coin_state(connection, metal, message=error_msg, status="API_ERROR")
 
     # --- Strategy scan on futures candles (research visibility only) ---
     cond_eval: dict[str, Any] | None = None
@@ -1577,7 +1599,7 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
                 float(one_hour[-1][0]), timezone.utc
             ).isoformat()
     except Exception as error:
-        scan_note = f"Scan data unavailable: {error}"
+        scan_note = f"Scan data unavailable (Yahoo Finance): {error}"
 
     if cond_eval is not None:
         signal          = cond_eval["signal"]      # strict 6/6 signal
@@ -1825,6 +1847,8 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
         "proposedTrade":         None,
         "opportunity":           metal_opportunity,
         "botStatus":             status,
+        # Surface Yahoo Finance unavailability honestly (distinct from gold-api.com errors)
+        "scanNote":              scan_note,
     }
     connection.execute(
         """
