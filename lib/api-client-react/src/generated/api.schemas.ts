@@ -136,6 +136,14 @@ export interface OpenPosition {
   entryAtr: number | null;
   trend4h: OpenPositionTrend4h;
   /** @nullable */
+  trend1h?: string | null;
+  /** @nullable */
+  longScore?: number | null;
+  /** @nullable */
+  shortScore?: number | null;
+  /** @nullable */
+  entryThreshold?: number | null;
+  /** @nullable */
   unrealisedPnl?: number | null;
   /** @nullable */
   unrealisedPct?: number | null;
@@ -222,6 +230,12 @@ export interface PaperTrade {
   entryMode?: string | null;
   /** @nullable */
   entryConditions?: string | null;
+  /** @nullable */
+  longScore?: number | null;
+  /** @nullable */
+  shortScore?: number | null;
+  /** @nullable */
+  entryThreshold?: number | null;
 }
 
 export interface PaperTraderMetrics {
@@ -339,6 +353,32 @@ export type PaperTraderStateInstrument = {
   dataSource: string;
 };
 
+export type DirectionalEvaluationDecision = typeof DirectionalEvaluationDecision[keyof typeof DirectionalEvaluationDecision];
+
+
+export const DirectionalEvaluationDecision = {
+  LONG: 'LONG',
+  SHORT: 'SHORT',
+  NO_TRADE: 'NO_TRADE',
+} as const;
+
+/**
+ * Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.
+ */
+export interface DirectionalEvaluation {
+  longScore: number;
+  shortScore: number;
+  threshold: number;
+  /** @nullable */
+  shortThreshold?: number | null;
+  /** @nullable */
+  maxScore?: number | null;
+  decision: DirectionalEvaluationDecision;
+  reason: string | null;
+  longConditions: StrategyCondition[];
+  shortConditions: StrategyCondition[];
+}
+
 export type OpportunityMode = typeof OpportunityMode[keyof typeof OpportunityMode];
 
 
@@ -379,6 +419,7 @@ export interface PaperTraderState {
   indicators: IndicatorSnapshot;
   strategyConditions?: StrategyConditions | null;
   proposedTrade?: ProposedTrade | null;
+  directional?: DirectionalEvaluation | null;
   opportunity: Opportunity;
   position: OpenPosition | null;
   metrics: PaperTraderMetrics;
@@ -386,11 +427,7 @@ export interface PaperTraderState {
   recentTrades: PaperTrade[];
   botStatus: PaperTraderStateBotStatus;
   message: string;
-  /**
-   * Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded.
-   * Null otherwise.
-   * @nullable
-   */
+  /** Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise. */
   scanNote?: string | null;
   /** Honest labelling of the instrument, its trading mode, and data source. */
   instrument: PaperTraderStateInstrument;
@@ -408,6 +445,19 @@ export interface MultiCoinState {
 export type PortfolioSummaryCoins = {[key: string]: PaperTraderMetrics};
 
 export interface PortfolioSummary {
+  /** @nullable */
+  openPositions?: number | null;
+  /** @nullable */
+  totalInstruments?: number | null;
+  /**
+     * Sum of riskAmount across all open paper positions (£/$ aggregated 1:1).
+     * @nullable
+     */
+  totalOpenRisk?: number | null;
+  /** @nullable */
+  openRiskPercent?: number | null;
+  /** @nullable */
+  riskCeilingPercent?: number | null;
   totalStarting: number;
   totalBalance: number;
   totalPnl: number;
@@ -455,3 +505,4 @@ export type ListAllTradesParams = {
  */
 limit?: number;
 };
+

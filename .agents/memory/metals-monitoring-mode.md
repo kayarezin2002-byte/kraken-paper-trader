@@ -1,10 +1,15 @@
 ---
-name: Metals paper-trading mode
-description: GOLD/SILVER paper accounts trade in PAPER mode with an unvalidated strategy; USD accounting; data-source facts.
+name: Metals & directional paper-trading mode
+description: Current entry gates for all six paper assets and the paper-only safety posture.
 ---
 
-GOLD and SILVER are USD-denominated ($100) paper accounts. As of Aug 2026 the user explicitly enabled PAPER execution for metals despite the strategy being unvalidated — the strict 6/6 signal gate opens simulated trades, always labelled "UNVALIDATED STRATEGY — PAPER TRADING ONLY". Global flags `PAPER_TRADING=True` / `LIVE_TRADING=False` are enforced by `_assert_paper_only()` on every open/close path; no real orders are possible.
+All six assets now score BOTH directions independently on every scan (Aug 2026):
+- Crypto (BTC/ETH/SOL/XRP): weighted directional score (4h=2, 1h=2, RSI/MACD/MA/Vol=1, max 8), entry gate ≥6 each direction; 4h counter-trend veto, RANGE/DANGER modes unchanged.
+- GOLD: ≥5/6 conditions either direction (backtest-validated). SILVER: strict 6/6 both directions (unvalidated — do NOT loosen without backtest evidence).
+- Per-asset gates live in `DIRECTIONAL_THRESHOLDS`; ties between qualifying directions mean WAIT, never random.
+- Portfolio risk ceiling `MAX_TOTAL_OPEN_RISK_PERCENT = 2.0` (£/$ aggregated 1:1, documented paper-mode simplification); blocked entries must surface entryStatus BLOCKED, not just a log line.
+- Opposite-direction signal while a position is open is LOG ONLY ("Strong opposite signal detected") — no auto-reversal (no validated reversal rule).
 
-**Why:** User instruction (Aug 2026) to enable metals paper execution; strategy still has no validated backtest, so the unvalidated warning must stay until one passes.
+**Why:** user wants symmetric long/short opportunity capture judged by forward paper data; safety posture (LIVE_TRADING=False hard gate, `_assert_paper_only()` on every open/close, metals labelled UNVALIDATED, $100 accounts) must never be weakened.
 
-**How to apply:** Metals entry gate is 6/6 (not the crypto 6/8 weighted gate). Keep the currency split honest: metals are USD end to end (balance, risk, P&L, activity messages, UI `$`); crypto is GBP; the dashboard's combined £ totals cover the 4 crypto accounts only. Metals resets are fixed at $100. Data-source facts: gold-api.com gives true spot XAU/XAG in USD with no key; Yahoo v8 chart GC=F/SI=F 1h candles are COMEX futures (indicators/ATR come from futures, fills from spot — known basis approximation; label honestly, can be flaky); Stooq blocks bots. Spot-feed failures must fail closed (`_block_stale_opportunity` sets DANGER/BLOCKED + API_ERROR).
+**How to apply:** any gate change needs backtest evidence first; keep SILVER at 6/6 until then; preserve trade history via nullable ALTER TABLE migrations, never table rebuilds.

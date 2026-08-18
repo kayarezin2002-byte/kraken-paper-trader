@@ -254,6 +254,51 @@ def precompute(rows: list[list[float]]) -> list[dict[str, Any]]:
     return out
 
 
+def precompute_directional(rows: list[list[float]], threshold: int = 5) -> list[dict[str, Any]]:
+    """Replicate the LIVE paper-trader GOLD rule: score LONG and SHORT setups
+    independently each candle; a direction qualifies at >= threshold/6; if both
+    qualify the strictly higher score wins; a tie means no trade.
+
+    Returns evals in the same shape as precompute() so simulate() can be reused:
+    direction is the DECISION (NEUTRAL when no side qualifies), conds/passCount
+    are the winning side's.
+    """
+    base = precompute(rows)
+    closes = [r[4] for r in rows]
+    vols = [r[6] for r in rows]
+    out: list[dict[str, Any]] = []
+    for ev in base:
+        i = ev["i"]
+        t4, t1 = ev["trend4h"], ev["trend1h"]
+        rsi, macd, sig = ev["rsi"], ev["macd"], ev["macdSignal"]
+        e20, e50, av = ev["ema20"], ev["ema50"], ev["avgVolume"]
+        vol_ok = av > 0 and vols[i] >= av * 0.7
+        long_conds = [
+            t4 == "BULLISH", t1 == "BULLISH",
+            rsi is not None and rsi >= 50,
+            macd is not None and sig is not None and macd > sig,
+            e20 is not None and e50 is not None and closes[i] > e20 > e50,
+            vol_ok,
+        ]
+        short_conds = [
+            t4 == "BEARISH", t1 == "BEARISH",
+            rsi is not None and rsi <= 50,
+            macd is not None and sig is not None and macd < sig,
+            e20 is not None and e50 is not None and closes[i] < e20 < e50,
+            vol_ok,
+        ]
+        ls, ss = sum(long_conds), sum(short_conds)
+        if ls >= threshold and (ls > ss or ss < threshold):
+            decision, conds = "LONG", long_conds
+        elif ss >= threshold and (ss > ls or ls < threshold):
+            decision, conds = "SHORT", short_conds
+        else:
+            decision, conds = "NEUTRAL", [False] * 6
+        out.append({**ev, "direction": decision, "conds": conds, "passCount": sum(conds),
+                    "longScore": ls, "shortScore": ss})
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Simulation
 # ---------------------------------------------------------------------------

@@ -24,6 +24,14 @@ export interface OpenPosition {
   entryAtr: number | null;
   trend4h: OpenPositionTrend4h;
   /** @nullable */
+  trend1h?: string | null;
+  /** @nullable */
+  longScore?: number | null;
+  /** @nullable */
+  shortScore?: number | null;
+  /** @nullable */
+  entryThreshold?: number | null;
+  /** @nullable */
   unrealisedPnl?: number | null;
   /** @nullable */
   unrealisedPct?: number | null;

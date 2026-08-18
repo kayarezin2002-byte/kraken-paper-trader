@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { DirectionalEvaluation } from './directionalEvaluation';
 import type { IndicatorSnapshot } from './indicatorSnapshot';
 import type { OpenPosition } from './openPosition';
 import type { Opportunity } from './opportunity';
@@ -29,6 +30,7 @@ export interface PaperTraderState {
   indicators: IndicatorSnapshot;
   strategyConditions?: StrategyConditions | null;
   proposedTrade?: ProposedTrade | null;
+  directional?: DirectionalEvaluation | null;
   opportunity: Opportunity;
   position: OpenPosition | null;
   metrics: PaperTraderMetrics;
@@ -36,11 +38,7 @@ export interface PaperTraderState {
   recentTrades: PaperTrade[];
   botStatus: PaperTraderStateBotStatus;
   message: string;
-  /**
-   * Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded.
-   * Null otherwise.
-   * @nullable
-   */
+  /** Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise. */
   scanNote?: string | null;
   /** Honest labelling of the instrument, its trading mode, and data source. */
   instrument: PaperTraderStateInstrument;

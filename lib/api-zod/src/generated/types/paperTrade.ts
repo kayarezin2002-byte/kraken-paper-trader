@@ -50,4 +50,10 @@ export interface PaperTrade {
   entryMode?: string | null;
   /** @nullable */
   entryConditions?: string | null;
+  /** @nullable */
+  longScore?: number | null;
+  /** @nullable */
+  shortScore?: number | null;
+  /** @nullable */
+  entryThreshold?: number | null;
 }

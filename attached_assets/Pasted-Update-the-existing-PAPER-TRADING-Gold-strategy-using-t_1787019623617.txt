@@ -1,0 +1,318 @@
+Update the existing PAPER TRADING Gold strategy using the historical backtest results already produced.
+
+IMPORTANT:
+- PAPER TRADING ONLY.
+- Do not enable any real-money execution.
+- Do not change BTC, ETH, SOL, XRP or SILVER strategy logic in this task.
+- Keep LIVE_TRADING = false.
+- Keep all external order submission disabled.
+
+## 1. FIX THE SAFETY PAUSE BUG FIRST
+
+The backtest/code review identified that the bot may remain paused forever after its first 3-loss streak because the daily safety pause does not correctly resume after the day resets.
+
+Fix this before changing the Gold strategy.
+
+Requirements:
+
+- If the maximum daily loss / consecutive-loss safety rule is triggered, trading must pause for the remainder of the intended safety period only.
+- The system must automatically resume when the configured reset condition is reached.
+- Persist the pause reason and timestamp.
+- Log when the safety pause begins.
+- Log when it automatically ends.
+- Do not require a manual restart.
+- Add tests proving the bot resumes correctly.
+- Do not weaken the actual risk limit.
+
+## 2. ENABLE PROPER GOLD LONG AND SHORT TRADING
+
+Gold must independently evaluate LONG and SHORT opportunities.
+
+Do NOT treat:
+
+"LONG conditions failed"
+
+as automatically meaning:
+
+"SHORT".
+
+Instead calculate two independent directional setups:
+
+- LONG setup
+- SHORT setup
+
+The dashboard should be capable of showing:
+
+LONG
+SHORT
+NO TRADE / WAIT
+
+For SHORT positions:
+
+- entry is a simulated sell/short
+- stop loss must be ABOVE entry
+- take profit must be BELOW entry
+- falling price creates positive P&L
+- rising price creates negative P&L
+
+Verify all P&L and stop/target calculations are correct for both directions.
+
+## 3. CHANGE GOLD ENTRY THRESHOLD FROM STRICT 6/6 TO 5/6
+
+The historical results showed:
+
+6/6 strict:
+127 trades
+12.0% fee-free ROI
+2.5% ROI after estimated costs
+
+Any 5/6:
+171 trades
+26.6% fee-free ROI
+17.5% ROI after estimated costs
+
+Any 4/6:
+203 trades
+13.6% fee-free ROI
+7.3% ROI after estimated costs
+
+Based on these results, change GOLD paper trading from requiring 6/6 to:
+
+AT LEAST 5 OF 6 CONDITIONS
+
+Do not move to 4/6 at this stage.
+
+The six existing conditions remain:
+
+1. 4h Trend
+2. 1h Trend
+3. RSI
+4. MACD Momentum
+5. Price vs MA
+6. Volume
+
+## 4. LONG RULES
+
+For LONG evaluation, conditions should favour bullish movement.
+
+Use the existing indicator definitions unless the backtester used corrected versions that should also be reflected in the paper trader.
+
+Examples:
+
+- 4h trend bullish
+- 1h trend bullish
+- RSI meets bullish LONG criteria
+- MACD momentum bullish
+- price is appropriately above MA
+- volume condition passes
+
+Entry allowed when at least 5/6 LONG conditions pass.
+
+## 5. SHORT RULES
+
+Create the equivalent bearish conditions.
+
+Examples:
+
+- 4h trend bearish
+- 1h trend bearish
+- RSI meets bearish SHORT criteria
+- MACD momentum bearish
+- price appropriately below MA
+- volume confirmation
+- all calculations directionally inverted where necessary
+
+Entry allowed when at least 5/6 SHORT conditions pass.
+
+Use the exact bearish definitions used in the backtest so the paper trader and historical test stay consistent.
+
+## 6. RESOLVE LONG VS SHORT CONFLICTS
+
+Normally LONG and SHORT should not both qualify simultaneously.
+
+If both somehow meet their threshold:
+
+- do not randomly choose
+- compare directional strength / score
+- only enter if one direction has clearly stronger evidence
+- otherwise WAIT
+
+Log the reason.
+
+## 7. MAXIMUM ONE GOLD POSITION
+
+Continue allowing only ONE open Gold position at a time.
+
+While Gold has an open position:
+
+- continue monitoring it
+- do not open another Gold trade
+- continue calculating new signals for logging if useful
+- never stack duplicate entries
+
+## 8. KEEP CURRENT RISK MANAGEMENT
+
+Do not increase risk per trade simply because the strategy now generates more trades.
+
+Use the existing risk percentage and ATR-based stop/target architecture used in the backtest.
+
+Verify:
+
+LONG:
+stop below entry
+target above entry
+
+SHORT:
+stop above entry
+target below entry
+
+Position sizing must be based on risk amount and stop distance.
+
+## 9. ADD DIRECTIONAL DASHBOARD INFORMATION
+
+For Gold show:
+
+LONG SCORE
+SHORT SCORE
+
+For example:
+
+LONG: 3/6
+SHORT: 5/6
+
+Decision:
+SHORT
+
+Also show which conditions passed for each direction.
+
+If no trade is taken, explain why.
+
+Example:
+
+NO TRADE
+LONG 3/6
+SHORT 4/6
+Neither direction reached 5/6.
+
+## 10. ACTIVITY LOG
+
+For every Gold scan record:
+
+- LONG conditions passed
+- SHORT conditions passed
+- selected direction
+- reason
+- indicator values
+- failed conditions
+
+For every opened trade record:
+
+- LONG/SHORT
+- signal score
+- entry
+- stop
+- target
+- risk
+- ATR
+- all six condition states
+
+For every closed trade record:
+
+- exit
+- P&L
+- R multiple
+- duration
+- win/loss
+- exit reason
+
+## 11. DO NOT REMOVE THE VOLUME FILTER YET
+
+The backtest found that the subgroup where only Volume failed performed strongly.
+
+However, because Any 5/6 already allows Volume to be the single failed condition, do not permanently remove Volume yet.
+
+The strategy should simply allow:
+
+5 passed + Volume failed
+
+to qualify.
+
+Continue logging Volume so we can analyse its value during forward testing.
+
+## 12. PRESERVE BACKTEST COMPARABILITY
+
+Make sure the paper-trading entry logic matches the winning backtest configuration as closely as possible.
+
+Do not quietly modify:
+
+- RSI thresholds
+- MACD definitions
+- EMA periods
+- trend calculations
+- ATR settings
+- stop distance
+- reward/risk target
+- candle timing
+
+If any difference exists between the backtest and live paper evaluator, report it.
+
+## 13. COMPLETED CANDLES ONLY
+
+Generate Gold entries only using completed strategy candles.
+
+Do not enter based on partially formed 1h or 4h candles if the backtest used completed candles.
+
+This is important to avoid signal repainting.
+
+## 14. TEST SHORT EXECUTION THOROUGHLY
+
+Before finishing, simulate test cases proving:
+
+SHORT entry at 4400
+
+Example behaviour:
+
+If price drops:
+4400 → 4380
+trade should show profit.
+
+If price rises:
+4400 → 4420
+trade should show loss.
+
+Confirm:
+
+- stop placement
+- target placement
+- unrealised P&L
+- realised P&L
+- balance adjustment
+- win/loss classification
+
+all work correctly.
+
+## 15. FINAL REPORT
+
+After implementation, report:
+
+- files changed
+- exact Gold LONG entry rule
+- exact Gold SHORT entry rule
+- confirmation threshold is now 5/6
+- how LONG vs SHORT is selected
+- stop-loss logic
+- take-profit logic
+- position sizing
+- risk per trade
+- duplicate-entry protection
+- safety-pause fix
+- tests performed
+- confirmation the bot resumes after safety pauses
+- confirmation real trading remains impossible
+- any differences between the paper trader and historical backtester
+
+Do not change Silver yet.
+
+Do not automatically optimise any further parameters.
+
+We will forward-test this Gold configuration before making another strategy change.

@@ -132,6 +132,58 @@ function OpportunityPanel({ opportunity, coin }: { opportunity: NonNullable<Pape
   );
 }
 
+// ─── Directional evaluation panel (all assets: independent LONG vs SHORT) ───
+function DirectionalPanel({ directional, coin }: { directional: NonNullable<PaperTraderState['directional']>; coin: string }) {
+  const d = directional;
+  const max = d.maxScore ?? 6;
+  const shortGate = d.shortThreshold ?? d.threshold;
+  const decisionColor =
+    d.decision === 'LONG'  ? 'bg-accent/10 text-accent'
+  : d.decision === 'SHORT' ? 'bg-destructive/10 text-destructive'
+  :                          'bg-muted text-muted-foreground';
+  const side = (label: string, score: number, conds: typeof d.longConditions, active: boolean, tone: 'long' | 'short') => (
+    <div className={`rounded-lg border px-2.5 py-2 ${active ? (tone === 'long' ? 'border-accent/40 bg-accent/5' : 'border-destructive/40 bg-destructive/5') : 'border-border/60 bg-muted/20'}`}>
+      <div className="flex items-center justify-between">
+        <span className={`font-mono-data text-[10px] font-bold uppercase tracking-wider ${tone === 'long' ? 'text-accent' : 'text-destructive'}`}>{label}</span>
+        <span className="font-mono-data text-[11px] font-semibold text-foreground">{score}/{max}</span>
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-1">
+        {conds.map((c) => (
+          <span
+            key={c.name}
+            title={`${c.currentValue} (need ${c.requiredValue})`}
+            className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-mono-data text-[9px] font-medium ${
+              c.pass ? 'bg-accent/8 text-accent' : 'bg-destructive/10 text-destructive/80'
+            }`}
+          >
+            {c.pass ? <CheckCircle2 size={8} className="shrink-0" /> : <XCircle size={8} className="shrink-0" />}
+            {c.name}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+  return (
+    <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2.5" data-testid={`directional-${coin}`}>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="font-mono-data text-[10px] font-bold uppercase tracking-wider text-foreground">
+          Long vs short setups (gate ≥ {d.threshold === shortGate ? `${d.threshold}/${max}` : `L ${d.threshold} · S ${shortGate} of ${max}`})
+        </span>
+        <span className={`ml-auto rounded-full px-2 py-0.5 font-mono-data text-[9px] font-semibold uppercase tracking-wider ${decisionColor}`}>
+          {d.decision === 'NO_TRADE' ? 'NO TRADE / WAIT' : `Decision: ${d.decision}`}
+        </span>
+      </div>
+      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {side('Long', d.longScore, d.longConditions, d.decision === 'LONG', 'long')}
+        {side('Short', d.shortScore, d.shortConditions, d.decision === 'SHORT', 'short')}
+      </div>
+      {d.reason && (
+        <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">{d.reason}</p>
+      )}
+    </div>
+  );
+}
+
 // ─── Latest scan strip ───────────────────────────────────────────────────────
 function noTradeReason(state: PaperTraderState): string | null {
   const conds = state.strategyConditions;
@@ -148,7 +200,7 @@ function LatestScanStrip({ coins, multiState }: { coins: readonly string[]; mult
       <div className="flex items-center gap-2 border-b border-border/70 px-5 py-4 sm:px-6">
         <ScanSearch size={16} className="text-sky-400" />
         <h2 className="text-sm font-extrabold">Latest strategy scan</h2>
-        <span className="ml-auto font-mono-data text-[10px] uppercase tracking-wider text-muted-foreground">score ≥ 6/8 + hard safety rules to enter</span>
+        <span className="ml-auto font-mono-data text-[10px] uppercase tracking-wider text-muted-foreground">crypto ≥ 6/8 score · gold ≥ 5/6 either direction · silver 6/6 + hard safety rules</span>
       </div>
       <div className="divide-y divide-border/50">
         {coins.map((coin) => {
@@ -338,6 +390,9 @@ function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
 
         {/* Opportunity panel */}
         {state.opportunity && <OpportunityPanel opportunity={state.opportunity} coin={coin} />}
+
+        {/* Independent LONG/SHORT directional scores (all assets) */}
+        {state.directional && <DirectionalPanel directional={state.directional} coin={coin} />}
 
         {/* Strategy conditions */}
         <StrategyConditionsPanel
@@ -567,6 +622,9 @@ export default function Dashboard() {
   const totalRoi      = totalStarting > 0 ? totalPnl / totalStarting * 100 : 0;
   const totalTrades   = COINS.reduce((s, c) => s + (multiState[c]?.metrics.numberOfTrades ?? 0), 0);
   const openPositions = COINS.filter((c) => multiState[c]?.position != null).length;
+  const allStarting   = COINS.reduce((s, c) => s + (multiState[c]?.metrics.startingBalance ?? 0), 0);
+  const capitalAtRisk = COINS.reduce((s, c) => s + (multiState[c]?.position?.riskAmount ?? 0), 0);
+  const riskPct       = allStarting > 0 ? (capitalAtRisk / allStarting) * 100 : 0;
 
   const handleRefresh = () => {
     refreshTick.current += 1;
@@ -641,7 +699,7 @@ export default function Dashboard() {
               { label: 'Starting capital', value: money(totalStarting), sub: 'across 4 crypto accounts (£)', tone: '' },
               { label: 'Total P&L', value: `${totalPnl >= 0 ? '+' : ''}${money(totalPnl)}`, sub: `crypto ROI ${pct(totalRoi)}`, tone: totalPnl >= 0 ? 'text-accent' : 'text-destructive' },
               { label: 'Total trades', value: num(totalTrades, 0), sub: 'across all 6 accounts', tone: '' },
-              { label: 'Open positions', value: num(openPositions, 0), sub: `of 6 instruments`, tone: openPositions > 0 ? 'text-primary' : '' },
+              { label: 'Open positions', value: `${num(openPositions, 0)}/6`, sub: `capital at risk ${num(capitalAtRisk)} (${riskPct.toFixed(2)}% · ceiling 2%)`, tone: openPositions > 0 ? 'text-primary' : '' },
             ].map(({ label, value, sub, tone }) => (
               <div key={label} className="rounded-xl border border-border/60 bg-background px-4 py-3.5">
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>

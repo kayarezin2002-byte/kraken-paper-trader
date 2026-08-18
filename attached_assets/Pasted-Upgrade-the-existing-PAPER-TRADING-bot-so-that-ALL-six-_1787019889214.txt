@@ -1,0 +1,520 @@
+Upgrade the existing PAPER TRADING bot so that ALL six supported markets continuously evaluate BOTH LONG and SHORT opportunities.
+
+ASSETS:
+- BTC
+- ETH
+- SOL
+- XRP
+- GOLD
+- SILVER
+
+PRIMARY GOAL:
+Increase the number of legitimate opportunities the bot can take to make money by allowing it to trade both rising and falling markets.
+
+IMPORTANT:
+This must remain PAPER TRADING ONLY.
+
+Do not enable:
+- real-money trading
+- brokerage execution
+- exchange order submission
+- leveraged live positions
+- external trade APIs
+
+Keep:
+
+PAPER_TRADING = true
+LIVE_TRADING = false
+
+Any execution pathway must fail safely if LIVE_TRADING is false.
+
+## 1. CONTINUOUSLY SCORE BOTH DIRECTIONS
+
+For every asset, calculate TWO independent strategy scores on every completed evaluation candle:
+
+LONG SCORE
+SHORT SCORE
+
+Do not treat a failed LONG as automatically being a SHORT.
+
+The two directions must be evaluated independently.
+
+Example dashboard output:
+
+BTC
+LONG: 3/6
+SHORT: 5/6
+Decision: SHORT
+
+ETH
+LONG: 5/6
+SHORT: 2/6
+Decision: LONG
+
+SOL
+LONG: 3/6
+SHORT: 3/6
+Decision: WAIT
+
+The bot should always know the current strength of both directions.
+
+## 2. USE EXISTING STRATEGY CONDITIONS
+
+Where applicable, use each asset's current validated strategy conditions.
+
+For strategies using the existing six-condition architecture:
+
+1. Higher timeframe trend
+2. Lower timeframe trend
+3. RSI
+4. MACD momentum
+5. Price vs moving average
+6. Volume
+
+LONG conditions should favour bullish movement.
+
+SHORT conditions should be the bearish equivalent.
+
+Examples:
+
+LONG:
+- higher timeframe bullish
+- lower timeframe bullish
+- RSI meets LONG rule
+- bullish MACD
+- price above relevant MA
+- valid volume confirmation
+
+SHORT:
+- higher timeframe bearish
+- lower timeframe bearish
+- RSI meets SHORT rule
+- bearish MACD
+- price below relevant MA
+- valid volume confirmation
+
+Do not invent arbitrary SHORT thresholds.
+
+Use directionally correct versions of the existing indicators.
+
+If an existing asset has different logic, preserve it and create the appropriate bearish equivalent rather than forcing all assets to use identical rules.
+
+## 3. ASSET-SPECIFIC THRESHOLDS
+
+Do not assume one threshold is optimal for all assets.
+
+Current Gold evidence suggests 5/6 is better than strict 6/6.
+
+Preserve Gold's intended 5/6 configuration.
+
+For BTC, ETH, SOL and XRP:
+Do NOT automatically loosen their current rules simply to create more trades.
+
+First create proper LONG and SHORT support using their current thresholds.
+
+For Silver:
+Keep its current threshold until its backtest evidence supports changing it.
+
+Design the code so LONG and SHORT thresholds can later be configured independently per asset.
+
+Example configuration structure:
+
+BTC:
+long_threshold = current validated threshold
+short_threshold = current validated threshold
+
+GOLD:
+long_threshold = 5
+short_threshold = 5
+
+This needs to be easy to modify after later backtests.
+
+## 4. ONE OPEN POSITION PER ASSET
+
+Each asset may initially have ONE directional position open at a time.
+
+Examples allowed simultaneously:
+
+BTC SHORT
+ETH LONG
+SOL SHORT
+XRP LONG
+GOLD SHORT
+SILVER LONG
+
+This is acceptable because they are independent assets.
+
+Do NOT initially allow:
+
+BTC LONG + BTC SHORT simultaneously
+
+or
+
+GOLD LONG + GOLD SHORT simultaneously.
+
+Continue evaluating the opposite direction while a position is open, but do not open the opposite position yet.
+
+## 5. TRACK OPPOSITE SIGNAL WHILE POSITION IS OPEN
+
+If an asset already has an open LONG:
+
+continue calculating:
+- LONG score
+- SHORT score
+
+Likewise for an open SHORT.
+
+Log if an opposite signal becomes strong.
+
+Example:
+
+BTC currently LONG
+LONG score falls to 2/6
+SHORT rises to 6/6
+
+Record:
+
+"Strong opposite signal detected."
+
+Do NOT automatically reverse yet unless an existing validated reversal rule already exists.
+
+We will backtest reversal behaviour separately.
+
+## 6. CORRECT SHORT POSITION ACCOUNTING
+
+Thoroughly verify SHORT P&L.
+
+For a SHORT:
+
+profit when:
+exit price < entry price
+
+loss when:
+exit price > entry price
+
+Example:
+
+SHORT entry = 100
+
+Exit = 90
+Profit = +10 before sizing/cost calculations.
+
+Exit = 110
+Loss = -10.
+
+Stop-loss must be ABOVE the entry.
+
+Take-profit must be BELOW the entry.
+
+Risk calculations must remain correct regardless of direction.
+
+## 7. RISK MANAGEMENT
+
+Do not increase risk per trade.
+
+More opportunities must NOT mean more risk per individual trade.
+
+Continue using each strategy's existing:
+
+- risk percentage
+- ATR stop
+- reward/risk target
+- position-sizing rules
+
+Add portfolio-level visibility.
+
+Display:
+
+Current open positions: X/6
+Total capital currently at risk
+Risk as % of total paper portfolio
+
+If multiple trades are open at once, calculate aggregate risk.
+
+Add a configurable portfolio risk ceiling.
+
+Example architecture:
+
+MAX_TOTAL_OPEN_RISK_PERCENT = configurable
+
+Do not automatically choose an aggressive value.
+
+If opening another trade would breach the configured total risk ceiling:
+
+do not open it
+
+and log:
+
+"Entry blocked by portfolio risk limit."
+
+## 8. ENTRY PRIORITISATION
+
+Multiple assets may signal simultaneously.
+
+If sufficient portfolio risk capacity exists, allow multiple different assets to open positions.
+
+If not enough risk capacity exists, prioritise objectively.
+
+Possible ranking:
+
+1. Stronger signal score
+2. Historical expectancy if available
+3. Profit factor if available
+4. Directional strength
+5. Signal freshness
+
+Do NOT randomly choose.
+
+Log the reason an eligible opportunity was skipped.
+
+## 9. GOLD
+
+Implement Gold using:
+
+LONG threshold: 5/6
+SHORT threshold: 5/6
+
+Both directions should be evaluated independently.
+
+Continue using the existing Gold risk and exit architecture.
+
+Keep its paper-only warning.
+
+## 10. SILVER
+
+Implement simultaneous LONG and SHORT scoring.
+
+Do not loosen Silver's threshold yet unless existing backtest results already justify it.
+
+If no reliable Silver backtest result exists, preserve its current threshold.
+
+## 11. BTC / ETH / SOL / XRP
+
+Add SHORT capability to each existing crypto strategy.
+
+Do not rewrite their validated LONG logic.
+
+For every crypto asset:
+
+- preserve existing LONG rule
+- construct bearish SHORT equivalent
+- preserve stop/target architecture
+- preserve risk sizing
+- continue using completed candles
+- prevent duplicate entries
+
+## 12. DASHBOARD
+
+Update each asset card to show:
+
+Current bias
+LONG score
+SHORT score
+Current decision
+
+Example:
+
+BTC
+
+LONG: 4/6
+SHORT: 6/6
+
+DECISION:
+SHORT
+
+If in a position:
+
+POSITION:
+SHORT
+
+Entry: $xx
+Current: $xx
+Unrealised P&L: +£x.xx
+Stop: $xx
+Target: $xx
+
+Still continue displaying both live scores.
+
+## 13. TRADE HISTORY
+
+Add direction clearly to every trade.
+
+Record:
+
+- asset
+- LONG/SHORT
+- signal score
+- threshold
+- entry timestamp
+- entry price
+- exit timestamp
+- exit price
+- size
+- risk
+- stop
+- target
+- P&L
+- P&L %
+- R multiple
+- duration
+- exit reason
+- winning/losing trade
+
+Also store the complete LONG and SHORT scores at entry.
+
+## 14. ACTIVITY LOG
+
+For every evaluation, log something similar to:
+
+BTC:
+LONG 3/6
+SHORT 5/6
+SHORT qualifies
+Paper SHORT opened
+
+Or:
+
+ETH:
+LONG 4/6
+SHORT 3/6
+No qualifying setup
+
+Or:
+
+SOL:
+LONG 5/6
+SHORT 2/6
+LONG qualifies but blocked by portfolio risk ceiling
+
+## 15. SAFETY PAUSE
+
+Ensure the previously identified safety-pause bug is fixed.
+
+If trading pauses after the configured loss limit:
+
+- record reason
+- record start time
+- automatically resume when the configured reset occurs
+- log the resume
+- do not stay paused forever
+
+Test this.
+
+## 16. DO NOT ADD RANGE TRADING YET
+
+Do NOT add the buy-low/sell-high sideways-market strategy in this task.
+
+This task is specifically:
+
+TREND / MOMENTUM LONG + SHORT across all six assets.
+
+We will build and backtest range/mean-reversion as a separate strategy after this is stable.
+
+## 17. TESTING
+
+Create automated tests for at least:
+
+LONG profit calculation
+LONG loss calculation
+SHORT profit calculation
+SHORT loss calculation
+LONG stop hit
+LONG target hit
+SHORT stop hit
+SHORT target hit
+duplicate-entry prevention
+one-position-per-asset rule
+multiple different assets open simultaneously
+portfolio risk ceiling
+safety pause/resume
+completed-candle signal generation
+
+Use deterministic mock prices where necessary.
+
+## 18. IMPORTANT — DO NOT ASSUME SHORT = INVERSE LONG
+
+Check indicator logic carefully.
+
+For example:
+
+RSI behaviour may require direction-specific criteria rather than simply flipping one comparison.
+
+MACD conditions should reflect genuine bearish momentum.
+
+Trend calculations must represent bearish structure correctly.
+
+Volume may confirm movement rather than direction itself.
+
+Document exactly how every SHORT condition is calculated.
+
+## 19. DO NOT RESET CURRENT PAPER RESULTS
+
+Preserve:
+- account balances
+- trade history
+- open positions
+- existing statistics
+
+Migrate state safely if the data model needs to change.
+
+Do not wipe forward-testing data.
+
+## 20. FINAL REPORT
+
+After implementation, provide:
+
+FILES CHANGED
+
+Then for EACH asset:
+
+BTC
+- LONG rule
+- SHORT rule
+- LONG threshold
+- SHORT threshold
+
+ETH
+- LONG rule
+- SHORT rule
+- LONG threshold
+- SHORT threshold
+
+SOL
+- LONG rule
+- SHORT rule
+- LONG threshold
+- SHORT threshold
+
+XRP
+- LONG rule
+- SHORT rule
+- LONG threshold
+- SHORT threshold
+
+GOLD
+- LONG rule
+- SHORT rule
+- LONG threshold
+- SHORT threshold
+
+SILVER
+- LONG rule
+- SHORT rule
+- LONG threshold
+- SHORT threshold
+
+Also report:
+
+- risk per trade
+- portfolio risk control
+- how simultaneous opportunities are handled
+- how opposite signals are monitored
+- how duplicate trades are prevented
+- how short P&L is calculated
+- safety-pause status
+- tests passed/failed
+- any migration performed
+- confirmation historical trade data was preserved
+- confirmation LIVE_TRADING remains impossible
+
+Do not automatically change any thresholds beyond Gold's already-supported 5/6 setting without backtest evidence.

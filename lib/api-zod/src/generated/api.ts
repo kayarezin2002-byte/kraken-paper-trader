@@ -73,6 +73,27 @@ export const GetPaperTraderStateResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -94,6 +115,10 @@ export const GetPaperTraderStateResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -145,11 +170,14 @@ export const GetPaperTraderStateResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -217,6 +245,27 @@ export const RefreshPaperTraderResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -238,6 +287,10 @@ export const RefreshPaperTraderResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -289,11 +342,14 @@ export const RefreshPaperTraderResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -310,6 +366,7 @@ export const RefreshPaperTraderResponse = zod.object({
  */
 export const listPaperTradesQueryLimitDefault = 50;
 export const listPaperTradesQueryLimitMax = 200;
+
 
 
 export const ListPaperTradesQueryParams = zod.object({
@@ -342,7 +399,10 @@ export const ListPaperTradesResponseItem = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })
 export const ListPaperTradesResponse = zod.array(ListPaperTradesResponseItem)
 
@@ -351,6 +411,7 @@ export const ListPaperTradesResponse = zod.array(ListPaperTradesResponseItem)
  * @summary Reset the BTC virtual account
  */
 export const resetPaperTraderBodyStartingBalanceMin = 0;
+
 
 
 export const ResetPaperTraderBody = zod.object({
@@ -410,6 +471,27 @@ export const ResetPaperTraderResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -431,6 +513,10 @@ export const ResetPaperTraderResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -482,11 +568,14 @@ export const ResetPaperTraderResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -556,6 +645,27 @@ export const GetMultiCoinStateResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -577,6 +687,10 @@ export const GetMultiCoinStateResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -628,11 +742,14 @@ export const GetMultiCoinStateResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -695,6 +812,27 @@ export const GetMultiCoinStateResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -716,6 +854,10 @@ export const GetMultiCoinStateResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -767,11 +909,14 @@ export const GetMultiCoinStateResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -834,6 +979,27 @@ export const GetMultiCoinStateResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -855,6 +1021,10 @@ export const GetMultiCoinStateResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -906,11 +1076,14 @@ export const GetMultiCoinStateResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -973,6 +1146,27 @@ export const GetMultiCoinStateResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -994,6 +1188,10 @@ export const GetMultiCoinStateResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -1045,11 +1243,14 @@ export const GetMultiCoinStateResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -1112,6 +1313,27 @@ export const GetMultiCoinStateResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -1133,6 +1355,10 @@ export const GetMultiCoinStateResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -1184,11 +1410,14 @@ export const GetMultiCoinStateResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -1251,6 +1480,27 @@ export const GetMultiCoinStateResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -1272,6 +1522,10 @@ export const GetMultiCoinStateResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -1323,11 +1577,14 @@ export const GetMultiCoinStateResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -1398,6 +1655,27 @@ export const RefreshMultiCoinResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -1419,6 +1697,10 @@ export const RefreshMultiCoinResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -1470,11 +1752,14 @@ export const RefreshMultiCoinResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -1537,6 +1822,27 @@ export const RefreshMultiCoinResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -1558,6 +1864,10 @@ export const RefreshMultiCoinResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -1609,11 +1919,14 @@ export const RefreshMultiCoinResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -1676,6 +1989,27 @@ export const RefreshMultiCoinResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -1697,6 +2031,10 @@ export const RefreshMultiCoinResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -1748,11 +2086,14 @@ export const RefreshMultiCoinResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -1815,6 +2156,27 @@ export const RefreshMultiCoinResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -1836,6 +2198,10 @@ export const RefreshMultiCoinResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -1887,11 +2253,14 @@ export const RefreshMultiCoinResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -1954,6 +2323,27 @@ export const RefreshMultiCoinResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -1975,6 +2365,10 @@ export const RefreshMultiCoinResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -2026,11 +2420,14 @@ export const RefreshMultiCoinResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -2093,6 +2490,27 @@ export const RefreshMultiCoinResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -2114,6 +2532,10 @@ export const RefreshMultiCoinResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -2165,11 +2587,14 @@ export const RefreshMultiCoinResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -2186,6 +2611,11 @@ export const RefreshMultiCoinResponse = zod.object({
  * @summary Get combined portfolio summary across all six instruments
  */
 export const GetPortfolioSummaryResponse = zod.object({
+  "openPositions": zod.number().nullish(),
+  "totalInstruments": zod.number().nullish(),
+  "totalOpenRisk": zod.number().nullish().describe('Sum of riskAmount across all open paper positions (£\/$ aggregated 1:1).'),
+  "openRiskPercent": zod.number().nullish(),
+  "riskCeilingPercent": zod.number().nullish(),
   "totalStarting": zod.number(),
   "totalBalance": zod.number(),
   "totalPnl": zod.number(),
@@ -2218,6 +2648,7 @@ export const listActivityLogQueryLimitDefault = 50;
 export const listActivityLogQueryLimitMax = 200;
 
 
+
 export const ListActivityLogQueryParams = zod.object({
   "limit": zod.coerce.number().min(1).max(listActivityLogQueryLimitMax).default(listActivityLogQueryLimitDefault)
 })
@@ -2237,6 +2668,7 @@ export const ListActivityLogResponse = zod.array(ListActivityLogResponseItem)
  */
 export const listAllTradesQueryLimitDefault = 200;
 export const listAllTradesQueryLimitMax = 500;
+
 
 
 export const ListAllTradesQueryParams = zod.object({
@@ -2269,7 +2701,10 @@ export const ListAllTradesResponseItem = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })
 export const ListAllTradesResponse = zod.array(ListAllTradesResponseItem)
 
@@ -2279,6 +2714,7 @@ export const ListAllTradesResponse = zod.array(ListAllTradesResponseItem)
  * @summary Reset all six virtual accounts
  */
 export const resetAllCoinsBodyStartingBalanceMin = 0;
+
 
 
 export const ResetAllCoinsBody = zod.object({
@@ -2339,6 +2775,27 @@ export const ResetAllCoinsResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -2360,6 +2817,10 @@ export const ResetAllCoinsResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -2411,11 +2872,14 @@ export const ResetAllCoinsResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -2478,6 +2942,27 @@ export const ResetAllCoinsResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -2499,6 +2984,10 @@ export const ResetAllCoinsResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -2550,11 +3039,14 @@ export const ResetAllCoinsResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -2617,6 +3109,27 @@ export const ResetAllCoinsResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -2638,6 +3151,10 @@ export const ResetAllCoinsResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -2689,11 +3206,14 @@ export const ResetAllCoinsResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -2756,6 +3276,27 @@ export const ResetAllCoinsResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -2777,6 +3318,10 @@ export const ResetAllCoinsResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -2828,11 +3373,14 @@ export const ResetAllCoinsResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -2895,6 +3443,27 @@ export const ResetAllCoinsResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -2916,6 +3485,10 @@ export const ResetAllCoinsResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -2967,11 +3540,14 @@ export const ResetAllCoinsResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -3034,6 +3610,27 @@ export const ResetAllCoinsResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "directional": zod.union([zod.object({
+  "longScore": zod.number(),
+  "shortScore": zod.number(),
+  "threshold": zod.number(),
+  "shortThreshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "decision": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+}))
+}).describe('Independent LONG and SHORT setup evaluation (all six assets). Crypto scores are weighted (max 8, gate >= 6); metals are raw condition counts (max 6; GOLD gate 5, SILVER gate 6). A direction qualifies when its score reaches its own threshold. PAPER TRADING ONLY.\n'),zod.null()]).optional(),
   "opportunity": zod.object({
   "score": zod.number(),
   "maxScore": zod.number(),
@@ -3055,6 +3652,10 @@ export const ResetAllCoinsResponse = zod.object({
   "entryMacd": zod.number().nullable(),
   "entryAtr": zod.number().nullable(),
   "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "trend1h": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
   "unrealisedPnl": zod.number().nullish(),
   "unrealisedPct": zod.number().nullish(),
   "currentPrice": zod.number().nullish()
@@ -3106,11 +3707,14 @@ export const ResetAllCoinsResponse = zod.object({
   "passCount": zod.number().nullish(),
   "trend1h": zod.string().nullish(),
   "entryMode": zod.string().nullish(),
-  "entryConditions": zod.string().nullish()
+  "entryConditions": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish()
 })),
   "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
   "message": zod.string(),
-  "scanNote": zod.union([zod.string(), zod.null()]).optional(),
+  "scanNote": zod.union([zod.string(),zod.null()]).optional().describe('Set when scan candle data (Yahoo Finance) is unavailable but spot price succeeded. Null otherwise.'),
   "instrument": zod.object({
   "kind": zod.enum(['CRYPTO', 'METAL']),
   "tradingMode": zod.enum(['ACTIVE', 'MONITORING', 'PAPER_UNVALIDATED']),
@@ -3121,3 +3725,5 @@ export const ResetAllCoinsResponse = zod.object({
 }).describe('Honest labelling of the instrument, its trading mode, and data source.')
 })
 })
+
+

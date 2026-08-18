@@ -8,6 +8,19 @@
 import type { PortfolioSummaryCoins } from './portfolioSummaryCoins';
 
 export interface PortfolioSummary {
+  /** @nullable */
+  openPositions?: number | null;
+  /** @nullable */
+  totalInstruments?: number | null;
+  /**
+     * Sum of riskAmount across all open paper positions (£/$ aggregated 1:1).
+     * @nullable
+     */
+  totalOpenRisk?: number | null;
+  /** @nullable */
+  openRiskPercent?: number | null;
+  /** @nullable */
+  riskCeilingPercent?: number | null;
   totalStarting: number;
   totalBalance: number;
   totalPnl: number;

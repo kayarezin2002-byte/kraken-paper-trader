@@ -7,6 +7,8 @@
  */
 
 export * from './activityEvent';
+export * from './directionalEvaluation';
+export * from './directionalEvaluationDecision';
 export * from './errorResponse';
 export * from './healthStatus';
 export * from './indicatorSnapshot';

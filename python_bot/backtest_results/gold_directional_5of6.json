@@ -1,0 +1,71 @@
+{
+  "asset": "GOLD",
+  "rule": "independent directional >=5/6 (live paper rule)",
+  "feeFree": {
+    "trades": 171,
+    "roiPct": 26.56,
+    "profitFactor": 1.31,
+    "winRatePct": 39.2,
+    "maxDrawdownPct": 12.76,
+    "expectancyR": 0.144,
+    "sharpe": 1.73,
+    "tradesPerMonth": 14.26
+  },
+  "withCosts2bp": {
+    "trades": 173,
+    "roiPct": 17.52,
+    "profitFactor": 1.2,
+    "winRatePct": 38.2,
+    "maxDrawdownPct": 14.05,
+    "expectancyR": 0.099,
+    "sharpe": 1.21,
+    "tradesPerMonth": 14.43
+  },
+  "baselineAny5of6": {
+    "feeFree": {
+      "trades": 171,
+      "roiPct": 26.56,
+      "profitFactor": 1.31,
+      "winRatePct": 39.2,
+      "maxDrawdownPct": 12.76,
+      "expectancyR": 0.144,
+      "sharpe": 1.73,
+      "tradesPerMonth": 14.26
+    },
+    "withCosts2bp": {
+      "trades": 173,
+      "roiPct": 17.52,
+      "profitFactor": 1.2,
+      "winRatePct": 38.2,
+      "maxDrawdownPct": 14.05,
+      "expectancyR": 0.099,
+      "sharpe": 1.21,
+      "tradesPerMonth": 14.43
+    }
+  },
+  "long": {
+    "trades": 101,
+    "roiPct": 6.71,
+    "profitFactor": 1.13,
+    "winRatePct": 36.6,
+    "maxDrawdownPct": null,
+    "expectancyR": 0.078,
+    "sharpe": 0.77,
+    "tradesPerMonth": 8.42
+  },
+  "short": {
+    "trades": 70,
+    "roiPct": 19.85,
+    "profitFactor": 1.57,
+    "winRatePct": 42.9,
+    "maxDrawdownPct": null,
+    "expectancyR": 0.238,
+    "sharpe": 1.72,
+    "tradesPerMonth": 5.84
+  },
+  "tradeOverlap": {
+    "baselineOnly": 0,
+    "directionalOnly": 0,
+    "shared": 171
+  }
+}

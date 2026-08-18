@@ -111,6 +111,34 @@ RANGE_RSI_OVERBOUGHT = 65.0
 RISK_PER_TRADE      = 0.01     # 1 %
 DAILY_LOSS_LIMIT    = 0.03     # 3 % of starting balance
 MAX_CONSECUTIVE_LOSSES = 3
+GOLD_MIN_PASS       = 5        # GOLD paper gate: at least 5/6 directional conditions (backtest-validated)
+SILVER_MIN_PASS     = 6        # SILVER stays strict 6/6 until backtest evidence supports loosening
+
+# ── Per-asset directional entry thresholds ─────────────────────────────────
+# Every asset evaluates LONG and SHORT INDEPENDENTLY each completed candle.
+# "scale" describes what the threshold applies to:
+#   weighted8    — weighted condition score (4h=2, 1h=2, RSI/MACD/MA/Vol=1 → max 8)
+#   conditions6  — raw pass count of the six conditions (max 6)
+# LONG and SHORT thresholds are configured separately so later backtests can
+# tune them per direction without code changes.
+DIRECTIONAL_THRESHOLDS: dict[str, dict[str, Any]] = {
+    "BTC":    {"long": OPP_ENTRY_SCORE, "short": OPP_ENTRY_SCORE, "scale": "weighted8"},
+    "ETH":    {"long": OPP_ENTRY_SCORE, "short": OPP_ENTRY_SCORE, "scale": "weighted8"},
+    "SOL":    {"long": OPP_ENTRY_SCORE, "short": OPP_ENTRY_SCORE, "scale": "weighted8"},
+    "XRP":    {"long": OPP_ENTRY_SCORE, "short": OPP_ENTRY_SCORE, "scale": "weighted8"},
+    "GOLD":   {"long": GOLD_MIN_PASS,   "short": GOLD_MIN_PASS,   "scale": "conditions6"},
+    "SILVER": {"long": SILVER_MIN_PASS, "short": SILVER_MIN_PASS, "scale": "conditions6"},
+}
+
+# ── Portfolio-level risk ceiling ────────────────────────────────────────────
+# Maximum aggregate open risk (sum of riskAmount across all open positions)
+# as a percentage of total starting capital across all six paper accounts.
+# £ and $ accounts are aggregated 1:1 for this ceiling (paper-mode
+# simplification). Each trade individually still risks max 1% of its own
+# account; all six assets open at once ≈ 1% of the portfolio, so 2% is a
+# conservative ceiling that permits normal one-position-per-asset operation
+# while capping any pathological accumulation.
+MAX_TOTAL_OPEN_RISK_PERCENT = 2.0
 REWARD_TO_RISK      = 2.0
 ATR_MULTIPLIER      = 1.5
 POLLING_SECONDS     = 60
@@ -216,6 +244,11 @@ def init_db(connection: sqlite3.Connection) -> None:
         ("trend_1h",         "TEXT"),
         ("entry_mode",       "TEXT"),
         ("entry_conditions", "TEXT"),
+        # Directional audit columns (Aug 2026): full LONG/SHORT scores and the
+        # gate the trade entered at. Nullable — historical trades preserved.
+        ("long_score",       "REAL"),
+        ("short_score",      "REAL"),
+        ("entry_threshold",  "REAL"),
     ):
         if col not in existing_cols:
             connection.execute(f"ALTER TABLE trades ADD COLUMN {col} {col_type}")
@@ -767,6 +800,239 @@ def evaluate_conditions(
     }
 
 
+def _direction_conditions(
+    direction: str,
+    snap: dict[str, Any],
+    close: float,
+    one_hour_trend: str,
+    four_hour_trend: str,
+) -> list[dict[str, Any]]:
+    """Build the six entry conditions for one explicit direction (LONG or SHORT).
+
+    Uses the exact same indicator definitions as evaluate_conditions() and the
+    historical backtester (metals_backtest.py): trend_for() trends, RSI 50 line,
+    MACD vs signal, close vs EMA20 vs EMA50 alignment, volume >= 70% of the
+    20-period average.
+    """
+    rsi_val  = snap["rsi"]
+    macd_val = snap["macd"]
+    sig_val  = snap["macdSignal"]
+    e20      = snap["ema20"]
+    e50      = snap["ema50"]
+    avg_vol  = snap.get("_avg_volume") or 0.0
+    volume   = snap["volume"] or 0.0
+
+    def c(name: str, current_val: str, required_val: str, passed: bool) -> dict[str, Any]:
+        return {"name": name, "currentValue": current_val,
+                "requiredValue": required_val, "pass": passed}
+
+    cond_vol = avg_vol > 0 and volume >= avg_vol * 0.7
+    vol_cond = c("Volume", f"{volume:.4f}", f"≥ {avg_vol * 0.7:.4f} (70% avg)", cond_vol)
+
+    if direction == "LONG":
+        return [
+            c("4h Trend", four_hour_trend, "BULLISH", four_hour_trend == "BULLISH"),
+            c("1h Trend", one_hour_trend, "BULLISH", one_hour_trend == "BULLISH"),
+            c("RSI", f"{rsi_val:.1f}" if rsi_val is not None else "—", "≥ 50",
+              rsi_val is not None and rsi_val >= 50),
+            c("MACD Momentum",
+              f"{macd_val:.4f} > {sig_val:.4f}" if (macd_val is not None and sig_val is not None) else "—",
+              "MACD above signal",
+              macd_val is not None and sig_val is not None and macd_val > sig_val),
+            c("Price vs MA",
+              f"{close:.2f} > EMA20 {e20:.2f}" if e20 else "—",
+              "Price > EMA20 > EMA50",
+              e20 is not None and e50 is not None and close > e20 > e50),
+            vol_cond,
+        ]
+    return [
+        c("4h Trend", four_hour_trend, "BEARISH", four_hour_trend == "BEARISH"),
+        c("1h Trend", one_hour_trend, "BEARISH", one_hour_trend == "BEARISH"),
+        c("RSI", f"{rsi_val:.1f}" if rsi_val is not None else "—", "≤ 50",
+          rsi_val is not None and rsi_val <= 50),
+        c("MACD Momentum",
+          f"{macd_val:.4f} < {sig_val:.4f}" if (macd_val is not None and sig_val is not None) else "—",
+          "MACD below signal",
+          macd_val is not None and sig_val is not None and macd_val < sig_val),
+        c("Price vs MA",
+          f"{close:.2f} < EMA20 {e20:.2f}" if e20 else "—",
+          "Price < EMA20 < EMA50",
+          e20 is not None and e50 is not None and close < e20 < e50),
+        vol_cond,
+    ]
+
+
+def evaluate_conditions_directional(
+    one_hour: list[list[Any]],
+    four_hour: list[list[Any]],
+    threshold: int = 5,
+    short_threshold: int | None = None,
+    weighted: bool = False,
+) -> dict[str, Any]:
+    """Independent LONG and SHORT evaluation with per-direction entry gates.
+
+    Unlike evaluate_conditions() (which picks a single bias from the trends and
+    only scores that direction), this scores BOTH directional setups on every
+    scan.
+
+    threshold        — LONG entry gate; short_threshold defaults to the same.
+    weighted=False   — score = raw pass count of the 6 conditions (max 6);
+                       used by GOLD (5/6) and SILVER (6/6).
+    weighted=True    — score = weighted condition score (4h=2, 1h=2, others 1;
+                       max 8); mirrors the validated crypto gate (>= 6/8).
+
+    A direction qualifies when its score reaches its gate. If both qualify,
+    the direction with the strictly higher score wins; a tie means WAIT
+    (never a random choice).
+    """
+    short_gate = short_threshold if short_threshold is not None else threshold
+    max_score = OPP_MAX_SCORE if weighted else 6
+    empty_ind = {"rsi": None, "macd": None, "macdSignal": None,
+                 "atr": None, "ema20": None, "ema50": None, "volume": None}
+    if len(one_hour) < 55 or len(four_hour) < 55:
+        return {
+            "long":  {"conditions": [], "passCount": 0, "score": 0},
+            "short": {"conditions": [], "passCount": 0, "score": 0},
+            "threshold": threshold, "shortThreshold": short_gate,
+            "maxScore": max_score, "weighted": weighted,
+            "decision": "NO_TRADE",
+            "decisionReason": "Waiting for enough candle history (55+ per timeframe)",
+            "oneHourTrend": "NEUTRAL", "fourHourTrend": "NEUTRAL",
+            "indicators": empty_ind,
+        }
+
+    snap  = indicator_snapshot(one_hour)
+    close = float(one_hour[-1][4])
+    one_hour_trend  = trend_for(one_hour)
+    four_hour_trend = trend_for(four_hour)
+
+    long_conds  = _direction_conditions("LONG",  snap, close, one_hour_trend, four_hour_trend)
+    short_conds = _direction_conditions("SHORT", snap, close, one_hour_trend, four_hour_trend)
+
+    def _score(conds: list[dict[str, Any]]) -> int:
+        if weighted:
+            return sum(w for w, cd in zip(OPP_WEIGHTS, conds) if cd["pass"])
+        return sum(1 for cd in conds if cd["pass"])
+
+    long_score, short_score = _score(long_conds), _score(short_conds)
+
+    long_ok, short_ok = long_score >= threshold, short_score >= short_gate
+    if long_ok and short_ok:
+        if long_score > short_score:
+            decision, reason = "LONG", (
+                f"Both directions qualified — LONG selected on stronger "
+                f"evidence ({long_score}/{max_score} vs SHORT {short_score}/{max_score})")
+        elif short_score > long_score:
+            decision, reason = "SHORT", (
+                f"Both directions qualified — SHORT selected on stronger "
+                f"evidence ({short_score}/{max_score} vs LONG {long_score}/{max_score})")
+        else:
+            decision, reason = "NO_TRADE", (
+                f"Conflict: LONG {long_score}/{max_score} and SHORT {short_score}/{max_score} tied — "
+                f"no clearly stronger direction, waiting")
+    elif long_ok:
+        decision, reason = "LONG", (
+            f"LONG {long_score}/{max_score} reached the {threshold}/{max_score} gate "
+            f"(SHORT {short_score}/{max_score})")
+    elif short_ok:
+        decision, reason = "SHORT", (
+            f"SHORT {short_score}/{max_score} reached the {short_gate}/{max_score} gate "
+            f"(LONG {long_score}/{max_score})")
+    else:
+        decision, reason = "NO_TRADE", (
+            f"Neither direction reached its gate (LONG {long_score}/{max_score} "
+            f"needs {threshold}, SHORT {short_score}/{max_score} needs {short_gate})")
+
+    return {
+        "long":  {"conditions": long_conds,  "passCount": sum(1 for cd in long_conds if cd["pass"]),
+                  "score": long_score},
+        "short": {"conditions": short_conds, "passCount": sum(1 for cd in short_conds if cd["pass"]),
+                  "score": short_score},
+        "threshold": threshold, "shortThreshold": short_gate,
+        "maxScore": max_score, "weighted": weighted,
+        "decision": decision,
+        "decisionReason": reason,
+        "oneHourTrend": one_hour_trend,
+        "fourHourTrend": four_hour_trend,
+        "indicators": {k: v for k, v in snap.items() if not k.startswith("_")},
+    }
+
+
+def _directional_snapshot_block(dir_eval: dict[str, Any]) -> dict[str, Any]:
+    """Directional block stored in the coin snapshot / returned by the API."""
+    return {
+        "longScore":       dir_eval["long"]["score"],
+        "shortScore":      dir_eval["short"]["score"],
+        "threshold":       dir_eval["threshold"],
+        "shortThreshold":  dir_eval["shortThreshold"],
+        "maxScore":        dir_eval["maxScore"],
+        "decision":        dir_eval["decision"],
+        "reason":          dir_eval["decisionReason"],
+        "longConditions":  dir_eval["long"]["conditions"],
+        "shortConditions": dir_eval["short"]["conditions"],
+    }
+
+
+def _directional_diag_block(dir_eval: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "longScore":   dir_eval["long"]["score"],
+        "shortScore":  dir_eval["short"]["score"],
+        "threshold":   dir_eval["threshold"],
+        "shortThreshold": dir_eval["shortThreshold"],
+        "maxScore":    dir_eval["maxScore"],
+        "decision":    dir_eval["decision"],
+        "reason":      dir_eval["decisionReason"],
+        "longFailed":  [cd["name"] for cd in dir_eval["long"]["conditions"] if not cd["pass"]],
+        "shortFailed": [cd["name"] for cd in dir_eval["short"]["conditions"] if not cd["pass"]],
+    }
+
+
+def portfolio_open_risk(connection: sqlite3.Connection) -> dict[str, Any]:
+    """Aggregate open risk across all six paper accounts.
+
+    £ and $ balances are aggregated 1:1 (paper-mode simplification, documented
+    on MAX_TOTAL_OPEN_RISK_PERCENT). Returns totals used both for dashboard
+    visibility and for the configurable portfolio risk ceiling.
+    """
+    total_risk = 0.0
+    total_start = 0.0
+    open_count = 0
+    for sym in INSTRUMENTS:
+        st = load_coin_state(connection, sym)
+        total_start += float(st["starting_balance"])
+        pos = json.loads(st["open_position"]) if st["open_position"] else None
+        if pos:
+            open_count += 1
+            total_risk += float(pos.get("riskAmount") or 0.0)
+    pct = (total_risk / total_start * 100) if total_start else 0.0
+    return {
+        "openPositions":   open_count,
+        "totalInstruments": len(INSTRUMENTS),
+        "totalOpenRisk":   round(total_risk, 2),
+        "openRiskPercent": round(pct, 3),
+        "ceilingPercent":  MAX_TOTAL_OPEN_RISK_PERCENT,
+        "totalStarting":   total_start,
+    }
+
+
+def _portfolio_risk_block_reason(
+    connection: sqlite3.Connection, new_risk: float
+) -> str | None:
+    """Return a block reason if opening a trade risking `new_risk` would breach
+    the portfolio risk ceiling, else None."""
+    pr = portfolio_open_risk(connection)
+    if not pr["totalStarting"]:
+        return None
+    projected = (pr["totalOpenRisk"] + new_risk) / pr["totalStarting"] * 100
+    if projected > MAX_TOTAL_OPEN_RISK_PERCENT + 1e-9:
+        return (
+            f"Entry blocked by portfolio risk limit. Open risk {pr['totalOpenRisk']:.2f} "
+            f"(~{pr['openRiskPercent']:.2f}%) + new risk {new_risk:.2f} would be "
+            f"{projected:.2f}% of the paper portfolio (> ceiling {MAX_TOTAL_OPEN_RISK_PERCENT}%)"
+        )
+    return None
+
+
 def evaluate_opportunity(
     cond_eval: dict[str, Any],
     one_hour: list[list[Any]],
@@ -1011,6 +1277,10 @@ def trade_from_row(row: sqlite3.Row) -> dict[str, Any]:
         "trend1h":         row["trend_1h"]         if "trend_1h"         in row.keys() else None,
         "entryMode":       row["entry_mode"]       if "entry_mode"       in row.keys() else None,
         "entryConditions": row["entry_conditions"] if "entry_conditions" in row.keys() else None,
+        # Directional audit (nullable for trades before the LONG+SHORT upgrade)
+        "longScore":       row["long_score"]       if "long_score"       in row.keys() else None,
+        "shortScore":      row["short_score"]      if "short_score"      in row.keys() else None,
+        "entryThreshold":  row["entry_threshold"]  if "entry_threshold"  in row.keys() else None,
     }
 
 
@@ -1087,6 +1357,7 @@ def build_coin_state(
         }),
         "strategyConditions": data.get("strategyConditions"),
         "proposedTrade":      data.get("proposedTrade"),
+        "directional":        data.get("directional"),
         "opportunity":        _opportunity_with_last_trade(connection, coin, data, open_position),
         "position":           open_position,
         "metrics":            metrics,
@@ -1148,8 +1419,9 @@ def close_position(
              stop_loss, take_profit, rsi, macd, atr, trend_4h,
              profit_loss, account_balance, exit_reason,
              risk_amount, r_multiple, pnl_pct, duration_seconds, result,
-             entry_score, pass_count, trend_1h, entry_mode, entry_conditions)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             entry_score, pass_count, trend_1h, entry_mode, entry_conditions,
+             long_score, short_score, entry_threshold)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             coin, position["openedAt"], closed_at, direction,
@@ -1160,6 +1432,8 @@ def close_position(
             safe_float(position.get("entryScore")), position.get("passCount"),
             position.get("trend1h"), position.get("entryMode"),
             position.get("entryConditions"),
+            safe_float(position.get("longScore")), safe_float(position.get("shortScore")),
+            safe_float(position.get("entryThreshold")),
         ),
     )
     # Disarm re-entry protection: no same-signal recycling until the setup resets
@@ -1246,19 +1520,28 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
     four_hour_trend = cond_eval["fourHourTrend"]
     indicators      = cond_eval["indicators"]
 
+    # ── Independent LONG/SHORT directional scoring (same weighted gate) ────
+    th = DIRECTIONAL_THRESHOLDS[coin]
+    dir_eval = evaluate_conditions_directional(
+        one_hour, four_hour,
+        threshold=th["long"], short_threshold=th["short"], weighted=True,
+    )
+    decision = dir_eval["decision"]
+
     # ── Weighted opportunity scoring (paper mode) ──────────────────────────
     opp       = evaluate_opportunity(cond_eval, one_hour, current_price, spread_pct)
     score     = opp["score"]
     mode      = opp["mode"]
-    trend_dir = cond_eval["bias"]
+    trend_dir = decision if decision in ("LONG", "SHORT") else cond_eval["bias"]
 
-    # Hard safety rules: never trade against a clear 4h trend
+    # Entry gate: either direction may qualify independently at its own
+    # threshold (same validated >= 6/8 weighted score as before). Hard safety
+    # rule preserved: never trade against a clear 4h trend.
     trend_entry_ok = (
         mode == "TREND"
-        and score >= OPP_ENTRY_SCORE
-        and trend_dir in ("LONG", "SHORT")
-        and not (trend_dir == "LONG" and four_hour_trend == "BEARISH")
-        and not (trend_dir == "SHORT" and four_hour_trend == "BULLISH")
+        and decision in ("LONG", "SHORT")
+        and not (decision == "LONG" and four_hour_trend == "BEARISH")
+        and not (decision == "SHORT" and four_hour_trend == "BULLISH")
     )
     range_setup = opp["rangeSetup"] if mode == "RANGE" else None
 
@@ -1341,6 +1624,21 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
             )
     armed = bool(reentry.get("armed", True))
 
+    # --- Track the opposite direction while a position is open (log only) ---
+    if is_new_candle and open_position is not None:
+        _opp_dir  = "SHORT" if open_position["direction"] == "LONG" else "LONG"
+        _opp_gate = th["short"] if _opp_dir == "SHORT" else th["long"]
+        _opp_score = dir_eval[_opp_dir.lower()]["score"]
+        if _opp_score >= _opp_gate:
+            add_activity(
+                connection, coin, "OPPOSITE_SIGNAL",
+                f"Strong opposite signal detected: {_opp_dir} {_opp_score}/{dir_eval['maxScore']} "
+                f"while {open_position['direction']} position open "
+                f"(LONG {dir_eval['long']['score']}/{dir_eval['maxScore']}, "
+                f"SHORT {dir_eval['short']['score']}/{dir_eval['maxScore']}) — "
+                f"not auto-reversing (no validated reversal rule yet)",
+            )
+
     if is_new_candle and open_position is None:
         m = coin_metrics(connection, coin, state)
         daily_limit = float(state["starting_balance"]) * DAILY_LOSS_LIMIT
@@ -1403,8 +1701,17 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
                 risk_amount / stop_dist if stop_dist > 0 else 0,
                 float(state["balance"]) / current_price if current_price > 0 else 0,
             )
-            if quantity > 0:
+            risk_block = _portfolio_risk_block_reason(connection, risk_amount) if quantity > 0 else None
+            if risk_block:
+                execution_block_reason = "Entry blocked by portfolio risk limit."
+                add_activity(
+                    connection, coin, "ENTRY_BLOCKED",
+                    f"{signal} qualifies (LONG {dir_eval['long']['score']}/{dir_eval['maxScore']}, "
+                    f"SHORT {dir_eval['short']['score']}/{dir_eval['maxScore']}) but was skipped — {risk_block}",
+                )
+            elif quantity > 0:
                 _assert_paper_only()   # simulated open only — no real order can be sent
+                entry_gate = th["long"] if signal == "LONG" else th["short"]
                 position = {
                     "direction":  signal,
                     "entry":      round_price(current_price),
@@ -1417,8 +1724,14 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
                     "entryMacd":  indicators.get("macd"),
                     "entryAtr":   indicators.get("atr"),
                     "trend4h":    four_hour_trend,
-                    "entryScore": score,
+                    "trend1h":    one_hour_trend,
+                    "entryScore": (
+                        dir_eval[signal.lower()]["score"] if entry_mode == "TREND" else score
+                    ),
                     "entryMode":  entry_mode,
+                    "longScore":  dir_eval["long"]["score"],
+                    "shortScore": dir_eval["short"]["score"],
+                    "entryThreshold": entry_gate,
                     "entryConditions": ", ".join(
                         w["name"] for w in opp["weighted"] if w["pass"]
                     ) or "range setup",
@@ -1432,7 +1745,9 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
                 ) or "range setup"
                 add_activity(
                     connection, coin, "TRADE_OPENED",
-                    f"{signal} opened at £{current_price:,.2f} | score {score}/{OPP_MAX_SCORE} "
+                    f"{signal} opened at £{current_price:,.2f} "
+                    f"| LONG {dir_eval['long']['score']}/{dir_eval['maxScore']} vs "
+                    f"SHORT {dir_eval['short']['score']}/{dir_eval['maxScore']} (gate {position['entryThreshold']}) "
                     f"| mode {entry_mode} | passed: {passed_names} "
                     f"| SL £{stop_loss:,.2f} | TP £{take_profit:,.2f} | risk £{risk_amount:.2f}",
                 )
@@ -1463,6 +1778,9 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
     elif status == "RISK_PAUSED":
         entry_status, entry_reason = "BLOCKED", execution_block_reason or "Risk limit reached"
         next_eligible = "After risk limits reset (next day or streak break)"
+    elif execution_block_reason is not None:
+        entry_status, entry_reason = "BLOCKED", execution_block_reason
+        next_eligible = "When portfolio open risk drops below the ceiling"
     elif mode == "DANGER":
         entry_status, entry_reason = "BLOCKED", opp["dangerReason"] or "Unsafe market conditions"
         next_eligible = "When market conditions normalise"
@@ -1470,15 +1788,15 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
         entry_status = "BLOCKED"
         entry_reason = "Re-entry protection: same setup already traded — needs a changed signal or fresh crossing"
         next_eligible = "After the signal resets on a new candle"
-    elif score >= OPP_ENTRY_SCORE and trend_dir in ("LONG", "SHORT") and not trend_entry_ok and mode == "TREND":
+    elif decision in ("LONG", "SHORT") and not trend_entry_ok and mode == "TREND":
         entry_status = "BLOCKED"
-        entry_reason = f"Hard rule: cannot go {trend_dir} against a {four_hour_trend} 4h trend"
+        entry_reason = f"Hard rule: cannot go {decision} against a {four_hour_trend} 4h trend"
         next_eligible = "If the 4h trend turns or goes neutral"
     elif signal in ("LONG", "SHORT"):
         entry_status = "READY"
         entry_reason = (
             f"Range setup: {range_setup['reason']}" if (range_setup and not trend_entry_ok)
-            else f"Score {score}/{OPP_MAX_SCORE} ≥ {OPP_ENTRY_SCORE} with 4h trend not opposed"
+            else f"{dir_eval['decisionReason']} — 4h trend not opposed"
         )
         next_eligible = "Next completed 1h candle" if not is_new_candle else "Now"
     else:
@@ -1528,6 +1846,7 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
         "noTradeReason":    _no_trade_reason,
         "executionBlocked": execution_block_reason is not None,
         "blockReason":      execution_block_reason,
+        "directional":      _directional_diag_block(dir_eval),
     }
     add_activity(connection, coin, "STRATEGY_EVALUATED", json.dumps(_diag))
 
@@ -1541,6 +1860,7 @@ def refresh_coin(connection: sqlite3.Connection, coin: str) -> dict[str, Any]:
         "indicators":             indicators,
         "strategyConditions":     cond_eval,
         "proposedTrade":          prop_trade,
+        "directional":            _directional_snapshot_block(dir_eval),
         "opportunity":            opportunity,
         "botStatus":              status,
     }
@@ -1605,6 +1925,7 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
 
     # --- Strategy scan on futures candles (research visibility only) ---
     cond_eval: dict[str, Any] | None = None
+    dir_eval: dict[str, Any] | None = None
     completed_candle_at: str | None = None
     scan_note: str | None = None
     try:
@@ -1614,7 +1935,33 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
                 f"Waiting for enough candles ({len(one_hour)}/55 1h, {len(four_hour)}/55 4h)."
             )
         else:
-            cond_eval = evaluate_conditions(one_hour, four_hour)
+            # Both metals: independent LONG and SHORT setups, each gated by its
+            # own configured threshold (GOLD 5/6 backtest-validated; SILVER
+            # strict 6/6 until backtest evidence supports loosening).
+            _th = DIRECTIONAL_THRESHOLDS[metal]
+            dir_eval = evaluate_conditions_directional(
+                one_hour, four_hour,
+                threshold=_th["long"], short_threshold=_th["short"],
+            )
+            decision = dir_eval["decision"]
+            long_score, short_score = dir_eval["long"]["passCount"], dir_eval["short"]["passCount"]
+            if decision in ("LONG", "SHORT"):
+                lead, bias = decision.lower(), decision
+            elif long_score == short_score:
+                lead, bias = "long", "NEUTRAL"
+            else:
+                lead = "long" if long_score > short_score else "short"
+                bias = lead.upper()
+            cond_eval = {
+                "conditions":    dir_eval[lead]["conditions"],
+                "passCount":     dir_eval[lead]["passCount"],
+                "totalCount":    6,
+                "bias":          bias,
+                "signal":        decision,
+                "oneHourTrend":  dir_eval["oneHourTrend"],
+                "fourHourTrend": dir_eval["fourHourTrend"],
+                "indicators":    dir_eval["indicators"],
+            }
             completed_candle_at = datetime.fromtimestamp(
                 float(one_hour[-1][0]), timezone.utc
             ).isoformat()
@@ -1622,7 +1969,7 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
         scan_note = f"Scan data unavailable (Yahoo Finance): {error}"
 
     if cond_eval is not None:
-        signal          = cond_eval["signal"]      # strict 6/6 signal
+        signal          = cond_eval["signal"]      # GOLD: 5/6 directional; SILVER: strict 6/6
         one_hour_trend  = cond_eval["oneHourTrend"]
         four_hour_trend = cond_eval["fourHourTrend"]
         indicators      = cond_eval["indicators"]
@@ -1703,6 +2050,21 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
             )
     armed = bool(reentry.get("armed", True))
 
+    # --- Track the opposite direction while a position is open (log only) ---
+    if is_new_candle and open_position is not None and dir_eval is not None:
+        _mth = DIRECTIONAL_THRESHOLDS[metal]
+        _opp_dir  = "SHORT" if open_position["direction"] == "LONG" else "LONG"
+        _opp_gate = _mth["short"] if _opp_dir == "SHORT" else _mth["long"]
+        _opp_score = dir_eval[_opp_dir.lower()]["score"]
+        if _opp_score >= _opp_gate:
+            add_activity(
+                connection, metal, "OPPOSITE_SIGNAL",
+                f"Strong opposite signal detected: {_opp_dir} {_opp_score}/6 "
+                f"while {open_position['direction']} position open "
+                f"(LONG {dir_eval['long']['score']}/6, SHORT {dir_eval['short']['score']}/6) — "
+                f"not auto-reversing (no validated reversal rule yet)",
+            )
+
     if is_new_candle and open_position is None and cond_eval is not None:
         m = coin_metrics(connection, metal, state)
         daily_limit = float(state["starting_balance"]) * DAILY_LOSS_LIMIT
@@ -1750,8 +2112,17 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
                 risk_amount / stop_dist if stop_dist > 0 else 0,
                 float(state["balance"]) / spot_price if spot_price > 0 else 0,
             )
-            if quantity > 0:
+            risk_block = _portfolio_risk_block_reason(connection, risk_amount) if quantity > 0 else None
+            if risk_block:
+                execution_block_reason = "Entry blocked by portfolio risk limit."
+                add_activity(
+                    connection, metal, "ENTRY_BLOCKED",
+                    f"{signal} qualifies (LONG {dir_eval['long']['score'] if dir_eval else '?'}/6, "
+                    f"SHORT {dir_eval['short']['score'] if dir_eval else '?'}/6) but was skipped — {risk_block}",
+                )
+            elif quantity > 0:
                 _conds = {cd["name"]: cd["pass"] for cd in cond_eval.get("conditions", [])}
+                _mth = DIRECTIONAL_THRESHOLDS[metal]
                 position = {
                     "direction":  signal,
                     "entry":      round_price(spot_price),
@@ -1766,7 +2137,10 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
                     "trend4h":    four_hour_trend,
                     "trend1h":    one_hour_trend,
                     "entryScore": metal_score,
-                    "entryMode":  "TREND",
+                    "entryMode":  f"{metal}_{_mth['long'] if signal == 'LONG' else _mth['short']}OF6_DIRECTIONAL",
+                    "longScore":  dir_eval["long"]["passCount"] if dir_eval else None,
+                    "shortScore": dir_eval["short"]["passCount"] if dir_eval else None,
+                    "entryThreshold": _mth["long"] if signal == "LONG" else _mth["short"],
                     "passCount":  cond_eval.get("passCount", 0),
                     "totalCount": cond_eval.get("totalCount", 6),
                     "maCondition":     bool(_conds.get("Price vs MA")),
@@ -1780,11 +2154,17 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
                     "UPDATE coin_state SET open_position = ?, updated_at = ? WHERE coin = ?",
                     (json.dumps(position), now_iso(), metal),
                 )
+                _dir_note = (
+                    f" | LONG {dir_eval['long']['passCount']}/6 vs SHORT {dir_eval['short']['passCount']}/6"
+                    if dir_eval else ""
+                )
                 add_activity(
                     connection, metal, "TRADE_OPENED",
                     f"{signal} PAPER trade opened at ${spot_price:,.2f} (UNVALIDATED STRATEGY) "
-                    f"| {cond_eval.get('passCount', 0)}/6 conditions | score {metal_score}/{OPP_MAX_SCORE} "
-                    f"| SL ${stop_loss:,.2f} | TP ${take_profit:,.2f} | risk ${risk_amount:.2f}",
+                    f"| {cond_eval.get('passCount', 0)}/6 conditions{_dir_note} | score {metal_score}/{OPP_MAX_SCORE} "
+                    f"| entry ${spot_price:,.2f} | SL ${stop_loss:,.2f} | TP ${take_profit:,.2f} "
+                    f"| risk ${risk_amount:.2f} | ATR {atr_val:.2f} "
+                    f"| conditions: {position['entryConditions'] or 'none'}",
                 )
                 opened_this_cycle = True
                 open_position = position
@@ -1806,20 +2186,28 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
     elif status == "RISK_PAUSED":
         entry_status, entry_reason = "BLOCKED", execution_block_reason or "Risk limit reached"
         next_eligible = "After risk limits reset (next day or streak break)"
+    elif execution_block_reason is not None:
+        entry_status, entry_reason = "BLOCKED", execution_block_reason
+        next_eligible = "When portfolio open risk drops below the ceiling"
     elif signal in ("LONG", "SHORT") and not armed:
         entry_status = "BLOCKED"
         entry_reason = "Re-entry protection: same setup already traded — needs a changed signal on a new candle"
         next_eligible = "After the signal resets on a new candle"
     elif signal in ("LONG", "SHORT"):
         entry_status = "READY"
-        entry_reason = f"6/6 entry conditions met ({warning_note})"
+        if dir_eval is not None:
+            entry_reason = f"{dir_eval['decisionReason']} ({warning_note})"
+        else:
+            entry_reason = f"6/6 entry conditions met ({warning_note})"
         next_eligible = "Next completed 1h candle" if not is_new_candle else "Now"
     else:
         entry_status = "WAIT"
-        entry_reason = (
-            scan_note if cond_eval is None and scan_note
-            else f"{cond_eval.get('passCount', 0) if cond_eval else 0}/6 conditions — need all 6 to enter"
-        )
+        if cond_eval is None and scan_note:
+            entry_reason = scan_note
+        elif dir_eval is not None:
+            entry_reason = dir_eval["decisionReason"]
+        else:
+            entry_reason = f"{cond_eval.get('passCount', 0) if cond_eval else 0}/6 conditions — need all 6 to enter"
         next_eligible = "Next completed 1h candle"
 
     metal_opportunity: dict[str, Any] = {
@@ -1839,6 +2227,8 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
         _no_trade_reason: str | None = None
     elif cond_eval is None:
         _no_trade_reason = scan_note or "Scan data unavailable"
+    elif dir_eval is not None:
+        _no_trade_reason = dir_eval["decisionReason"]
     elif cond_eval.get("bias") == "NEUTRAL":
         _no_trade_reason = "No directional trend on 1h or 4h timeframe"
     elif _failed:
@@ -1861,6 +2251,8 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
         "blockReason":      execution_block_reason,
         "paperTradingOnly": True,
     }
+    if dir_eval is not None:
+        _diag["directional"] = _directional_diag_block(dir_eval)
     add_activity(connection, metal, "STRATEGY_EVALUATED", json.dumps(_diag))
 
     message = warning_note if scan_note is None else f"{warning_note} {scan_note}"
@@ -1874,6 +2266,9 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
         "indicators":            indicators,
         "strategyConditions":    cond_eval,
         "proposedTrade":         None,
+        "directional":           (
+            _directional_snapshot_block(dir_eval) if dir_eval is not None else None
+        ),
         "opportunity":           metal_opportunity,
         "botStatus":             status,
         # Surface Yahoo Finance unavailability honestly (distinct from gold-api.com errors)
@@ -1895,17 +2290,42 @@ def refresh_metal(connection: sqlite3.Connection, metal: str) -> dict[str, Any]:
 # Public commands
 # ---------------------------------------------------------------------------
 
+def _priority_order(connection: sqlite3.Connection) -> list[str]:
+    """Objective refresh order when several assets could signal at once.
+
+    Assets whose last-known directional score is closest to (or beyond) its
+    entry gate are refreshed first, so if the portfolio risk ceiling can only
+    accommodate some entries this cycle, the strongest signals get first
+    claim on the capacity (never random). Ties fall back to the fixed
+    INSTRUMENTS order. Uses the previous scan's snapshot (one-cycle lag);
+    skipped eligible entries are always logged with their scores.
+    """
+    def strength(sym: str) -> float:
+        try:
+            st = load_coin_state(connection, sym)
+            snap = json.loads(st["snapshot"]) if st["snapshot"] else {}
+            d = snap.get("directional") or {}
+            max_score = d.get("maxScore") or 1
+            gate = min(d.get("threshold") or max_score, d.get("shortThreshold") or max_score)
+            best = max(d.get("longScore") or 0, d.get("shortScore") or 0)
+            return best / gate if gate else 0.0
+        except (ValueError, TypeError, KeyError):
+            return 0.0
+    order = list(INSTRUMENTS)   # INSTRUMENTS is a dict — fixed fallback order is key order
+    return sorted(order, key=lambda s: (-strength(s), order.index(s)))
+
+
 def multi_refresh() -> dict[str, Any]:
     connection = db()
     init_db(connection)
     try:
         result: dict[str, Any] = {}
-        for symbol in INSTRUMENTS:
+        for symbol in _priority_order(connection):
             if symbol in METALS:
                 result[symbol] = refresh_metal(connection, symbol)
             else:
                 result[symbol] = refresh_coin(connection, symbol)
-        return result
+        return {symbol: result[symbol] for symbol in INSTRUMENTS}
     finally:
         connection.close()
 
@@ -1943,7 +2363,13 @@ def portfolio_summary() -> dict[str, Any]:
         total_roi  = (total_pnl / total_starting * 100) if total_starting else 0.0
         total_losses = total_trades - total_wins
         win_rate = (total_wins / total_trades * 100) if total_trades else 0.0
+        open_risk = portfolio_open_risk(connection)
         return {
+            "openPositions":   open_risk["openPositions"],
+            "totalInstruments": open_risk["totalInstruments"],
+            "totalOpenRisk":   open_risk["totalOpenRisk"],
+            "openRiskPercent": open_risk["openRiskPercent"],
+            "riskCeilingPercent": open_risk["ceilingPercent"],
             "totalStarting":  total_starting,
             "totalBalance":   total_balance,
             "totalPnl":       total_pnl,
