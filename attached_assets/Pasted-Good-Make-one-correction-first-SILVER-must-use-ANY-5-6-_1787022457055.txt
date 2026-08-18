@@ -1,0 +1,182 @@
+Good. Make one correction first:
+
+SILVER must use ANY 5/6, the same as Gold.
+
+This was the selected strategy following the backtest.
+
+Do not reset balances, positions, trade history or activity history.
+
+Then I want to address the main objective:
+
+I do NOT want a strategy that only produces a trade every several days.
+
+The objective is to find MORE profitable trading opportunities across:
+
+BTC
+ETH
+SOL
+XRP
+GOLD
+SILVER
+
+in BOTH LONG and SHORT directions.
+
+However, do NOT simply loosen rules until trades occur.
+
+I want this determined by backtesting.
+
+TASK 1 — CRYPTO LONG/SHORT BACKTEST
+
+Run a 365-day backtest for:
+
+BTC
+ETH
+SOL
+XRP
+
+Test LONG and SHORT independently.
+
+For each asset and direction compare:
+
+6/6
+any 5/6
+any 4/6
+
+Also test the useful condition-specific relaxed variants where appropriate.
+
+Include realistic trading costs as a second result set.
+
+For every variant report:
+
+- number of trades
+- trades per month
+- ROI
+- profit factor
+- win rate
+- maximum drawdown
+- expectancy per trade
+- Sharpe ratio
+- average trade duration
+- longest losing streak
+
+IMPORTANT:
+
+Separate LONG and SHORT performance.
+
+Example:
+
+BTC LONG
+5/6
+...
+
+BTC SHORT
+5/6
+...
+
+Do not combine them and hide whether one direction is losing money.
+
+TASK 2 — COMBINED LONG + SHORT
+
+Then simulate the actual proposed bot:
+
+independent LONG and SHORT signals
+one position maximum per asset
+no simultaneous LONG + SHORT on the same asset
+
+Compare the combined results for each threshold.
+
+I want to know whether allowing both directions actually improves:
+
+ROI
+profit factor
+trade frequency
+drawdown
+risk-adjusted return
+
+TASK 3 — FIND THE BEST BALANCE
+
+The goal is NOT simply highest ROI.
+
+Find the best balance between:
+
+PROFITABILITY
++
+MORE TRADES
++
+ACCEPTABLE DRAWDOWN
+
+I would rather have a robust strategy generating more opportunities than an extremely restrictive strategy that barely trades.
+
+However:
+
+Reject any relaxation that produces lots of trades but destroys profitability.
+
+Flag strategies with:
+
+Profit Factor < 1.20
+
+or
+
+excessive drawdown
+
+as weak candidates.
+
+TASK 4 — GOLD + SILVER
+
+Confirm both now use ANY 5/6.
+
+Do NOT change their strategy again during this task.
+
+TASK 5 — ESTIMATE REAL TRADE FREQUENCY
+
+Using the winning configurations, estimate:
+
+trades per day
+trades per week
+trades per month
+
+for each asset.
+
+Then calculate expected TOTAL opportunities across all 6 assets.
+
+I want a realistic answer to:
+
+"With the bot running continuously, approximately how many trades should I expect?"
+
+TASK 6 — IMPORTANT RUNTIME ISSUE
+
+You stated:
+
+"for true always-on scanning after publishing, this app needs a Reserved VM deployment rather than autoscale"
+
+Audit the CURRENT deployment.
+
+Tell me explicitly:
+
+CURRENT BOT STATUS:
+24/7 WITHOUT MY PHONE/WEBPAGE OPEN = YES or NO
+
+If NO, explain exactly what I need to change in Replit so the paper trader genuinely scans continuously.
+
+Do not enable real trading.
+
+PAPER_TRADING = TRUE
+LIVE_TRADING = FALSE
+
+TASK 7 — DO NOT APPLY CRYPTO WINNERS YET
+
+Run the backtests and show me the results first.
+
+Do NOT automatically change BTC/ETH/SOL/XRP.
+
+I want to choose the winning configurations after seeing the results.
+
+At the end give me one simple table:
+
+ASSET | DIRECTION | CURRENT RULE | BEST TESTED RULE | TRADES/YEAR | TRADES/MONTH | ROI | PF | WIN RATE | MAX DD | SHARPE
+
+Then give:
+
+EXPECTED TOTAL TRADES/WEEK ACROSS ALL 6 ASSETS
+
+and your recommended configuration.
