@@ -1,15 +1,17 @@
 import { useEffect, useState, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  AlertTriangle, ArrowDownRight, ArrowUpRight, BarChart3, CheckCircle2,
+  AlertTriangle, ArrowDownRight, ArrowUpRight, BarChart3, CandlestickChart, CheckCircle2,
   ChevronDown, ChevronUp, Clock3, RefreshCw, RotateCcw, ScanSearch,
   ShieldAlert, Target, TrendingDown, TrendingUp, Wallet, XCircle, Zap,
 } from 'lucide-react';
 import {
   getGetMultiCoinStateQueryKey,
   getListActivityLogQueryKey,
+  getListAllTradesQueryKey,
   useGetEngineStatus,
   useGetMultiCoinState,
+  useListAllTrades,
   useRefreshMultiCoin,
   useResetAllCoins,
   useListActivityLog,
@@ -17,6 +19,7 @@ import {
 } from '@workspace/api-client-react';
 import { TradingShell } from '@/components/trading-shell';
 import { StrategyConditionsPanel } from '@/components/strategy-conditions';
+import { AssetChart } from '@/components/asset-chart';
 
 // ─── Formatters ──────────────────────────────────────────────────────────────
 const money = (v: number | null | undefined, d = 2, sym = '£') =>
@@ -250,7 +253,7 @@ function LatestScanStrip({ coins, multiState }: { coins: readonly string[]; mult
       <div className="flex items-center gap-2 border-b border-border/70 px-5 py-4 sm:px-6">
         <ScanSearch size={16} className="text-sky-400" />
         <h2 className="text-sm font-extrabold">Latest strategy scan</h2>
-        <span className="ml-auto font-mono-data text-[10px] uppercase tracking-wider text-muted-foreground">crypto ≥ 6/8 score · gold ≥ 5/6 either direction · silver 6/6 + hard safety rules</span>
+        <span className="ml-auto font-mono-data text-[10px] uppercase tracking-wider text-muted-foreground">crypto ≥ 6/8 score · gold &amp; silver ≥ 5/6 either direction + hard safety rules</span>
       </div>
       <div className="divide-y divide-border/50">
         {coins.map((coin) => {
@@ -371,10 +374,28 @@ function PositionPanel({ position, coin, sym }: { position: NonNullable<PaperTra
   );
 }
 
+// ─── Per-asset chart section (lazy-mounted when opened) ──────────────────────
+function CoinChartSection({ coin, state }: { coin: string; state: PaperTraderState }) {
+  const tradesQuery = useListAllTrades(
+    { limit: 200 },
+    { query: { queryKey: getListAllTradesQueryKey({ limit: 200 }), staleTime: 30_000 } },
+  );
+  const trades = (tradesQuery.data ?? []).filter((t) => t.coin === coin);
+  return (
+    <AssetChart
+      asset={coin}
+      trades={trades}
+      position={state.position}
+      currentPrice={state.market.currentPrice}
+    />
+  );
+}
+
 // ─── Coin card ────────────────────────────────────────────────────────────────
 function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
   const meta = COIN_META[coin] ?? COIN_META.BTC;
   const [expanded, setExpanded] = useState(false);
+  const [chartOpen, setChartOpen] = useState(false);
   const positivePnl = state.metrics.totalProfitLoss >= 0;
   const hasPosition = state.position != null;
   const sym = curSym(state.instrument.currency);
@@ -517,6 +538,20 @@ function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
         </div>
 
         {/* Expand toggle for indicators */}
+        <button
+          onClick={() => setChartOpen((c) => !c)}
+          data-testid={`button-chart-${coin}`}
+          className="mt-2 flex w-full items-center justify-center gap-1 rounded-lg border border-border/70 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <CandlestickChart size={11} /> {chartOpen ? 'Hide chart' : 'View chart'}
+        </button>
+
+        {chartOpen && (
+          <div className="mt-3 border-t border-border/50 pt-3">
+            <CoinChartSection coin={coin} state={state} />
+          </div>
+        )}
+
         <button
           onClick={() => setExpanded((e) => !e)}
           className="mt-2 flex w-full items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground"

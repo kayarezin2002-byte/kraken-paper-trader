@@ -6,4 +6,5 @@
 - [Metals paper-trading mode](metals-monitoring-mode.md) — GOLD/SILVER now paper-trade on the strict 6/6 gate (USD $100 accounts, unvalidated-strategy warning, LIVE_TRADING=False hard gate); spot fails closed.
 - [Metals backtest conclusions](metals-backtest-conclusions.md) — 365d gate study: relaxing 4h Trend/Volume beats 6/6; 1h Trend is implied by MACD+PriceVsMA; live 3-loss pause never un-pauses (bug).
 - [Execution runtime & scan scheduler](execution-runtime.md) — scans run server-side every 120s; all bot invocations must be serialized through one queue (SQLite single-writer); metals volume=0 is a data quirk.
+- [Crypto strategy research](crypto-strategy-research.md) — IS/OOS study: ETH no edge; XRP SHORT headline was in-sample; nothing survives real Kraken fees on 1h; windowed sims must liquidate endpoint positions.
 - [opportunity_research.py performance](opportunity-bt-performance.md) — build_pre must use deque-based O(n) rolling windows; bytearray trend breaks string comparison; pre-compute once per series not per config.

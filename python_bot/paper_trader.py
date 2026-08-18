@@ -2492,6 +2492,181 @@ def activity_log(limit: int = 50) -> list[dict[str, Any]]:
         connection.close()
 
 
+CHART_RANGES: dict[str, int] = {
+    "24H": 24 * 3600,
+    "7D": 7 * 86400,
+    "30D": 30 * 86400,
+    "90D": 90 * 86400,
+}
+
+
+def _macd_series(closes: list[float]) -> tuple[list[float | None], list[float | None]]:
+    """MACD(12,26,9) line + signal series, aligned with closes."""
+    ema12 = ema_series(closes, 12)
+    ema26 = ema_series(closes, 26)
+    macd: list[float | None] = [
+        (a - b) if a is not None and b is not None else None
+        for a, b in zip(ema12, ema26)
+    ]
+    macd_vals = [m for m in macd if m is not None]
+    signal_tail = ema_series(macd_vals, 9)
+    signal: list[float | None] = [None] * len(macd)
+    offset = len(macd) - len(macd_vals)
+    for i, s in enumerate(signal_tail):
+        signal[offset + i] = s
+    return macd, signal
+
+
+def _fetch_chart_rows(asset: str, range_key: str) -> tuple[list[list[Any]], int]:
+    """Completed candles covering the range plus indicator warm-up.
+
+    Returns (rows, interval_seconds). Uses the SAME data sources as the
+    strategy engine: Kraken OHLC for crypto (1h; 4h for 90D since Kraken's
+    1h history caps at ~30 days), Yahoo Finance COMEX futures for metals.
+    """
+    if asset in COINS:
+        pair = COINS[asset]["pair"]
+        interval = 240 if range_key == "90D" else 60
+        result = fetch_json(
+            f"https://api.kraken.com/0/public/OHLC?pair={pair}&interval={interval}"
+        )
+        cutoff = time.time()
+        rows = result.get(pair) or next(
+            (v for k, v in result.items() if k != "last"), []
+        )
+        rows = [
+            [float(r[0])] + [safe_float(x) for x in r[1:7]] + [int(r[7])]
+            for r in rows
+            if len(r) >= 8 and float(r[0]) < cutoff
+        ][:-1]
+        return rows, interval * 60
+    if asset in METALS:
+        symbol = METALS[asset]["candles_symbol"]
+        # extra days beyond the window cover EMA50/MACD warm-up
+        yahoo_range = {"24H": "10d", "7D": "20d", "30D": "60d", "90D": "120d"}[range_key]
+        last_error: Exception | None = None
+        for host in ("query1", "query2"):
+            url = (
+                f"https://{host}.finance.yahoo.com/v8/finance/chart/{symbol}"
+                f"?interval=1h&range={yahoo_range}"
+            )
+            request = Request(url, headers={
+                "Accept": "application/json",
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+            })
+            try:
+                with urlopen(request, timeout=20) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+                result = payload["chart"]["result"][0]
+                timestamps = result["timestamp"]
+                quote = result["indicators"]["quote"][0]
+                cutoff = time.time()
+                rows = []
+                for i, ts in enumerate(timestamps):
+                    o = safe_float(quote["open"][i]); h = safe_float(quote["high"][i])
+                    l = safe_float(quote["low"][i]);  c = safe_float(quote["close"][i])
+                    v = safe_float(quote["volume"][i]) or 0.0
+                    if None in (o, h, l, c) or float(ts) >= cutoff:
+                        continue
+                    rows.append([float(ts), o, h, l, c, c, v, 1])
+                return (rows[:-1] if rows else rows), 3600
+            except (HTTPError, URLError, TimeoutError, ValueError, KeyError,
+                    IndexError, TypeError) as error:
+                last_error = error
+        raise RuntimeError(f"Yahoo Finance error for {symbol}: {last_error}")
+    raise RuntimeError(f"Unknown asset {asset}")
+
+
+def chart_command(asset: str, range_key: str) -> dict[str, Any]:
+    """Candles + indicator overlays + recent signal points for the dashboard
+    charts. Read-only visualisation: never touches positions or balances."""
+    asset = asset.upper()
+    if asset not in INSTRUMENTS:
+        raise RuntimeError(f"Unknown asset {asset}")
+    if range_key not in CHART_RANGES:
+        raise RuntimeError(f"Unknown range {range_key}")
+
+    rows, interval_seconds = _fetch_chart_rows(asset, range_key)
+    closes = [float(r[4]) for r in rows]
+    ema20 = ema_series(closes, 20)
+    ema50 = ema_series(closes, 50)
+    rsi = rsi_series(closes)
+    macd, macd_signal = _macd_series(closes)
+
+    window_start = time.time() - CHART_RANGES[range_key]
+    candles = []
+    for i, r in enumerate(rows):
+        if float(r[0]) < window_start:
+            continue
+        candles.append({
+            "t": float(r[0]),
+            "o": float(r[1]), "h": float(r[2]), "l": float(r[3]), "c": float(r[4]),
+            "v": float(r[6]),
+            "ema20": round_price(ema20[i]),
+            "ema50": round_price(ema50[i]),
+            "rsi": round(rsi[i], 2) if rsi[i] is not None else None,
+            "macd": round(macd[i], 6) if macd[i] is not None else None,
+            "macdSignal": round(macd_signal[i], 6) if macd_signal[i] is not None else None,
+        })
+
+    # Historical signal points from the activity log (best-effort — the log
+    # keeps the most recent ~200 events across all assets).
+    signals: list[dict[str, Any]] = []
+    # Strictly read-only DB access: no init_db/migration, no writes.
+    connection = db()
+    try:
+        try:
+            log_rows = connection.execute(
+                "SELECT event, message, ts FROM activity_log "
+                "WHERE coin = ? AND event IN ('STRATEGY_EVALUATED', 'ENTRY_BLOCKED') "
+                "ORDER BY id DESC LIMIT 200",
+                (asset,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            log_rows = []  # table not created yet — no signal history
+    finally:
+        connection.close()
+    for r in log_rows:
+        ts_val = safe_float(
+            datetime.fromisoformat(str(r["ts"]).replace("Z", "+00:00")).timestamp()
+        ) if r["ts"] else None
+        if ts_val is None or ts_val < window_start:
+            continue
+        if r["event"] == "ENTRY_BLOCKED":
+            signals.append({
+                "ts": ts_val, "direction": None, "executed": False,
+                "blockedReason": r["message"],
+            })
+            continue
+        try:
+            diag = json.loads(r["message"])
+        except (ValueError, TypeError):
+            continue
+        signal = diag.get("signal") or "NO_TRADE"
+        if signal == "NO_TRADE":
+            continue
+        blocked = bool(diag.get("executionBlocked"))
+        signals.append({
+            "ts": ts_val,
+            "direction": "SHORT" if "SHORT" in str(signal) else "LONG",
+            "executed": not blocked,
+            "blockedReason": diag.get("blockReason") or diag.get("noTradeReason"),
+        })
+    signals.reverse()
+
+    info = instrument_info(asset)
+    return {
+        "asset": asset,
+        "display": instrument_display(asset),
+        "currency": info["currency"],
+        "range": range_key,
+        "intervalSeconds": interval_seconds,
+        "dataSource": info["dataSource"],
+        "candles": candles,
+        "signals": signals,
+    }
+
+
 def reset_all_command(payload: str | None = None) -> dict[str, Any]:
     connection = db()
     init_db(connection)
@@ -2558,6 +2733,10 @@ def main() -> None:
     elif command == "all-trades":
         limit = int(sys.argv[2]) if len(sys.argv) > 2 else 200
         result = all_trades(limit)
+    elif command == "chart":
+        asset = sys.argv[2] if len(sys.argv) > 2 else "BTC"
+        range_key = sys.argv[3] if len(sys.argv) > 3 else "7D"
+        result = chart_command(asset, range_key)
     elif command == "reset-all":
         payload = sys.argv[2] if len(sys.argv) > 2 else None
         result = reset_all_command(payload)

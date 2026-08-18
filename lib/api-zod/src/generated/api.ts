@@ -3082,6 +3082,45 @@ export const ListActivityLogResponse = zod.array(ListActivityLogResponseItem)
 
 
 /**
+ * @summary Price candles + indicators for one asset (visualisation only)
+ */
+export const getChartDataQueryRangeDefault = `7D`;
+
+export const GetChartDataQueryParams = zod.object({
+  "asset": zod.enum(['BTC', 'ETH', 'SOL', 'XRP', 'GOLD', 'SILVER']),
+  "range": zod.enum(['24H', '7D', '30D', '90D']).default(getChartDataQueryRangeDefault)
+})
+
+export const GetChartDataResponse = zod.object({
+  "asset": zod.string(),
+  "display": zod.string(),
+  "currency": zod.string(),
+  "range": zod.string(),
+  "intervalSeconds": zod.number(),
+  "dataSource": zod.string(),
+  "candles": zod.array(zod.object({
+  "t": zod.number().describe('Candle START time (UTC seconds)'),
+  "o": zod.number(),
+  "h": zod.number(),
+  "l": zod.number(),
+  "c": zod.number(),
+  "v": zod.number(),
+  "ema20": zod.number().nullable(),
+  "ema50": zod.number().nullable(),
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "macdSignal": zod.number().nullable()
+}).describe('One completed candle plus indicator values at its close.')),
+  "signals": zod.array(zod.object({
+  "ts": zod.number(),
+  "direction": zod.string().nullable(),
+  "executed": zod.boolean(),
+  "blockedReason": zod.string().nullable()
+}).describe('A historical qualifying strategy signal (executed or blocked).'))
+}).describe('Price chart payload — same market data the strategy engine uses.')
+
+
+/**
  * @summary List simulated trades for all coins
  */
 export const listAllTradesQueryLimitDefault = 200;

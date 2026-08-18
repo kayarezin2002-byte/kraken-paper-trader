@@ -203,21 +203,21 @@ class TestGoldRefreshGate(_DBTestCase):
         self.assertEqual(n, 0)   # nothing closed, and only ONE open position exists
         self.assertEqual(result["opportunity"]["entryStatus"], "BLOCKED")
 
-    def test_silver_still_requires_6_of_6(self) -> None:
+    def test_silver_enters_at_any_5_of_6(self) -> None:
+        # SILVER was moved to the any-5/6 gate (same as GOLD) per the user's
+        # Aug 2026 correction — a 5/6 setup (Volume failing) must now enter.
         one_hour = _declining_candles(80, last_volume=10.0)   # Volume fails → 5/6
         four_hour = _declining_candles(80, interval=14400.0)
         spot = float(one_hour[-1][4])
         with patch.object(pt, "fetch_metal_spot", return_value=(spot, pt.now_iso())), \
              patch.object(pt, "fetch_metal_candles", return_value=(one_hour, four_hour)):
             result = pt.refresh_metal(self.conn, "SILVER")
-        self.assertIsNone(result["position"], "SILVER must not enter at 5/6")
-        # SILVER now also reports independent directional scores, but its gate
-        # stays strict 6/6 in both directions until backtests justify loosening.
+        self.assertIsNotNone(result["position"], "SILVER must enter at any 5/6")
+        self.assertEqual(result["position"]["passCount"], 5)
+        self.assertEqual(result["position"]["direction"], "SHORT")
         self.assertIsNotNone(result["directional"])
-        self.assertEqual(result["directional"]["threshold"], 6)
-        self.assertEqual(result["directional"]["shortThreshold"], 6)
-        self.assertEqual(result["directional"]["decision"], "NO_TRADE")
-        self.assertEqual(result["signal"], "NO_TRADE")
+        self.assertEqual(result["directional"]["threshold"], 5)
+        self.assertEqual(result["directional"]["decision"], "SHORT")
 
 
 class TestPaperOnly(unittest.TestCase):

@@ -7,6 +7,9 @@
  */
 
 export * from './activityEvent';
+export * from './chartCandle';
+export * from './chartData';
+export * from './chartSignalPoint';
 export * from './directionalEvaluation';
 export * from './directionalEvaluationDecision';
 export * from './directionEval';
@@ -14,6 +17,9 @@ export * from './engineStatus';
 export * from './engineStatusStatus';
 export * from './errorResponse';
 export * from './executionDiagnostics';
+export * from './getChartDataAsset';
+export * from './getChartDataParams';
+export * from './getChartDataRange';
 export * from './healthStatus';
 export * from './indicatorSnapshot';
 export * from './listActivityLogParams';

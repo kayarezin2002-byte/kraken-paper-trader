@@ -2,6 +2,8 @@ import { Router, type IRouter } from "express";
 import { runBot } from "../lib/bot";
 import { engineStatus } from "../lib/botScheduler";
 import {
+  GetChartDataQueryParams,
+  GetChartDataResponse,
   GetEngineStatusResponse,
   GetMultiCoinStateResponse,
   GetPaperTraderStateResponse,
@@ -116,6 +118,19 @@ router.get("/paper-trader/activity", async (req, res) => {
   } catch (error) {
     req.log.error({ err: error }, "Unable to list activity log");
     res.status(500).json({ error: "Unable to read activity log" });
+  }
+});
+
+router.get("/paper-trader/chart", async (req, res) => {
+  try {
+    const params = GetChartDataQueryParams.parse(req.query);
+    const data = GetChartDataResponse.parse(
+      await runBot("chart", params.asset, params.range ?? "7D"),
+    );
+    res.json(data);
+  } catch (error) {
+    req.log.error({ err: error }, "Unable to build chart data");
+    res.status(502).json({ error: "Unable to fetch chart market data" });
   }
 });
 

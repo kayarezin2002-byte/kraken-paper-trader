@@ -473,6 +473,55 @@ export interface MultiCoinState {
   SILVER: PaperTraderState;
 }
 
+/**
+ * One completed candle plus indicator values at its close.
+ */
+export interface ChartCandle {
+  /** Candle START time (UTC seconds) */
+  t: number;
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+  v: number;
+  /** @nullable */
+  ema20: number | null;
+  /** @nullable */
+  ema50: number | null;
+  /** @nullable */
+  rsi: number | null;
+  /** @nullable */
+  macd: number | null;
+  /** @nullable */
+  macdSignal: number | null;
+}
+
+/**
+ * A historical qualifying strategy signal (executed or blocked).
+ */
+export interface ChartSignalPoint {
+  ts: number;
+  /** @nullable */
+  direction: string | null;
+  executed: boolean;
+  /** @nullable */
+  blockedReason: string | null;
+}
+
+/**
+ * Price chart payload — same market data the strategy engine uses.
+ */
+export interface ChartData {
+  asset: string;
+  display: string;
+  currency: string;
+  range: string;
+  intervalSeconds: number;
+  dataSource: string;
+  candles: ChartCandle[];
+  signals: ChartSignalPoint[];
+}
+
 export type EngineStatusStatus = typeof EngineStatusStatus[keyof typeof EngineStatusStatus];
 
 
@@ -552,6 +601,33 @@ export type ListActivityLogParams = {
  */
 limit?: number;
 };
+
+export type GetChartDataParams = {
+asset: GetChartDataAsset;
+range?: GetChartDataRange;
+};
+
+export type GetChartDataAsset = typeof GetChartDataAsset[keyof typeof GetChartDataAsset];
+
+
+export const GetChartDataAsset = {
+  BTC: 'BTC',
+  ETH: 'ETH',
+  SOL: 'SOL',
+  XRP: 'XRP',
+  GOLD: 'GOLD',
+  SILVER: 'SILVER',
+} as const;
+
+export type GetChartDataRange = typeof GetChartDataRange[keyof typeof GetChartDataRange];
+
+
+export const GetChartDataRange = {
+  '24H': '24H',
+  '7D': '7D',
+  '30D': '30D',
+  '90D': '90D',
+} as const;
 
 export type ListAllTradesParams = {
 /**

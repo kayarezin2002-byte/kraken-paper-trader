@@ -181,6 +181,33 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ActivityEvent"
+  /paper-trader/chart:
+    get:
+      operationId: getChartData
+      tags: [paper-trader]
+      summary: Price candles + indicators for one asset (visualisation only)
+      parameters:
+        - name: asset
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [BTC, ETH, SOL, XRP, GOLD, SILVER]
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [24H, 7D, 30D, 90D]
+            default: 7D
+      responses:
+        "200":
+          description: Chart payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChartData"
+
   /paper-trader/all-trades:
     get:
       operationId: listAllTrades
@@ -671,6 +698,59 @@ components:
       required: [BTC, ETH, SOL, XRP, GOLD, SILVER]
 
     # ── Engine (server-side scan scheduler) ─────────────────────────────────
+    ChartCandle:
+      type: object
+      description: One completed candle plus indicator values at its close.
+      properties:
+        t:
+          type: number
+          description: Candle START time (UTC seconds)
+        o: { type: number }
+        h: { type: number }
+        l: { type: number }
+        c: { type: number }
+        v: { type: number }
+        ema20: { type: ["number", "null"] }
+        ema50: { type: ["number", "null"] }
+        rsi: { type: ["number", "null"] }
+        macd: { type: ["number", "null"] }
+        macdSignal: { type: ["number", "null"] }
+      required: [t, o, h, l, c, v, ema20, ema50, rsi, macd, macdSignal]
+
+    ChartSignalPoint:
+      type: object
+      description: A historical qualifying strategy signal (executed or blocked).
+      properties:
+        ts:
+          type: number
+        direction:
+          type: ["string", "null"]
+        executed:
+          type: boolean
+        blockedReason:
+          type: ["string", "null"]
+      required: [ts, direction, executed, blockedReason]
+
+    ChartData:
+      type: object
+      description: Price chart payload — same market data the strategy engine uses.
+      properties:
+        asset: { type: string }
+        display: { type: string }
+        currency: { type: string }
+        range: { type: string }
+        intervalSeconds: { type: number }
+        dataSource: { type: string }
+        candles:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChartCandle"
+        signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChartSignalPoint"
+      required: [asset, display, currency, range, intervalSeconds, dataSource, candles, signals]
+
     EngineStatus:
       type: object
       description: Status of the background strategy-scan scheduler in the API server.

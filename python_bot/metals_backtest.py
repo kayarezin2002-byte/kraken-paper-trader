@@ -448,6 +448,11 @@ def simulate(
         "trades": trades, "endingBalance": balance,
         "maxDrawdownPct": max_dd_pct, "maxDrawdownAbs": max_dd_abs,
         "ambiguousExits": ambiguous,
+        # position still open at the last supplied candle (None if flat) —
+        # callers doing windowed comparisons should mark-to-market or
+        # force-liquidate it so endpoint ROI is not truncated.
+        "openPosition": position,
+        "lastRow": rows[-1] if rows else None,
     }
 
 

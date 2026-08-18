@@ -1,7 +1,46 @@
 import { useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, BookOpen, Filter, History as HistoryIcon } from 'lucide-react';
-import { useListAllTrades, getListAllTradesQueryKey } from '@workspace/api-client-react';
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, BookOpen, Filter, History as HistoryIcon, X } from 'lucide-react';
+import { useListAllTrades, getListAllTradesQueryKey, type PaperTrade } from '@workspace/api-client-react';
 import { TradingShell } from '@/components/trading-shell';
+import { AssetChart, type ChartRange } from '@/components/asset-chart';
+
+/** Pick a chart range wide enough to show 24 candles before entry and after exit. */
+function reviewRange(trade: PaperTrade): ChartRange {
+  const ageDays = (Date.now() - Date.parse(trade.openedAt)) / 86400000;
+  if (ageDays <= 0.7) return '24H';
+  if (ageDays <= 6) return '7D';
+  if (ageDays <= 28) return '30D';
+  return '90D';
+}
+
+function TradeReviewModal({ trade, onClose }: { trade: PaperTrade; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6" onClick={onClose}>
+      <div
+        className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border border-border/80 bg-card p-4 sm:max-w-3xl sm:rounded-2xl sm:p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-bold">
+            Trade review — {trade.coin} {trade.direction}
+            <span className={`ml-2 font-mono-data text-xs ${trade.profitLoss >= 0 ? 'text-accent' : 'text-destructive'}`}>
+              {trade.profitLoss >= 0 ? '+' : ''}{trade.profitLoss.toFixed(2)}
+            </span>
+          </h3>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" data-testid="button-close-review">
+            <X size={16} />
+          </button>
+        </div>
+        <AssetChart
+          asset={trade.coin}
+          trades={[trade]}
+          focusTrade={trade}
+          defaultRange={reviewRange(trade)}
+        />
+      </div>
+    </div>
+  );
+}
 
 const money = (v: number | null | undefined) =>
   v == null ? '—' : `£${v.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -24,6 +63,7 @@ const COIN_COLORS: Record<string, string> = {
 
 export default function History() {
   const [coinFilter, setCoinFilter] = useState<CoinFilter>('ALL');
+  const [reviewTrade, setReviewTrade] = useState<PaperTrade | null>(null);
   const tradesQuery = useListAllTrades(
     { limit: 200 },
     { query: { queryKey: getListAllTradesQueryKey({ limit: 200 }) } },
@@ -165,7 +205,7 @@ export default function History() {
                 </thead>
                 <tbody>
                   {ordered.map((trade) => (
-                    <tr key={trade.id} data-testid={`row-history-trade-${trade.id}`} className="border-b border-border/50 last:border-0 transition-colors hover:bg-muted/35">
+                    <tr key={trade.id} data-testid={`row-history-trade-${trade.id}`} onClick={() => setReviewTrade(trade)} className="cursor-pointer border-b border-border/50 last:border-0 transition-colors hover:bg-muted/35">
                       <td className="px-5 py-4 sm:px-6">
                         <p className="font-mono-data text-xs">{dateTime(trade.closedAt)}</p>
                         <p className="mt-1 text-[10px] text-muted-foreground">opened {dateTime(trade.openedAt)}</p>
@@ -203,6 +243,7 @@ export default function History() {
           )}
         </section>
       </div>
+      {reviewTrade && <TradeReviewModal trade={reviewTrade} onClose={() => setReviewTrade(null)} />}
     </TradingShell>
   );
 }

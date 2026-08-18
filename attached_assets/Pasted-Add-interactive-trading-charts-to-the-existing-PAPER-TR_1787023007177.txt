@@ -1,0 +1,276 @@
+Add interactive trading charts to the existing PAPER TRADING dashboard for all 6 assets:
+
+BTC
+ETH
+SOL
+XRP
+GOLD
+SILVER
+
+Do not change any strategy rules, thresholds, risk settings or execution logic in this task.
+
+This is a VISUALISATION task only.
+
+GOAL:
+
+I want to visually see exactly where the bot enters and exits trades on the actual price chart.
+
+1. ADD A PRICE CHART TO EACH ASSET
+
+Add an expandable chart for every asset.
+
+Use candlesticks if practical.
+
+If the existing frontend/chart library cannot provide good candlesticks, use a high-quality price line chart instead.
+
+Default view:
+recent 1h candles.
+
+Allow useful time ranges such as:
+24H
+7D
+30D
+90D
+
+Do not invent prices.
+
+Use the same market data the strategy engine actually uses wherever possible.
+
+2. SHOW LONG ENTRY MARKERS
+
+When the bot opens a LONG paper trade, place a clear marker on the chart at the exact:
+
+- timestamp
+- entry price
+
+Label:
+
+LONG ENTRY
+
+The marker should visually point upward.
+
+3. SHOW SHORT ENTRY MARKERS
+
+When the bot opens a SHORT paper trade, place a clear marker at the exact:
+
+- timestamp
+- entry price
+
+Label:
+
+SHORT ENTRY
+
+Make SHORT entries visually distinguishable from LONG entries.
+
+4. SHOW EXIT MARKERS
+
+When a trade closes, mark the exact exit timestamp and price.
+
+Clearly distinguish:
+
+TAKE PROFIT
+STOP LOSS
+OTHER EXIT
+
+For example:
+
+TP
+SL
+EXIT
+
+5. CONNECT ENTRY TO EXIT
+
+For completed trades, visually connect the entry and exit where practical.
+
+When the trade is selected, display:
+
+Asset
+LONG/SHORT
+Entry
+Exit
+P&L
+P&L %
+R multiple
+Duration
+Exit reason
+
+6. SHOW OPEN POSITIONS
+
+For an open position show horizontal levels for:
+
+ENTRY
+STOP LOSS
+TAKE PROFIT
+
+Also show:
+
+Current price
+Unrealised P&L
+
+These levels should update while the position remains open.
+
+7. INDICATOR OVERLAYS
+
+Add optional toggles for the indicators used by the strategy.
+
+At minimum:
+
+EMA20
+EMA50 if used
+volume
+
+If practical also add:
+
+RSI
+MACD
+
+RSI and MACD can be displayed below the main chart rather than over the price candles.
+
+Do not clutter the default chart.
+
+Default should remain mainly price + trades.
+
+8. SHOW SIGNAL POINTS
+
+OPTIONAL TOGGLE:
+
+"Show strategy signals"
+
+When enabled, show historical points where the strategy produced a qualifying LONG or SHORT signal even if a trade was blocked.
+
+Differentiate:
+
+TRADE EXECUTED
+
+from
+
+SIGNAL ONLY
+
+For signal-only points, allow the user to see why execution was blocked.
+
+9. TRADE REVIEW
+
+In Trade History, make each historical trade clickable/tappable.
+
+Opening a trade should display a chart centred around the trade.
+
+Show enough candles before and after the trade to understand what happened.
+
+For example:
+
+24 candles before entry
+through the complete trade
+24 candles after exit
+
+Mark:
+
+entry
+stop
+target
+exit
+
+10. CONDITION DETAILS
+
+When tapping an entry marker show the conditions that caused the trade.
+
+Example:
+
+GOLD SHORT
+
+Entry: $4,400
+
+SHORT score: 5/6
+
+Passed:
+✓ 4h Trend
+✓ 1h Trend
+✓ RSI
+✓ MACD Momentum
+✓ Price vs MA
+
+Failed:
+✕ Volume
+
+Stop: $4,430
+Target: $4,340
+
+This is especially important for the Gold/Silver any-5/6 strategy.
+
+11. LONG AND SHORT VISIBILITY
+
+The chart must work for both directions.
+
+For LONG:
+profit occurs above entry.
+
+For SHORT:
+profit occurs below entry.
+
+Make this visually intuitive.
+
+12. DO NOT INCLUDE DIAGNOSTIC TEST TRADES
+
+Forced developer/test trades must not appear as normal strategy trades.
+
+If displayed at all, clearly mark them:
+
+TEST
+
+13. MOBILE DESIGN
+
+The dashboard is primarily being viewed on an iPhone.
+
+Make charts:
+
+- responsive
+- touch friendly
+- easy to zoom/pan
+- readable on a mobile screen
+
+Do not make the asset cards excessively tall by default.
+
+Use a button such as:
+
+VIEW CHART
+
+or
+
+EXPAND CHART
+
+14. CHART DATA INTEGRITY
+
+Make sure chart markers line up with the exact candles used for:
+
+- signals
+- entries
+- exits
+
+Pay particular attention to:
+
+- UTC timestamps
+- 1h completed candles
+- exchange timestamps
+- Gold/Silver COMEX timestamps
+
+Do not visually place a trade on the wrong candle.
+
+15. FINAL REPORT
+
+After implementation tell me:
+
+- chart library used
+- data source per asset
+- whether candlesticks are supported
+- how LONG entries are shown
+- how SHORT entries are shown
+- how TP/SL exits are shown
+- how open positions appear
+- how historical trades are reviewed
+- how indicators are toggled
+- confirmation strategy/execution logic was not changed
+- tests performed
+
+Do not enable live trading.
+
+PAPER_TRADING = TRUE
+LIVE_TRADING = FALSE

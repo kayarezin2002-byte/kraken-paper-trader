@@ -1,0 +1,162 @@
+Before applying any new crypto strategy, fix the runtime issue first.
+
+PART 1 — MAKE THE PAPER TRADER ACTUALLY RUN 24/7
+
+You confirmed:
+
+CURRENT BOT STATUS:
+24/7 WITHOUT MY PHONE/WEBPAGE OPEN = NO
+
+That is unacceptable for this forward test because the bot can miss entries while the workspace is asleep.
+
+Prepare the application for a Replit Reserved VM deployment so the server-side scanner runs continuously without my browser or phone being open.
+
+Do NOT enable real trading.
+
+PAPER_TRADING = TRUE
+LIVE_TRADING = FALSE
+
+Do not reset:
+- balances
+- open positions
+- trade history
+- activity history
+- database
+
+Make sure the existing SQLite database is preserved correctly across deployment/restarts.
+
+After preparing it, give me simple step-by-step instructions for what I need to press in Replit to deploy it as an always-on Reserved VM.
+
+Then verify that:
+
+ENGINE STATUS = RUNNING
+
+and that the server-side scan loop runs every 120 seconds without requiring a browser request.
+
+Also implement startup recovery:
+when the server restarts, it must reload existing positions/state from the database and continue safely rather than resetting.
+
+PART 2 — DO NOT APPLY LOSING CRYPTO CONFIGURATIONS
+
+Do NOT automatically apply the previously suggested BTC/SOL rules.
+
+The backtest shown to me includes:
+
+BTC LONG: -0.8%, PF 0.99
+BTC SHORT: +4.3%, PF 1.05
+BTC COMBINED: -2.7%, PF 0.98
+
+ETH LONG: -19.6%, PF 0.78
+ETH SHORT: -1.1%, PF 0.99
+ETH COMBINED: -21.7%, PF 0.86
+
+SOL: described as losing/weak
+
+XRP SHORT: +32.6%
+
+I do not want to activate strategies with poor historical expectancy simply to increase trade count.
+
+PART 3 — FIND BETTER CRYPTO STRATEGIES
+
+Instead of only changing 6/6 to 5/6 or 4/6, test whether the actual entry logic can be improved.
+
+For BTC, ETH, SOL and XRP, LONG and SHORT separately, test sensible combinations of:
+
+- trend alignment
+- EMA trend/filter
+- RSI ranges
+- MACD momentum
+- volume confirmation
+- pullback entries
+- breakout entries
+- ATR/volatility filters
+
+Do this systematically and avoid excessive parameter searching/overfitting.
+
+Use chronological train/test validation.
+
+For example:
+first ~70% of the 365-day period = development
+last ~30% = completely untouched out-of-sample validation.
+
+A candidate must remain profitable out-of-sample.
+
+Report BOTH development and out-of-sample results.
+
+Include realistic trading costs.
+
+PART 4 — QUALITY FLOOR
+
+I want more trades, but not bad trades.
+
+Prefer candidates with approximately:
+
+Profit Factor >= 1.20
+positive expectancy
+positive out-of-sample ROI
+reasonable maximum drawdown
+
+Do not force a strategy to pass these requirements.
+
+If an asset/direction cannot produce a credible profitable strategy, report:
+
+NO EDGE FOUND
+
+and leave that direction disabled.
+
+That is better than trading a losing strategy.
+
+PART 5 — XRP
+
+Investigate XRP SHORT carefully because the current test showed approximately +32.6%.
+
+Verify this result out-of-sample and with trading costs.
+
+Check:
+- number of trades
+- PF
+- win rate
+- max DD
+- Sharpe
+- expectancy
+- longest losing streak
+
+Make sure the result is not caused by look-ahead bias or a coding error.
+
+PART 6 — GOLD AND SILVER
+
+Keep:
+
+GOLD = any 5/6
+SILVER = any 5/6
+
+Do not change them.
+
+PART 7 — FINAL RECOMMENDATION
+
+Give me a table:
+
+ASSET
+DIRECTION
+STRATEGY
+TRADES/YEAR
+ROI
+PROFIT FACTOR
+WIN RATE
+MAX DRAWDOWN
+SHARPE
+OUT-OF-SAMPLE ROI
+OUT-OF-SAMPLE PF
+KEEP/DISABLE
+
+Then calculate the expected trades:
+
+PER DAY
+PER WEEK
+PER MONTH
+
+using ONLY strategies that pass validation.
+
+Do NOT apply the new crypto strategies yet.
+
+I want to review the results first.

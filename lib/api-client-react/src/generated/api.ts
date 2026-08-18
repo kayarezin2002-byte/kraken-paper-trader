@@ -21,8 +21,10 @@ import type {
 
 import type {
   ActivityEvent,
+  ChartData,
   EngineStatus,
   ErrorResponse,
+  GetChartDataParams,
   HealthStatus,
   ListActivityLogParams,
   ListAllTradesParams,
@@ -818,6 +820,90 @@ export function useListActivityLog<TData = Awaited<ReturnType<typeof listActivit
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListActivityLogQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetChartDataUrl = (params: GetChartDataParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/paper-trader/chart?${stringifiedParams}` : `/api/paper-trader/chart`
+}
+
+/**
+ * @summary Price candles + indicators for one asset (visualisation only)
+ */
+export const getChartData = async (params: GetChartDataParams, options?: Parameters<typeof customFetch>[1]): Promise<ChartData> => {
+
+  return customFetch<ChartData>(getGetChartDataUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetChartDataQueryKey = (params?: GetChartDataParams,) => {
+    return [
+    `/api/paper-trader/chart`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetChartDataQueryOptions = <TData = Awaited<ReturnType<typeof getChartData>>, TError = ErrorType<unknown>>(params: GetChartDataParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getChartData>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetChartDataQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getChartData>>> = ({ signal }) => getChartData(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getChartData>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetChartDataQueryResult = NonNullable<Awaited<ReturnType<typeof getChartData>>>
+export type GetChartDataQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Price candles + indicators for one asset (visualisation only)
+ */
+
+export function useGetChartData<TData = Awaited<ReturnType<typeof getChartData>>, TError = ErrorType<unknown>>(
+ params: GetChartDataParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getChartData>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetChartDataQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
