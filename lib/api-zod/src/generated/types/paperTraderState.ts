@@ -7,10 +7,12 @@
  */
 import type { IndicatorSnapshot } from './indicatorSnapshot';
 import type { OpenPosition } from './openPosition';
+import type { Opportunity } from './opportunity';
 import type { PaperTrade } from './paperTrade';
 import type { PaperTraderMetrics } from './paperTraderMetrics';
 import type { PaperTraderStateBotStatus } from './paperTraderStateBotStatus';
 import type { PaperTraderStateFourHourTrend } from './paperTraderStateFourHourTrend';
+import type { PaperTraderStateInstrument } from './paperTraderStateInstrument';
 import type { PaperTraderStateMarket } from './paperTraderStateMarket';
 import type { PaperTraderStateOneHourTrend } from './paperTraderStateOneHourTrend';
 import type { PaperTraderStateRisk } from './paperTraderStateRisk';
@@ -27,10 +29,13 @@ export interface PaperTraderState {
   indicators: IndicatorSnapshot;
   strategyConditions?: StrategyConditions | null;
   proposedTrade?: ProposedTrade | null;
+  opportunity: Opportunity;
   position: OpenPosition | null;
   metrics: PaperTraderMetrics;
   risk: PaperTraderStateRisk;
   recentTrades: PaperTrade[];
   botStatus: PaperTraderStateBotStatus;
   message: string;
+  /** Honest labelling of the instrument, its trading mode, and data source. */
+  instrument: PaperTraderStateInstrument;
 }

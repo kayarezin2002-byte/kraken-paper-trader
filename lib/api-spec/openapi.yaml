@@ -105,8 +105,8 @@ paths:
     get:
       operationId: getMultiCoinState
       tags: [paper-trader]
-      summary: Get paper trading state for all four coins
-      description: Returns BTC, ETH, SOL, and XRP paper trading states in one call.
+      summary: Get paper trading state for all six instruments
+      description: Returns BTC, ETH, SOL, XRP (active paper trading) plus GOLD and SILVER (monitoring only) states in one call.
       responses:
         "200":
           description: All coin states
@@ -118,8 +118,8 @@ paths:
     post:
       operationId: refreshMultiCoin
       tags: [paper-trader]
-      summary: Refresh market data and strategy for all four coins
-      description: Fetches Kraken public data for BTC, ETH, SOL, and XRP and evaluates each strategy.
+      summary: Refresh market data and strategy for all six instruments
+      description: Fetches Kraken public data for BTC, ETH, SOL, and XRP, plus gold-api.com spot prices and Yahoo Finance futures candles for GOLD and SILVER (monitoring only), and evaluates each strategy.
       responses:
         "200":
           description: Refreshed multi-coin state
@@ -137,7 +137,7 @@ paths:
     get:
       operationId: getPortfolioSummary
       tags: [paper-trader]
-      summary: Get combined portfolio summary across all four coins
+      summary: Get combined portfolio summary across all six instruments
       responses:
         "200":
           description: Portfolio summary
@@ -195,8 +195,8 @@ paths:
     post:
       operationId: resetAllCoins
       tags: [paper-trader]
-      summary: Reset all four virtual accounts
-      description: Resets BTC, ETH, SOL, and XRP accounts to starting balance and clears history.
+      summary: Reset all six virtual accounts
+      description: Resets BTC, ETH, SOL, and XRP accounts to the requested starting balance and clears history. GOLD and SILVER (monitoring only) always reset to the fixed £100.
       requestBody:
         required: false
         content:
@@ -453,6 +453,8 @@ components:
           oneOf:
             - $ref: "#/components/schemas/ProposedTrade"
             - type: "null"
+        opportunity:
+          $ref: "#/components/schemas/Opportunity"
         position:
           oneOf:
             - $ref: "#/components/schemas/OpenPosition"
@@ -479,10 +481,59 @@ components:
             $ref: "#/components/schemas/PaperTrade"
         botStatus:
           type: string
-          enum: [READY, WAITING_FOR_DATA, RISK_PAUSED, API_ERROR]
+          enum: [READY, WAITING_FOR_DATA, RISK_PAUSED, API_ERROR, MONITORING]
         message:
           type: string
-      required: [coin, market, signal, oneHourTrend, fourHourTrend, indicators, position, metrics, risk, recentTrades, botStatus, message]
+        instrument:
+          type: object
+          description: Honest labelling of the instrument, its trading mode, and data source.
+          properties:
+            kind:
+              type: string
+              enum: [CRYPTO, METAL]
+            tradingMode:
+              type: string
+              enum: [ACTIVE, MONITORING]
+            statusLabel:
+              type: string
+            currency:
+              type: string
+              enum: [GBP, USD]
+            priceType:
+              type: string
+              enum: [SPOT, FUTURES]
+            dataSource:
+              type: string
+          required: [kind, tradingMode, statusLabel, currency, priceType, dataSource]
+      required: [coin, market, signal, oneHourTrend, fourHourTrend, indicators, position, metrics, risk, recentTrades, botStatus, message, instrument, opportunity]
+
+    Opportunity:
+      type: object
+      description: Weighted opportunity score, market mode and entry status (paper mode).
+      properties:
+        score:
+          type: number
+        maxScore:
+          type: number
+        mode:
+          type: string
+          enum: [TREND, RANGE, DANGER]
+        entryStatus:
+          type: string
+          enum: [READY, WAIT, BLOCKED]
+        reason:
+          oneOf:
+            - type: string
+            - type: "null"
+        nextEligible:
+          oneOf:
+            - type: string
+            - type: "null"
+        lastTradeAt:
+          oneOf:
+            - type: string
+            - type: "null"
+      required: [score, maxScore, mode, entryStatus, reason, nextEligible, lastTradeAt]
 
     # ── Multi-coin state ────────────────────────────────────────────────────
     MultiCoinState:
@@ -496,7 +547,11 @@ components:
           $ref: "#/components/schemas/PaperTraderState"
         XRP:
           $ref: "#/components/schemas/PaperTraderState"
-      required: [BTC, ETH, SOL, XRP]
+        GOLD:
+          $ref: "#/components/schemas/PaperTraderState"
+        SILVER:
+          $ref: "#/components/schemas/PaperTraderState"
+      required: [BTC, ETH, SOL, XRP, GOLD, SILVER]
 
     # ── Portfolio ───────────────────────────────────────────────────────────
     PortfolioSummary:

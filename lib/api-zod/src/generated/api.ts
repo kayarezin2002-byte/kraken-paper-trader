@@ -73,6 +73,15 @@ export const GetPaperTraderStateResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
   "position": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
   "entry": zod.number(),
@@ -128,8 +137,16 @@ export const GetPaperTraderStateResponse = zod.object({
   "accountBalance": zod.number(),
   "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
 })),
-  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR']),
-  "message": zod.string()
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
 })
 
 
@@ -189,6 +206,15 @@ export const RefreshPaperTraderResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
   "position": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
   "entry": zod.number(),
@@ -244,8 +270,16 @@ export const RefreshPaperTraderResponse = zod.object({
   "accountBalance": zod.number(),
   "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
 })),
-  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR']),
-  "message": zod.string()
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
 })
 
 
@@ -346,6 +380,15 @@ export const ResetPaperTraderResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
   "position": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
   "entry": zod.number(),
@@ -401,14 +444,22 @@ export const ResetPaperTraderResponse = zod.object({
   "accountBalance": zod.number(),
   "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
 })),
-  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR']),
-  "message": zod.string()
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
 })
 
 
 /**
- * Returns BTC, ETH, SOL, and XRP paper trading states in one call.
- * @summary Get paper trading state for all four coins
+ * Returns BTC, ETH, SOL, XRP (active paper trading) plus GOLD and SILVER (monitoring only) states in one call.
+ * @summary Get paper trading state for all six instruments
  */
 export const GetMultiCoinStateResponse = zod.object({
   "BTC": zod.object({
@@ -464,6 +515,15 @@ export const GetMultiCoinStateResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
   "position": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
   "entry": zod.number(),
@@ -519,8 +579,16 @@ export const GetMultiCoinStateResponse = zod.object({
   "accountBalance": zod.number(),
   "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
 })),
-  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR']),
-  "message": zod.string()
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
 }),
   "ETH": zod.object({
   "coin": zod.string(),
@@ -575,6 +643,15 @@ export const GetMultiCoinStateResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
   "position": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
   "entry": zod.number(),
@@ -630,8 +707,16 @@ export const GetMultiCoinStateResponse = zod.object({
   "accountBalance": zod.number(),
   "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
 })),
-  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR']),
-  "message": zod.string()
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
 }),
   "SOL": zod.object({
   "coin": zod.string(),
@@ -686,6 +771,15 @@ export const GetMultiCoinStateResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
   "position": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
   "entry": zod.number(),
@@ -741,8 +835,16 @@ export const GetMultiCoinStateResponse = zod.object({
   "accountBalance": zod.number(),
   "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
 })),
-  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR']),
-  "message": zod.string()
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
 }),
   "XRP": zod.object({
   "coin": zod.string(),
@@ -797,6 +899,15 @@ export const GetMultiCoinStateResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
   "position": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
   "entry": zod.number(),
@@ -852,15 +963,279 @@ export const GetMultiCoinStateResponse = zod.object({
   "accountBalance": zod.number(),
   "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
 })),
-  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR']),
-  "message": zod.string()
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
+}),
+  "GOLD": zod.object({
+  "coin": zod.string(),
+  "market": zod.object({
+  "pair": zod.string(),
+  "currentPrice": zod.number().nullable(),
+  "updatedAt": zod.string(),
+  "lastCompletedCandleAt": zod.string().nullable()
+}),
+  "signal": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "oneHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "fourHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "indicators": zod.object({
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "macdSignal": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "ema20": zod.number().nullable(),
+  "ema50": zod.number().nullable(),
+  "volume": zod.number().nullable()
+}),
+  "strategyConditions": zod.union([zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "totalCount": zod.number(),
+  "bias": zod.enum(['LONG', 'SHORT', 'NEUTRAL']),
+  "signal": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "oneHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "fourHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "indicators": zod.object({
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "macdSignal": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "ema20": zod.number().nullable(),
+  "ema50": zod.number().nullable(),
+  "volume": zod.number().nullable()
+})
+}),zod.null()]).optional(),
+  "proposedTrade": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "riskAmount": zod.number(),
+  "rewardAmount": zod.number(),
+  "rrRatio": zod.number(),
+  "quantity": zod.number()
+}),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
+  "position": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]),
+  "metrics": zod.object({
+  "virtualBalance": zod.number(),
+  "startingBalance": zod.number(),
+  "totalProfitLoss": zod.number(),
+  "roi": zod.number(),
+  "numberOfTrades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "maximumDrawdown": zod.number(),
+  "dailyLoss": zod.number(),
+  "consecutiveLosses": zod.number()
+}),
+  "risk": zod.object({
+  "dailyLossLimit": zod.number(),
+  "maximumConsecutiveLosses": zod.number(),
+  "riskPerTrade": zod.number(),
+  "rewardToRisk": zod.number(),
+  "pollingSeconds": zod.number()
+}),
+  "recentTrades": zod.array(zod.object({
+  "id": zod.number(),
+  "coin": zod.string(),
+  "openedAt": zod.string(),
+  "closedAt": zod.string(),
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "exit": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "profitLoss": zod.number(),
+  "accountBalance": zod.number(),
+  "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
+})),
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
+}),
+  "SILVER": zod.object({
+  "coin": zod.string(),
+  "market": zod.object({
+  "pair": zod.string(),
+  "currentPrice": zod.number().nullable(),
+  "updatedAt": zod.string(),
+  "lastCompletedCandleAt": zod.string().nullable()
+}),
+  "signal": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "oneHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "fourHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "indicators": zod.object({
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "macdSignal": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "ema20": zod.number().nullable(),
+  "ema50": zod.number().nullable(),
+  "volume": zod.number().nullable()
+}),
+  "strategyConditions": zod.union([zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "totalCount": zod.number(),
+  "bias": zod.enum(['LONG', 'SHORT', 'NEUTRAL']),
+  "signal": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "oneHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "fourHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "indicators": zod.object({
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "macdSignal": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "ema20": zod.number().nullable(),
+  "ema50": zod.number().nullable(),
+  "volume": zod.number().nullable()
+})
+}),zod.null()]).optional(),
+  "proposedTrade": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "riskAmount": zod.number(),
+  "rewardAmount": zod.number(),
+  "rrRatio": zod.number(),
+  "quantity": zod.number()
+}),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
+  "position": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]),
+  "metrics": zod.object({
+  "virtualBalance": zod.number(),
+  "startingBalance": zod.number(),
+  "totalProfitLoss": zod.number(),
+  "roi": zod.number(),
+  "numberOfTrades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "maximumDrawdown": zod.number(),
+  "dailyLoss": zod.number(),
+  "consecutiveLosses": zod.number()
+}),
+  "risk": zod.object({
+  "dailyLossLimit": zod.number(),
+  "maximumConsecutiveLosses": zod.number(),
+  "riskPerTrade": zod.number(),
+  "rewardToRisk": zod.number(),
+  "pollingSeconds": zod.number()
+}),
+  "recentTrades": zod.array(zod.object({
+  "id": zod.number(),
+  "coin": zod.string(),
+  "openedAt": zod.string(),
+  "closedAt": zod.string(),
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "exit": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "profitLoss": zod.number(),
+  "accountBalance": zod.number(),
+  "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
+})),
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
 })
 })
 
 
 /**
- * Fetches Kraken public data for BTC, ETH, SOL, and XRP and evaluates each strategy.
- * @summary Refresh market data and strategy for all four coins
+ * Fetches Kraken public data for BTC, ETH, SOL, and XRP, plus gold-api.com spot prices and Yahoo Finance futures candles for GOLD and SILVER (monitoring only), and evaluates each strategy.
+ * @summary Refresh market data and strategy for all six instruments
  */
 export const RefreshMultiCoinResponse = zod.object({
   "BTC": zod.object({
@@ -916,6 +1291,15 @@ export const RefreshMultiCoinResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
   "position": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
   "entry": zod.number(),
@@ -971,8 +1355,16 @@ export const RefreshMultiCoinResponse = zod.object({
   "accountBalance": zod.number(),
   "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
 })),
-  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR']),
-  "message": zod.string()
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
 }),
   "ETH": zod.object({
   "coin": zod.string(),
@@ -1027,6 +1419,15 @@ export const RefreshMultiCoinResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
   "position": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
   "entry": zod.number(),
@@ -1082,8 +1483,16 @@ export const RefreshMultiCoinResponse = zod.object({
   "accountBalance": zod.number(),
   "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
 })),
-  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR']),
-  "message": zod.string()
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
 }),
   "SOL": zod.object({
   "coin": zod.string(),
@@ -1138,6 +1547,15 @@ export const RefreshMultiCoinResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
   "position": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
   "entry": zod.number(),
@@ -1193,8 +1611,16 @@ export const RefreshMultiCoinResponse = zod.object({
   "accountBalance": zod.number(),
   "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
 })),
-  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR']),
-  "message": zod.string()
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
 }),
   "XRP": zod.object({
   "coin": zod.string(),
@@ -1249,6 +1675,15 @@ export const RefreshMultiCoinResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
   "position": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
   "entry": zod.number(),
@@ -1304,14 +1739,278 @@ export const RefreshMultiCoinResponse = zod.object({
   "accountBalance": zod.number(),
   "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
 })),
-  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR']),
-  "message": zod.string()
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
+}),
+  "GOLD": zod.object({
+  "coin": zod.string(),
+  "market": zod.object({
+  "pair": zod.string(),
+  "currentPrice": zod.number().nullable(),
+  "updatedAt": zod.string(),
+  "lastCompletedCandleAt": zod.string().nullable()
+}),
+  "signal": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "oneHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "fourHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "indicators": zod.object({
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "macdSignal": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "ema20": zod.number().nullable(),
+  "ema50": zod.number().nullable(),
+  "volume": zod.number().nullable()
+}),
+  "strategyConditions": zod.union([zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "totalCount": zod.number(),
+  "bias": zod.enum(['LONG', 'SHORT', 'NEUTRAL']),
+  "signal": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "oneHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "fourHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "indicators": zod.object({
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "macdSignal": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "ema20": zod.number().nullable(),
+  "ema50": zod.number().nullable(),
+  "volume": zod.number().nullable()
+})
+}),zod.null()]).optional(),
+  "proposedTrade": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "riskAmount": zod.number(),
+  "rewardAmount": zod.number(),
+  "rrRatio": zod.number(),
+  "quantity": zod.number()
+}),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
+  "position": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]),
+  "metrics": zod.object({
+  "virtualBalance": zod.number(),
+  "startingBalance": zod.number(),
+  "totalProfitLoss": zod.number(),
+  "roi": zod.number(),
+  "numberOfTrades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "maximumDrawdown": zod.number(),
+  "dailyLoss": zod.number(),
+  "consecutiveLosses": zod.number()
+}),
+  "risk": zod.object({
+  "dailyLossLimit": zod.number(),
+  "maximumConsecutiveLosses": zod.number(),
+  "riskPerTrade": zod.number(),
+  "rewardToRisk": zod.number(),
+  "pollingSeconds": zod.number()
+}),
+  "recentTrades": zod.array(zod.object({
+  "id": zod.number(),
+  "coin": zod.string(),
+  "openedAt": zod.string(),
+  "closedAt": zod.string(),
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "exit": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "profitLoss": zod.number(),
+  "accountBalance": zod.number(),
+  "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
+})),
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
+}),
+  "SILVER": zod.object({
+  "coin": zod.string(),
+  "market": zod.object({
+  "pair": zod.string(),
+  "currentPrice": zod.number().nullable(),
+  "updatedAt": zod.string(),
+  "lastCompletedCandleAt": zod.string().nullable()
+}),
+  "signal": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "oneHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "fourHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "indicators": zod.object({
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "macdSignal": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "ema20": zod.number().nullable(),
+  "ema50": zod.number().nullable(),
+  "volume": zod.number().nullable()
+}),
+  "strategyConditions": zod.union([zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "totalCount": zod.number(),
+  "bias": zod.enum(['LONG', 'SHORT', 'NEUTRAL']),
+  "signal": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "oneHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "fourHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "indicators": zod.object({
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "macdSignal": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "ema20": zod.number().nullable(),
+  "ema50": zod.number().nullable(),
+  "volume": zod.number().nullable()
+})
+}),zod.null()]).optional(),
+  "proposedTrade": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "riskAmount": zod.number(),
+  "rewardAmount": zod.number(),
+  "rrRatio": zod.number(),
+  "quantity": zod.number()
+}),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
+  "position": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]),
+  "metrics": zod.object({
+  "virtualBalance": zod.number(),
+  "startingBalance": zod.number(),
+  "totalProfitLoss": zod.number(),
+  "roi": zod.number(),
+  "numberOfTrades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "maximumDrawdown": zod.number(),
+  "dailyLoss": zod.number(),
+  "consecutiveLosses": zod.number()
+}),
+  "risk": zod.object({
+  "dailyLossLimit": zod.number(),
+  "maximumConsecutiveLosses": zod.number(),
+  "riskPerTrade": zod.number(),
+  "rewardToRisk": zod.number(),
+  "pollingSeconds": zod.number()
+}),
+  "recentTrades": zod.array(zod.object({
+  "id": zod.number(),
+  "coin": zod.string(),
+  "openedAt": zod.string(),
+  "closedAt": zod.string(),
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "exit": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "profitLoss": zod.number(),
+  "accountBalance": zod.number(),
+  "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
+})),
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
 })
 })
 
 
 /**
- * @summary Get combined portfolio summary across all four coins
+ * @summary Get combined portfolio summary across all six instruments
  */
 export const GetPortfolioSummaryResponse = zod.object({
   "totalStarting": zod.number(),
@@ -1395,8 +2094,8 @@ export const ListAllTradesResponse = zod.array(ListAllTradesResponseItem)
 
 
 /**
- * Resets BTC, ETH, SOL, and XRP accounts to starting balance and clears history.
- * @summary Reset all four virtual accounts
+ * Resets BTC, ETH, SOL, and XRP accounts to the requested starting balance and clears history. GOLD and SILVER (monitoring only) always reset to the fixed £100.
+ * @summary Reset all six virtual accounts
  */
 export const resetAllCoinsBodyStartingBalanceMin = 0;
 
@@ -1460,6 +2159,15 @@ export const ResetAllCoinsResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
   "position": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
   "entry": zod.number(),
@@ -1515,8 +2223,16 @@ export const ResetAllCoinsResponse = zod.object({
   "accountBalance": zod.number(),
   "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
 })),
-  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR']),
-  "message": zod.string()
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
 }),
   "ETH": zod.object({
   "coin": zod.string(),
@@ -1571,6 +2287,15 @@ export const ResetAllCoinsResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
   "position": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
   "entry": zod.number(),
@@ -1626,8 +2351,16 @@ export const ResetAllCoinsResponse = zod.object({
   "accountBalance": zod.number(),
   "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
 })),
-  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR']),
-  "message": zod.string()
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
 }),
   "SOL": zod.object({
   "coin": zod.string(),
@@ -1682,6 +2415,15 @@ export const ResetAllCoinsResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
   "position": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
   "entry": zod.number(),
@@ -1737,8 +2479,16 @@ export const ResetAllCoinsResponse = zod.object({
   "accountBalance": zod.number(),
   "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
 })),
-  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR']),
-  "message": zod.string()
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
 }),
   "XRP": zod.object({
   "coin": zod.string(),
@@ -1793,6 +2543,15 @@ export const ResetAllCoinsResponse = zod.object({
   "rrRatio": zod.number(),
   "quantity": zod.number()
 }),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
   "position": zod.union([zod.object({
   "direction": zod.enum(['LONG', 'SHORT']),
   "entry": zod.number(),
@@ -1848,8 +2607,272 @@ export const ResetAllCoinsResponse = zod.object({
   "accountBalance": zod.number(),
   "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
 })),
-  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR']),
-  "message": zod.string()
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
+}),
+  "GOLD": zod.object({
+  "coin": zod.string(),
+  "market": zod.object({
+  "pair": zod.string(),
+  "currentPrice": zod.number().nullable(),
+  "updatedAt": zod.string(),
+  "lastCompletedCandleAt": zod.string().nullable()
+}),
+  "signal": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "oneHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "fourHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "indicators": zod.object({
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "macdSignal": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "ema20": zod.number().nullable(),
+  "ema50": zod.number().nullable(),
+  "volume": zod.number().nullable()
+}),
+  "strategyConditions": zod.union([zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "totalCount": zod.number(),
+  "bias": zod.enum(['LONG', 'SHORT', 'NEUTRAL']),
+  "signal": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "oneHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "fourHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "indicators": zod.object({
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "macdSignal": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "ema20": zod.number().nullable(),
+  "ema50": zod.number().nullable(),
+  "volume": zod.number().nullable()
+})
+}),zod.null()]).optional(),
+  "proposedTrade": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "riskAmount": zod.number(),
+  "rewardAmount": zod.number(),
+  "rrRatio": zod.number(),
+  "quantity": zod.number()
+}),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
+  "position": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]),
+  "metrics": zod.object({
+  "virtualBalance": zod.number(),
+  "startingBalance": zod.number(),
+  "totalProfitLoss": zod.number(),
+  "roi": zod.number(),
+  "numberOfTrades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "maximumDrawdown": zod.number(),
+  "dailyLoss": zod.number(),
+  "consecutiveLosses": zod.number()
+}),
+  "risk": zod.object({
+  "dailyLossLimit": zod.number(),
+  "maximumConsecutiveLosses": zod.number(),
+  "riskPerTrade": zod.number(),
+  "rewardToRisk": zod.number(),
+  "pollingSeconds": zod.number()
+}),
+  "recentTrades": zod.array(zod.object({
+  "id": zod.number(),
+  "coin": zod.string(),
+  "openedAt": zod.string(),
+  "closedAt": zod.string(),
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "exit": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "profitLoss": zod.number(),
+  "accountBalance": zod.number(),
+  "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
+})),
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
+}),
+  "SILVER": zod.object({
+  "coin": zod.string(),
+  "market": zod.object({
+  "pair": zod.string(),
+  "currentPrice": zod.number().nullable(),
+  "updatedAt": zod.string(),
+  "lastCompletedCandleAt": zod.string().nullable()
+}),
+  "signal": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "oneHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "fourHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "indicators": zod.object({
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "macdSignal": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "ema20": zod.number().nullable(),
+  "ema50": zod.number().nullable(),
+  "volume": zod.number().nullable()
+}),
+  "strategyConditions": zod.union([zod.object({
+  "conditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string(),
+  "requiredValue": zod.string(),
+  "pass": zod.boolean()
+})),
+  "passCount": zod.number(),
+  "totalCount": zod.number(),
+  "bias": zod.enum(['LONG', 'SHORT', 'NEUTRAL']),
+  "signal": zod.enum(['LONG', 'SHORT', 'NO_TRADE']),
+  "oneHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "fourHourTrend": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "indicators": zod.object({
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "macdSignal": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "ema20": zod.number().nullable(),
+  "ema50": zod.number().nullable(),
+  "volume": zod.number().nullable()
+})
+}),zod.null()]).optional(),
+  "proposedTrade": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "riskAmount": zod.number(),
+  "rewardAmount": zod.number(),
+  "rrRatio": zod.number(),
+  "quantity": zod.number()
+}),zod.null()]).optional(),
+  "opportunity": zod.object({
+  "score": zod.number(),
+  "maxScore": zod.number(),
+  "mode": zod.enum(['TREND', 'RANGE', 'DANGER']),
+  "entryStatus": zod.enum(['READY', 'WAIT', 'BLOCKED']),
+  "reason": zod.union([zod.string(),zod.null()]),
+  "nextEligible": zod.union([zod.string(),zod.null()]),
+  "lastTradeAt": zod.union([zod.string(),zod.null()])
+}).describe('Weighted opportunity score, market mode and entry status (paper mode).'),
+  "position": zod.union([zod.object({
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number(),
+  "openedAt": zod.string(),
+  "entryRsi": zod.number().nullable(),
+  "entryMacd": zod.number().nullable(),
+  "entryAtr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "unrealisedPnl": zod.number().nullish(),
+  "unrealisedPct": zod.number().nullish(),
+  "currentPrice": zod.number().nullish()
+}),zod.null()]),
+  "metrics": zod.object({
+  "virtualBalance": zod.number(),
+  "startingBalance": zod.number(),
+  "totalProfitLoss": zod.number(),
+  "roi": zod.number(),
+  "numberOfTrades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number(),
+  "profitFactor": zod.number(),
+  "maximumDrawdown": zod.number(),
+  "dailyLoss": zod.number(),
+  "consecutiveLosses": zod.number()
+}),
+  "risk": zod.object({
+  "dailyLossLimit": zod.number(),
+  "maximumConsecutiveLosses": zod.number(),
+  "riskPerTrade": zod.number(),
+  "rewardToRisk": zod.number(),
+  "pollingSeconds": zod.number()
+}),
+  "recentTrades": zod.array(zod.object({
+  "id": zod.number(),
+  "coin": zod.string(),
+  "openedAt": zod.string(),
+  "closedAt": zod.string(),
+  "direction": zod.enum(['LONG', 'SHORT']),
+  "entry": zod.number(),
+  "exit": zod.number(),
+  "stopLoss": zod.number(),
+  "takeProfit": zod.number(),
+  "rsi": zod.number().nullable(),
+  "macd": zod.number().nullable(),
+  "atr": zod.number().nullable(),
+  "trend4h": zod.enum(['BULLISH', 'BEARISH', 'NEUTRAL']),
+  "profitLoss": zod.number(),
+  "accountBalance": zod.number(),
+  "exitReason": zod.enum(['TAKE_PROFIT', 'STOP_LOSS', 'SIGNAL_REVERSAL', 'MANUAL'])
+})),
+  "botStatus": zod.enum(['READY', 'WAITING_FOR_DATA', 'RISK_PAUSED', 'API_ERROR', 'MONITORING']),
+  "message": zod.string(),
+  "instrument": zod.object({
+  "kind": zod.enum(['CRYPTO', 'METAL']),
+  "tradingMode": zod.enum(['ACTIVE', 'MONITORING']),
+  "statusLabel": zod.string(),
+  "currency": zod.enum(['GBP', 'USD']),
+  "priceType": zod.enum(['SPOT', 'FUTURES']),
+  "dataSource": zod.string()
+}).describe('Honest labelling of the instrument, its trading mode, and data source.')
 })
 })
 

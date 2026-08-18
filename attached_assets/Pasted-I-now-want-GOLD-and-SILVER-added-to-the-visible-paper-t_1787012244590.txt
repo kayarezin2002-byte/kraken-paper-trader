@@ -1,0 +1,129 @@
+I now want GOLD and SILVER added to the visible paper-trading system.
+
+Do NOT remove or change BTC, ETH, SOL or XRP.
+
+Add two new separate paper accounts:
+
+- GOLD — XAU/USD or the most appropriate reliable Gold instrument/data feed
+- SILVER — XAG/USD or the most appropriate reliable Silver instrument/data feed
+
+Each should start with:
+
+£100 paper balance
+
+This means the dashboard should now show:
+
+BTC — £100  
+ETH — £100  
+SOL — £100  
+XRP — £100  
+GOLD — £100  
+SILVER — £100
+
+Combined starting portfolio:
+
+£600
+
+## IMPORTANT
+
+Gold and Silver should NOT use the existing crypto 6/6 strategy blindly.
+
+For now, add them to the dashboard and monitoring system using their dedicated metals strategy/research logic.
+
+If the dedicated metals strategy is not yet ready for paper execution, show them as:
+
+MONITORING / RESEARCH MODE
+
+rather than pretending they are actively tradable.
+
+I want to be able to see:
+
+- current Gold price
+- current Silver price
+- latest market data update
+- latest strategy scan
+- current signal
+- strategy score/conditions
+- reason for NO TRADE
+- open position if one exists
+- paper balance
+- P&L
+- trade history
+- activity log
+
+## GOLD/SILVER STRATEGY STATUS
+
+Clearly label each instrument with one of:
+
+- PAPER TRADING ACTIVE
+- MONITORING ONLY
+- STRATEGY NOT VALIDATED
+
+Do not silently activate a strategy that has not passed backtesting.
+
+## MARKET DATA
+
+Use a reliable source appropriate for Gold and Silver.
+
+Clearly identify on the dashboard:
+
+- instrument/symbol
+- data source
+- whether the price represents spot or futures
+- last update timestamp
+
+Do not display futures data as “spot XAU/USD” unless it really is spot pricing.
+
+## DASHBOARD
+
+Update the Portfolio Dashboard so Gold and Silver appear underneath the crypto instruments.
+
+The Combined Portfolio value should include all six £100 paper accounts.
+
+Update:
+
+- Starting capital
+- Combined portfolio
+- Total P&L
+- Total trades
+- Open positions
+
+to include Gold and Silver.
+
+## ACTIVITY LOG
+
+Gold and Silver should generate activity entries such as:
+
+GOLD — MARKET DATA UPDATED  
+GOLD — STRATEGY EVALUATED  
+SILVER — MARKET DATA UPDATED  
+SILVER — STRATEGY EVALUATED
+
+Make the entries expandable in the same way as BTC/ETH/SOL/XRP.
+
+## TRADE HISTORY
+
+Add Gold and Silver filters to Trade History.
+
+## DO NOT CHANGE CRYPTO
+
+Do not alter:
+
+- BTC strategy
+- ETH strategy
+- SOL strategy
+- XRP strategy
+- current balances
+- historical trades
+- risk rules
+
+This task is specifically to add Gold and Silver to the dashboard and monitoring/paper-trading architecture.
+
+After completing it, confirm:
+
+1. GOLD visible on dashboard
+2. SILVER visible on dashboard
+3. Their live/research status
+4. Data source used
+5. Starting balance for each
+6. Whether either is currently allowed to open paper trades

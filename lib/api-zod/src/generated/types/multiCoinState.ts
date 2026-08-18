@@ -12,4 +12,6 @@ export interface MultiCoinState {
   ETH: PaperTraderState;
   SOL: PaperTraderState;
   XRP: PaperTraderState;
+  GOLD: PaperTraderState;
+  SILVER: PaperTraderState;
 }

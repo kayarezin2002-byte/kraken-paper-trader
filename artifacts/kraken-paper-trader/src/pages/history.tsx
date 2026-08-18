@@ -10,7 +10,7 @@ const num = (v: number | null | undefined, d = 2) =>
 const dateTime = (v?: string | null) =>
   v ? new Date(v).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 
-const COINS = ['ALL', 'BTC', 'ETH', 'SOL', 'XRP'] as const;
+const COINS = ['ALL', 'BTC', 'ETH', 'SOL', 'XRP', 'GOLD', 'SILVER'] as const;
 type CoinFilter = typeof COINS[number];
 
 const COIN_COLORS: Record<string, string> = {
@@ -18,6 +18,8 @@ const COIN_COLORS: Record<string, string> = {
   ETH: 'bg-violet-500/15 text-violet-400',
   SOL: 'bg-green-500/15 text-green-400',
   XRP: 'bg-blue-500/15 text-blue-400',
+  GOLD: 'bg-yellow-500/15 text-yellow-400',
+  SILVER: 'bg-slate-400/15 text-slate-300',
 };
 
 export default function History() {
@@ -42,7 +44,7 @@ export default function History() {
   const winRate    = filtered.length > 0 ? profitable / filtered.length * 100 : 0;
 
   // Per-coin summary row
-  const coinSummary = (['BTC', 'ETH', 'SOL', 'XRP'] as const).map((coin) => {
+  const coinSummary = (['BTC', 'ETH', 'SOL', 'XRP', 'GOLD', 'SILVER'] as const).map((coin) => {
     const coinTrades = allTrades.filter((t) => t.coin === coin);
     const wins = coinTrades.filter((t) => t.profitLoss > 0).length;
     const pnl  = coinTrades.reduce((s, t) => s + t.profitLoss, 0);
@@ -50,7 +52,7 @@ export default function History() {
   });
 
   return (
-    <TradingShell eyebrow="Review desk" title="Trade history" subtitle="All simulated positions across BTC · ETH · SOL · XRP.">
+    <TradingShell eyebrow="Review desk" title="Trade history" subtitle="All simulated positions across BTC · ETH · SOL · XRP · GOLD · SILVER.">
       <div className="space-y-6">
 
         {/* ─── Performance summary ─────────────────────────────────────── */}
@@ -59,7 +61,7 @@ export default function History() {
             <div>
               <div className="flex items-center gap-2 text-primary"><BookOpen size={17} /><span className="font-mono-data text-[10px] font-medium uppercase tracking-[0.18em]">Performance review</span></div>
               <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.04em]">Evidence over instinct.</h2>
-              <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted-foreground">Every closed position across all four accounts. Filter by coin to study each strategy in isolation.</p>
+              <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted-foreground">Every closed position across all six accounts. Filter by instrument to study each strategy in isolation. Gold and Silver are monitoring only, so no trades will appear for them.</p>
             </div>
             <div className="flex items-center gap-2 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-xs font-bold text-primary-foreground">
               <Filter size={14} /> Last 200 trades
@@ -67,7 +69,7 @@ export default function History() {
           </div>
 
           {/* Per-coin summary strip */}
-          <div className="mt-6 grid gap-3 border-t border-border/60 pt-5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-6 grid gap-3 border-t border-border/60 pt-5 sm:grid-cols-2 xl:grid-cols-3">
             {coinSummary.map(({ coin, count, wins, pnl }) => (
               <button
                 key={coin}

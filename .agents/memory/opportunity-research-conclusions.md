@@ -31,6 +31,10 @@ Neither the new opportunity system nor the original strict 6/6 is viable for cry
 
 At 0.62% RT and £100 account, each trade costs ~£0.62 in fees. To break even: need win rate × avg_win > 0.62. With avg position ~£10 (10% of balance), need 6.2% net move just to cover fees. Essentially a 0% edge game that becomes negative immediately.
 
+## Hybrid Regime Algorithm (Aug 2026 follow-up — hybrid_research.py)
+
+A full regime-based hybrid (4h EMA50/EMA200 regime engine → trend-pullback / Bollinger range MR / breakout; 30m & 15m entries; 6/8 & 7/8; 1.5R/2R; look-ahead-free HTF sync; IS/OOS by open time) was backtested on BTC/ETH/SOL/XRP/LINK, 3y Binance data, 0.62% RT costs. **Every one of 45 configs had negative expectancy IS and OOS; all classified REJECT.** Gross edge ≈ +0.05R/trade, costs ≈ 0.62R/trade → avg R ≈ −0.6. Breakout generated ~90% of trades (best gross component); range MR almost never fired (neutral-regime + band-touch + RSI + 4h filter rarely coincide on crypto). 7/8 traded ~2.4×/wk-per-coin less than 6/8's ~5.5 but lost less — extra 6/8 trades were noise. Current 6/6 (PF ~0.5–0.7) beat every hybrid config net of fees. Same structural fee conclusion as before; signal quality is not the binding constraint.
+
 ## Next Research Options (user to decide)
 
 1. **Metals only** — Gold/Silver at 0.30% RT fees. Last available data showed Gold IS PF ~1.09, Silver IS PF ~1.31 (but metrics had bugs; need clean rerun). Need to fix Yahoo Finance 422 fetch issue.

@@ -20,6 +20,7 @@ function statusLabel(
   signal: string,
   hasPosition: boolean,
 ): { label: string; color: string; icon: React.ReactNode } {
+  if (botStatus === 'MONITORING') return { label: 'MONITORING — EXECUTION BLOCKED', color: 'text-amber-400 bg-amber-400/10', icon: <AlertCircle size={11} /> };
   if (botStatus === 'WAITING_FOR_DATA') return { label: 'WAITING FOR DATA', color: 'text-muted-foreground bg-muted', icon: <AlertCircle size={11} /> };
   if (botStatus === 'API_ERROR') return { label: 'DATA ERROR', color: 'text-destructive bg-destructive/10', icon: <XCircle size={11} /> };
   if (botStatus === 'RISK_PAUSED') return { label: 'RISK LIMIT REACHED', color: 'text-amber-400 bg-amber-400/10', icon: <AlertCircle size={11} /> };

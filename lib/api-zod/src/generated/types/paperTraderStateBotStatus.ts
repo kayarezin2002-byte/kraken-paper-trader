@@ -14,4 +14,5 @@ export const PaperTraderStateBotStatus = {
   WAITING_FOR_DATA: 'WAITING_FOR_DATA',
   RISK_PAUSED: 'RISK_PAUSED',
   API_ERROR: 'API_ERROR',
+  MONITORING: 'MONITORING',
 } as const;

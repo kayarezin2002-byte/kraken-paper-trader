@@ -1,0 +1,164 @@
+I want the PAPER TRADER to start taking more genuine opportunities.
+
+Do NOT use real money.
+
+Keep this strictly in PAPER MODE.
+
+My priority is now:
+
+MORE ACTUAL TRADES + POSITIVE EXPECTANCY + CONTROLLED RISK
+
+I do not want the bot sitting inactive for long periods waiting for perfect 6/6 confirmation.
+
+## CHANGE PAPER ENTRY LOGIC
+
+Replace the current “all 6 conditions must pass” requirement in PAPER MODE with a weighted score.
+
+Use:
+
+- Higher-timeframe trend = 2 points
+- Entry-timeframe trend = 2 points
+- RSI = 1 point
+- MACD momentum = 1 point
+- Price vs EMA/MA = 1 point
+- Volume = 1 point
+
+Maximum score = 8.
+
+Allow a paper trade when:
+
+Score >= 6/8
+
+subject to the hard safety rules below.
+
+## HARD SAFETY RULES
+
+Do NOT enter a LONG if the higher-timeframe trend is clearly BEARISH.
+
+Do NOT enter a SHORT if the higher-timeframe trend is clearly BULLISH.
+
+A NEUTRAL higher-timeframe trend is allowed, but require stronger confirmation from the remaining conditions.
+
+Do not trade if:
+
+- market data is stale
+- spread/slippage is excessive
+- volatility is abnormally extreme
+- required data is missing
+- the same signal has already been traded and has not reset
+
+## RE-ENTRY PROTECTION
+
+Do not repeatedly enter the same unchanged setup.
+
+After a trade closes, require:
+
+- a new candle AND
+- either a changed signal state or a fresh threshold crossing
+
+before another entry.
+
+No same-signal recycling.
+
+## ADD RANGE / BUY-LOW-SELL-HIGH MODE
+
+When the market is clearly ranging rather than trending:
+
+allow a separate mean-reversion paper strategy.
+
+LONG example:
+
+- price near the lower part of recent range / lower Bollinger area
+- RSI shows short-term oversold conditions
+- higher timeframe is NOT strongly bearish
+- momentum begins recovering
+
+Exit as price returns toward fair value / EMA / middle of the range.
+
+Reverse this logic for SHORT where appropriate.
+
+Do not average down indefinitely.
+
+Maximum 2–3 staggered entries per setup.
+
+## FREQUENCY TARGET
+
+Aim for approximately:
+
+3–10 paper trades per week across the portfolio
+
+This is not a quota.
+
+Do not force trades just to hit the number.
+
+## RISK
+
+Keep risk at:
+
+1% maximum account risk per trade
+
+No leverage increase.
+
+No martingale.
+
+No doubling after losses.
+
+No uncontrolled grid.
+
+## MARKETS
+
+Apply the new opportunity logic to:
+
+BTC  
+ETH  
+SOL  
+XRP
+
+If Gold and Silver are already added to monitoring, allow them to use their dedicated paper strategy only when valid.
+
+Do NOT blindly apply crypto logic to metals.
+
+## DASHBOARD
+
+Add a visible field for each instrument:
+
+- Current score, e.g. 6/8
+- Current mode: TREND / RANGE / DANGER
+- Entry status: READY / WAIT / BLOCKED
+- Exact reason
+- Last trade time
+- Next eligible entry
+
+## PAPER TRADE ACTIVITY
+
+When a trade opens, log:
+
+- instrument
+- LONG/SHORT
+- entry price
+- score
+- conditions passed
+- market mode
+- stop loss
+- target
+- risk amount
+
+When it closes, log:
+
+- exit price
+- P&L
+- R multiple
+- win/loss/breakeven
+- exit reason
+
+## IMPORTANT
+
+This is PAPER TRADING only.
+
+Do not connect to real-money execution.
+
+Do not increase risk.
+
+Do not remove safety controls.
+
+The objective is to start seeing more legitimate paper trades while collecting enough data to judge whether the higher-frequency system is actually profitable.

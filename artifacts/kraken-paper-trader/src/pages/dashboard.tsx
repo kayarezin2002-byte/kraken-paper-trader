@@ -34,6 +34,15 @@ const COIN_META: Record<string, { label: string; accent: string; border: string;
   ETH: { label: 'Ethereum', accent: 'text-violet-400', border: 'border-violet-500/20',  bg: 'bg-violet-500/5' },
   SOL: { label: 'Solana',   accent: 'text-green-400',  border: 'border-green-500/20',   bg: 'bg-green-500/5'  },
   XRP: { label: 'XRP',      accent: 'text-blue-400',   border: 'border-blue-500/20',    bg: 'bg-blue-500/5'   },
+  GOLD:   { label: 'Gold',   accent: 'text-yellow-400', border: 'border-yellow-500/20',  bg: 'bg-yellow-500/5' },
+  SILVER: { label: 'Silver', accent: 'text-slate-300',  border: 'border-slate-400/20',   bg: 'bg-slate-400/5'  },
+};
+
+// Price formatter aware of the instrument's quote currency (crypto £, metals $)
+const priceFmt = (v: number | null | undefined, currency: string | undefined, d = 2) => {
+  if (v == null) return '—';
+  const sym = currency === 'USD' ? '$' : '£';
+  return `${sym}${v.toLocaleString('en-GB', { minimumFractionDigits: d, maximumFractionDigits: d })}`;
 };
 
 // ─── Countdown hook ───────────────────────────────────────────────────────────
@@ -57,13 +66,13 @@ function useCountdown(intervalSecs: number, triggerRef: React.MutableRefObject<n
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 function Skeleton() {
   return (
-    <TradingShell eyebrow="Live desk" title="Portfolio dashboard" subtitle="BTC · ETH · SOL · XRP — simulated accounts only.">
+    <TradingShell eyebrow="Live desk" title="Portfolio dashboard" subtitle="BTC · ETH · SOL · XRP · GOLD · SILVER — simulated accounts only.">
       <div className="space-y-6">
         <div className="grid gap-3 sm:grid-cols-4">
           {[1,2,3,4].map((i) => <div key={i} className="h-24 rounded-2xl skeleton-shimmer" />)}
         </div>
         <div className="grid gap-5 lg:grid-cols-2">
-          {[1,2,3,4].map((i) => <div key={i} className="h-[420px] rounded-2xl skeleton-shimmer" />)}
+          {[1,2,3,4,5,6].map((i) => <div key={i} className="h-[420px] rounded-2xl skeleton-shimmer" />)}
         </div>
       </div>
     </TradingShell>
@@ -88,6 +97,40 @@ function ErrorPanel({ onRetry }: { onRetry: () => void }) {
   );
 }
 
+// ─── Opportunity panel ───────────────────────────────────────────────────────
+function OpportunityPanel({ opportunity, coin }: { opportunity: NonNullable<PaperTraderState['opportunity']>; coin: string }) {
+  const modeColor =
+    opportunity.mode === 'TREND'  ? 'bg-sky-400/10 text-sky-400'
+  : opportunity.mode === 'RANGE'  ? 'bg-violet-400/10 text-violet-400'
+  :                                 'bg-destructive/10 text-destructive';
+  const statusColor =
+    opportunity.entryStatus === 'READY'   ? 'bg-accent/10 text-accent'
+  : opportunity.entryStatus === 'BLOCKED' ? 'bg-amber-400/10 text-amber-400'
+  :                                         'bg-muted text-muted-foreground';
+  return (
+    <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-2.5" data-testid={`opportunity-${coin}`}>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="font-mono-data text-[10px] font-bold uppercase tracking-wider text-foreground">
+          {opportunity.score}/{opportunity.maxScore}
+        </span>
+        <span className={`rounded-full px-2 py-0.5 font-mono-data text-[9px] font-semibold uppercase tracking-wider ${modeColor}`}>
+          {opportunity.mode}
+        </span>
+        <span className={`rounded-full px-2 py-0.5 font-mono-data text-[9px] font-semibold uppercase tracking-wider ${statusColor}`}>
+          {opportunity.entryStatus}
+        </span>
+      </div>
+      {opportunity.reason && (
+        <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">{opportunity.reason}</p>
+      )}
+      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[9px] text-muted-foreground/70">
+        <span>Last trade: <span className="font-mono-data">{opportunity.lastTradeAt ? time(opportunity.lastTradeAt) : 'none yet'}</span></span>
+        {opportunity.nextEligible && <span>Next entry: <span className="font-mono-data">{opportunity.nextEligible}</span></span>}
+      </div>
+    </div>
+  );
+}
+
 // ─── Latest scan strip ───────────────────────────────────────────────────────
 function noTradeReason(state: PaperTraderState): string | null {
   const conds = state.strategyConditions;
@@ -104,7 +147,7 @@ function LatestScanStrip({ coins, multiState }: { coins: readonly string[]; mult
       <div className="flex items-center gap-2 border-b border-border/70 px-5 py-4 sm:px-6">
         <ScanSearch size={16} className="text-sky-400" />
         <h2 className="text-sm font-extrabold">Latest strategy scan</h2>
-        <span className="ml-auto font-mono-data text-[10px] uppercase tracking-wider text-muted-foreground">all conditions required to enter</span>
+        <span className="ml-auto font-mono-data text-[10px] uppercase tracking-wider text-muted-foreground">score ≥ 6/8 + hard safety rules to enter</span>
       </div>
       <div className="divide-y divide-border/50">
         {coins.map((coin) => {
@@ -142,6 +185,11 @@ function LatestScanStrip({ coins, multiState }: { coins: readonly string[]; mult
                   </div>
                   <span className="font-mono-data text-[10px] text-muted-foreground">{pass}/{total}</span>
                 </div>
+                {state.opportunity && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-mono-data text-[10px] font-semibold text-primary">
+                    score {state.opportunity.score}/{state.opportunity.maxScore}
+                  </span>
+                )}
                 <span className="ml-auto shrink-0 flex items-center gap-1 font-mono-data text-[10px] text-muted-foreground/60">
                   <Clock3 size={9} />
                   {time(state.market.updatedAt)}
@@ -228,10 +276,17 @@ function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
               <span className="text-[10px] text-muted-foreground">{state.market.pair}</span>
             </div>
             <p className={`mt-1 font-mono-data text-2xl font-medium tracking-[-0.06em] ${meta.accent}`}>
-              {money(state.market.currentPrice, state.market.currentPrice != null && state.market.currentPrice < 10 ? 4 : 2)}
+              {priceFmt(state.market.currentPrice, state.instrument.currency, state.market.currentPrice != null && state.market.currentPrice < 10 ? 4 : 2)}
             </p>
           </div>
           <div className="flex flex-col items-end gap-1.5">
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono-data text-[9px] font-bold uppercase tracking-wider ${
+              state.instrument.tradingMode === 'MONITORING'
+                ? 'bg-amber-400/10 text-amber-400 border border-amber-400/25'
+                : 'bg-accent/10 text-accent border border-accent/25'
+            }`} data-testid={`badge-status-${coin}`}>
+              {state.instrument.statusLabel}
+            </span>
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono-data text-[10px] font-medium uppercase tracking-wider
               ${state.signal === 'LONG' ? 'bg-accent/10 text-accent' : state.signal === 'SHORT' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>
               {state.signal === 'LONG' ? <ArrowUpRight size={11} /> : state.signal === 'SHORT' ? <ArrowDownRight size={11} /> : null}
@@ -240,10 +295,14 @@ function CoinCard({ coin, state }: { coin: string; state: PaperTraderState }) {
             <span className="font-mono-data text-[10px] text-muted-foreground/60">updated {time(state.market.updatedAt)}</span>
           </div>
         </div>
+        <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground/70">{state.instrument.dataSource}</p>
       </div>
 
       {/* Body */}
       <div className="flex-1 space-y-4 px-5 py-4">
+        {/* Opportunity panel */}
+        {state.opportunity && <OpportunityPanel opportunity={state.opportunity} coin={coin} />}
+
         {/* Strategy conditions */}
         <StrategyConditionsPanel
           conditions={state.strategyConditions}
@@ -389,6 +448,8 @@ function ActivityPreview() {
     ETH: 'bg-violet-500/15 text-violet-400',
     SOL: 'bg-green-500/15 text-green-400',
     XRP: 'bg-blue-500/15 text-blue-400',
+    GOLD: 'bg-yellow-500/15 text-yellow-400',
+    SILVER: 'bg-slate-400/15 text-slate-300',
   };
   const EVENT_STYLES: Record<string, string> = {
     TRADE_OPENED:       'text-accent bg-accent/10',
@@ -424,7 +485,7 @@ function ActivityPreview() {
 }
 
 // ─── Main dashboard ───────────────────────────────────────────────────────────
-const COINS = ['BTC', 'ETH', 'SOL', 'XRP'] as const;
+const COINS = ['BTC', 'ETH', 'SOL', 'XRP', 'GOLD', 'SILVER'] as const;
 const REFRESH_INTERVAL = 60;
 
 export default function Dashboard() {
@@ -478,7 +539,7 @@ export default function Dashboard() {
   };
 
   const handleResetAll = () => {
-    if (!window.confirm('Reset ALL four virtual accounts to £100 and clear their entire trade history? This cannot be undone.')) return;
+    if (!window.confirm('Reset ALL six virtual accounts to £100 and clear their entire trade history? This cannot be undone.')) return;
     setResetting(true);
     resetAll.mutate({ data: {} }, {
       onSuccess: (next) => {
@@ -490,7 +551,7 @@ export default function Dashboard() {
   };
 
   return (
-    <TradingShell eyebrow="Live desk" title="Portfolio dashboard" subtitle="BTC · ETH · SOL · XRP — four simulated accounts, each starting at £100.">
+    <TradingShell eyebrow="Live desk" title="Portfolio dashboard" subtitle="BTC · ETH · SOL · XRP · GOLD · SILVER — six simulated accounts, each starting at £100. Metals are monitoring only.">
       <div className="space-y-6">
         {/* ─── Portfolio header ─────────────────────────────────────────── */}
         <section className="rise-in rounded-2xl border border-border/80 bg-card p-5 shadow-[0_10px_32px_hsl(215_35%_13%_/_0.05)] sm:p-6">
@@ -537,10 +598,10 @@ export default function Dashboard() {
           {/* Portfolio metric tiles */}
           <div className="mt-5 grid gap-3 border-t border-border/60 pt-5 sm:grid-cols-2 xl:grid-cols-4">
             {[
-              { label: 'Starting capital', value: money(totalStarting), sub: 'across all coins', tone: '' },
+              { label: 'Starting capital', value: money(totalStarting), sub: 'across all 6 accounts', tone: '' },
               { label: 'Total P&L', value: `${totalPnl >= 0 ? '+' : ''}${money(totalPnl)}`, sub: `ROI ${pct(totalRoi)}`, tone: totalPnl >= 0 ? 'text-accent' : 'text-destructive' },
-              { label: 'Total trades', value: num(totalTrades, 0), sub: 'across all coins', tone: '' },
-              { label: 'Open positions', value: num(openPositions, 0), sub: `of 4 coins active`, tone: openPositions > 0 ? 'text-primary' : '' },
+              { label: 'Total trades', value: num(totalTrades, 0), sub: 'across all 6 accounts', tone: '' },
+              { label: 'Open positions', value: num(openPositions, 0), sub: `of 6 instruments`, tone: openPositions > 0 ? 'text-primary' : '' },
             ].map(({ label, value, sub, tone }) => (
               <div key={label} className="rounded-xl border border-border/60 bg-background px-4 py-3.5">
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
@@ -571,7 +632,7 @@ export default function Dashboard() {
             <h2 className="text-sm font-extrabold">Risk guardrails</h2>
             <span className="ml-auto font-mono-data text-[10px] uppercase tracking-wider text-accent">all active</span>
           </div>
-          <div className="grid gap-px sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-px sm:grid-cols-2 xl:grid-cols-3">
             {COINS.map((coin) => {
               const s = multiState[coin];
               const riskUsage = s.risk.dailyLossLimit > 0
@@ -590,7 +651,7 @@ export default function Dashboard() {
                   </div>
                   <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
                     <span>Streak: {s.metrics.consecutiveLosses}/{s.risk.maximumConsecutiveLosses}</span>
-                    <span className={`font-mono-data font-semibold ${s.botStatus === 'RISK_PAUSED' ? 'text-amber-400' : s.botStatus === 'READY' ? 'text-accent' : 'text-muted-foreground'}`}>
+                    <span className={`font-mono-data font-semibold ${s.botStatus === 'RISK_PAUSED' ? 'text-amber-400' : s.botStatus === 'MONITORING' ? 'text-yellow-400' : s.botStatus === 'READY' ? 'text-accent' : 'text-muted-foreground'}`}>
                       {s.botStatus.replace('_', ' ')}
                     </span>
                   </div>

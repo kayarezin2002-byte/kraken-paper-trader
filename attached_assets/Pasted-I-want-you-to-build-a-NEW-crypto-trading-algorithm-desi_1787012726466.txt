@@ -1,0 +1,483 @@
+I want you to build a NEW crypto trading algorithm designed to produce more legitimate trading opportunities than the current strict 6/6 system.
+
+This must remain PAPER TRADING / BACKTEST ONLY.
+
+Do NOT connect to real-money execution.
+
+Do NOT modify the current live strategy until the new algorithm has been backtested and reviewed.
+
+# OBJECTIVE
+
+Build a hybrid crypto algorithm that can trade in different market environments:
+
+1. TRENDING markets
+2. RANGING markets
+3. BREAKOUT conditions
+4. DANGER / high-risk conditions where trading should be reduced or blocked
+
+The goal is:
+
+MORE QUALITY TRADES + POSITIVE EXPECTANCY + CONTROLLED DRAWDOWN
+
+I do NOT want a strategy that only trades a few times per month because every indicator must be perfect.
+
+I also do NOT want forced trades or random overtrading.
+
+# MARKETS
+
+Backtest initially on:
+
+- BTC
+- ETH
+- SOL
+- XRP
+- LINK
+
+Use reliable historical data.
+
+Prefer at least 2–3 years where available.
+
+Use realistic trading fees and slippage in the MAIN results.
+
+# TIMEFRAMES
+
+Use:
+
+- 15m or 30m for entry timing
+- 1h for short-term structure
+- 4h for higher-timeframe context
+
+Compare:
+
+A — 30m entry + 1h/4h context  
+B — 15m entry + 1h/4h context
+
+Do not optimise dozens of timeframe combinations.
+
+# STEP 1 — MARKET REGIME ENGINE
+
+Before generating an entry, classify the market as:
+
+## TREND UP
+
+Examples of evidence:
+
+- Price above EMA50 and EMA200 on the higher timeframe
+- EMA50 rising
+- Higher highs / higher lows
+- MACD structure supportive
+
+## TREND DOWN
+
+Reverse logic:
+
+- Price below EMA50 and EMA200
+- EMA50 falling
+- Lower highs / lower lows
+- Bearish momentum structure
+
+## RANGE
+
+Examples:
+
+- EMA slopes relatively flat
+- Price oscillating within recent support/resistance
+- No strong higher-timeframe direction
+- Moderate/normal ATR
+
+## DANGER
+
+Examples:
+
+- Extreme ATR/volatility spike
+- Abnormal spread
+- Flash-crash behaviour
+- Stale/missing data
+- Extremely extended price move
+- Market data inconsistency
+
+In DANGER mode:
+
+DO NOT OPEN NEW TRADES.
+
+Clearly document the exact predetermined regime rules before running the backtest.
+
+Do not change the rules after seeing the results.
+
+# STEP 2 — TREND STRATEGY
+
+When regime = TREND UP:
+
+Look for LONG pullback opportunities.
+
+Example logic:
+
+1. Higher timeframe must NOT be bearish.
+2. 1h structure bullish.
+3. Price pulls back toward EMA20 or EMA50 on entry timeframe.
+4. RSI cools into a reasonable pullback zone.
+5. RSI then starts turning upward.
+6. MACD/momentum begins improving.
+7. Price confirms by closing back above the relevant short-term EMA or producing a bullish confirmation candle.
+
+For TREND DOWN:
+
+Reverse the logic for SHORT positions.
+
+Do not chase heavily extended candles.
+
+# STEP 3 — RANGE / BUY-LOW-SELL-HIGH STRATEGY
+
+When regime = RANGE:
+
+This strategy should actively seek mean-reversion opportunities.
+
+LONG candidate:
+
+1. Price moves into the lower part of its recent trading range OR reaches the lower Bollinger Band.
+2. RSI becomes relatively oversold.
+3. Higher timeframe is NOT strongly bearish.
+4. Momentum stops deteriorating and begins recovering.
+5. Confirmation occurs on a new candle.
+
+Enter LONG.
+
+Exit toward:
+
+- Bollinger midline
+- recent range midpoint
+- or a predefined modest R target
+
+Reverse for SHORT if appropriate.
+
+This is the part of the algorithm intended to:
+
+BUY LOW → SELL HIGH → REPEAT
+
+But do not blindly buy every fall.
+
+# STEP 4 — BREAKOUT STRATEGY
+
+Detect price compression / consolidation.
+
+LONG breakout candidate:
+
+1. Price breaks above meaningful recent resistance.
+2. Entry closes beyond the range rather than merely wicking through it.
+3. Volume or volatility expansion supports the breakout.
+4. 1h direction does not strongly oppose the breakout.
+5. Avoid entries after abnormally oversized candles.
+
+Reverse for SHORT breakouts.
+
+# STEP 5 — WEIGHTED ENTRY SCORE
+
+Do NOT require 6/6 binary confirmation.
+
+Use a weighted scoring model.
+
+Example:
+
+- Higher-timeframe direction/context = 2 points
+- Entry-timeframe structure = 2 points
+- RSI setup = 1 point
+- MACD/momentum = 1 point
+- EMA/price structure = 1 point
+- Volume/volatility confirmation = 1 point
+
+Maximum = 8.
+
+Backtest:
+
+6/8 threshold
+and
+7/8 threshold
+
+Do not test many thresholds.
+
+Hard safety rules always override the score.
+
+# HARD ENTRY RULES
+
+Regardless of score:
+
+Do NOT LONG into a clearly strong higher-timeframe downtrend.
+
+Do NOT SHORT into a clearly strong higher-timeframe uptrend.
+
+Do NOT trade if:
+
+- data is stale
+- spread is abnormal
+- volatility is extreme
+- required indicators are unavailable
+- the signal is simply the same unchanged setup already traded
+
+# RE-ENTRY PROTECTION
+
+Prevent artificial trade inflation.
+
+After a trade closes, require:
+
+- at least one new completed entry candle
+AND
+- a meaningful reset or fresh threshold crossing
+
+before another trade may open.
+
+Do not repeatedly trade the same signal.
+
+Do not re-enter on the exact same candle.
+
+# RISK MANAGEMENT
+
+Use:
+
+1% maximum account risk per trade
+
+No martingale.
+
+No doubling after losses.
+
+No unlimited averaging down.
+
+No leverage optimisation.
+
+Maximum one active position per instrument initially.
+
+Also add a portfolio-level correlation risk check.
+
+For example, BTC/ETH/SOL can be highly correlated.
+
+If several correlated crypto positions are already open, reduce or block additional exposure rather than treating each 1% position as independent.
+
+Clearly report how this is handled.
+
+# STOP LOSS
+
+Use an ATR/invalidation-based stop.
+
+Test a fixed predetermined approach such as:
+
+- stop beyond recent swing/invalidation
+OR
+- approximately 1.0–1.5 ATR beyond entry structure
+
+Do not optimise many values.
+
+# TAKE PROFIT
+
+For TREND/BREAKOUT trades test:
+
+- 1.5R
+- 2R
+
+For RANGE trades test:
+
+- mean / EMA / Bollinger midline exit
+- approximately 1R
+
+Report each separately.
+
+Do not choose a target solely because it produces the best historical result.
+
+# TRANSACTION COSTS
+
+Main backtests MUST include:
+
+- realistic trading fees
+- spread
+- slippage
+
+Show:
+
+GROSS P&L  
+TOTAL COSTS  
+NET P&L
+
+Higher trade frequency must still be profitable AFTER costs.
+
+# BACKTEST DESIGN
+
+Use:
+
+70% DEVELOPMENT data
+
+30% OUT-OF-SAMPLE validation data
+
+Rules must be defined using the development period.
+
+Do not modify the strategy after seeing the out-of-sample results.
+
+Run the final selected version ONCE on the untouched validation period.
+
+Clearly label:
+
+IN-SAMPLE
+
+OUT-OF-SAMPLE
+
+FULL PERIOD
+
+# RESULTS REQUIRED
+
+For every coin and configuration report:
+
+- Starting balance: £100
+- Final balance
+- Gross ROI
+- Net ROI after costs
+- Annualised return
+- Total trades
+- Trades/week
+- Trades/month
+- Wins
+- Losses
+- Win rate
+- Profit factor after costs
+- Maximum drawdown
+- Expectancy/trade
+- Average win
+- Average loss
+- Average R
+- Sharpe ratio
+- Maximum consecutive losses
+- Average holding time
+- Profitable months %
+- LONG performance
+- SHORT performance
+
+Also report performance separately by strategy type:
+
+TREND  
+RANGE  
+BREAKOUT
+
+I want to know which component is actually producing the edge.
+
+# COMPARE 6/8 vs 7/8
+
+For each coin show:
+
+6/8:
+- trades/month
+- ROI
+- PF
+- MaxDD
+- expectancy
+
+7/8:
+- trades/month
+- ROI
+- PF
+- MaxDD
+- expectancy
+
+Tell me whether the extra trades produced by 6/8 are genuinely profitable or mostly noise.
+
+# COMPARE AGAINST CURRENT 6/6 BOT
+
+For every coin compare:
+
+CURRENT STRICT 6/6
+
+versus
+
+NEW HYBRID 6/8
+
+versus
+
+NEW HYBRID 7/8
+
+Show:
+
+- trades/month
+- net ROI
+- profit factor
+- maximum drawdown
+- expectancy
+- sample size
+
+The objective is to establish whether the new strategy produces meaningfully more GOOD trades.
+
+# PORTFOLIO BACKTEST
+
+After evaluating each coin individually, create a portfolio using only strategies with positive out-of-sample expectancy.
+
+Assume:
+
+£100 per selected coin.
+
+Report:
+
+- total starting capital
+- final value
+- total ROI
+- annualised return
+- trades/week
+- profit factor
+- maximum portfolio drawdown
+- Sharpe ratio
+- worst month
+- best month
+- percentage profitable months
+
+Also report how often multiple correlated crypto positions were open simultaneously.
+
+# SUCCESS CRITERIA
+
+A candidate strategy should ideally have:
+
+- positive out-of-sample expectancy
+- PF preferably >1.30 after costs
+- controlled drawdown
+- materially higher trade frequency than the current strategy
+- enough trades to make the result meaningful
+
+Evidence:
+
+Under 30 trades = WEAK
+
+30–100 trades = MODERATE
+
+100+ trades = STRONGER
+
+Do NOT recommend a strategy simply because it produced a huge ROI on 10 trades.
+
+# FINAL RECOMMENDATION
+
+For each coin classify:
+
+PAPER TEST CANDIDATE
+
+PROMISING — MORE VALIDATION
+
+MORE RESEARCH NEEDED
+
+REJECT
+
+Then give me:
+
+1. Best BTC configuration
+2. Best ETH configuration
+3. Best SOL configuration
+4. Best XRP configuration
+5. Best LINK configuration
+6. Best overall threshold: 6/8 or 7/8
+7. Best strategy component: TREND / RANGE / BREAKOUT
+8. Expected trades per week
+9. Expected net annual return
+10. Maximum historical drawdown
+11. Profit factor after costs
+12. Evidence strength
+13. Best diversified crypto portfolio
+
+Most importantly answer:
+
+Did the hybrid algorithm successfully produce more profitable trading opportunities than the original 6/6 strategy?
+
+Do not implement any live changes.
+
+Do not connect to real-money trading.
+
+Wait for my explicit approval before changing the paper trader.

@@ -450,8 +450,8 @@ export const getGetMultiCoinStateUrl = () => {
 }
 
 /**
- * Returns BTC, ETH, SOL, and XRP paper trading states in one call.
- * @summary Get paper trading state for all four coins
+ * Returns BTC, ETH, SOL, XRP (active paper trading) plus GOLD and SILVER (monitoring only) states in one call.
+ * @summary Get paper trading state for all six instruments
  */
 export const getMultiCoinState = async ( options?: Parameters<typeof customFetch>[1]): Promise<MultiCoinState> => {
 
@@ -498,7 +498,7 @@ export type GetMultiCoinStateQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Get paper trading state for all four coins
+ * @summary Get paper trading state for all six instruments
  */
 
 export function useGetMultiCoinState<TData = Awaited<ReturnType<typeof getMultiCoinState>>, TError = ErrorType<unknown>>(
@@ -528,8 +528,8 @@ export const getRefreshMultiCoinUrl = () => {
 }
 
 /**
- * Fetches Kraken public data for BTC, ETH, SOL, and XRP and evaluates each strategy.
- * @summary Refresh market data and strategy for all four coins
+ * Fetches Kraken public data for BTC, ETH, SOL, and XRP, plus gold-api.com spot prices and Yahoo Finance futures candles for GOLD and SILVER (monitoring only), and evaluates each strategy.
+ * @summary Refresh market data and strategy for all six instruments
  */
 export const refreshMultiCoin = async ( options?: Parameters<typeof customFetch>[1]): Promise<MultiCoinState> => {
 
@@ -578,7 +578,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type RefreshMultiCoinMutationError = ErrorType<ErrorResponse>
 
     /**
- * @summary Refresh market data and strategy for all four coins
+ * @summary Refresh market data and strategy for all six instruments
  */
 export const useRefreshMultiCoin = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshMultiCoin>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -600,7 +600,7 @@ export const getGetPortfolioSummaryUrl = () => {
 }
 
 /**
- * @summary Get combined portfolio summary across all four coins
+ * @summary Get combined portfolio summary across all six instruments
  */
 export const getPortfolioSummary = async ( options?: Parameters<typeof customFetch>[1]): Promise<PortfolioSummary> => {
 
@@ -647,7 +647,7 @@ export type GetPortfolioSummaryQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Get combined portfolio summary across all four coins
+ * @summary Get combined portfolio summary across all six instruments
  */
 
 export function useGetPortfolioSummary<TData = Awaited<ReturnType<typeof getPortfolioSummary>>, TError = ErrorType<unknown>>(
@@ -845,8 +845,8 @@ export const getResetAllCoinsUrl = () => {
 }
 
 /**
- * Resets BTC, ETH, SOL, and XRP accounts to starting balance and clears history.
- * @summary Reset all four virtual accounts
+ * Resets BTC, ETH, SOL, and XRP accounts to the requested starting balance and clears history. GOLD and SILVER (monitoring only) always reset to the fixed £100.
+ * @summary Reset all six virtual accounts
  */
 export const resetAllCoins = async (resetPaperTraderInput?: ResetPaperTraderInput, options?: Parameters<typeof customFetch>[1]): Promise<MultiCoinState> => {
 
@@ -895,7 +895,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type ResetAllCoinsMutationError = ErrorType<unknown>
 
     /**
- * @summary Reset all four virtual accounts
+ * @summary Reset all six virtual accounts
  */
 export const useResetAllCoins = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetAllCoins>>, TError,{data?: BodyType<ResetPaperTraderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}

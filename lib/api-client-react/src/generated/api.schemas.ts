@@ -259,7 +259,83 @@ export const PaperTraderStateBotStatus = {
   WAITING_FOR_DATA: 'WAITING_FOR_DATA',
   RISK_PAUSED: 'RISK_PAUSED',
   API_ERROR: 'API_ERROR',
+  MONITORING: 'MONITORING',
 } as const;
+
+export type PaperTraderStateInstrumentKind = typeof PaperTraderStateInstrumentKind[keyof typeof PaperTraderStateInstrumentKind];
+
+
+export const PaperTraderStateInstrumentKind = {
+  CRYPTO: 'CRYPTO',
+  METAL: 'METAL',
+} as const;
+
+export type PaperTraderStateInstrumentTradingMode = typeof PaperTraderStateInstrumentTradingMode[keyof typeof PaperTraderStateInstrumentTradingMode];
+
+
+export const PaperTraderStateInstrumentTradingMode = {
+  ACTIVE: 'ACTIVE',
+  MONITORING: 'MONITORING',
+} as const;
+
+export type PaperTraderStateInstrumentCurrency = typeof PaperTraderStateInstrumentCurrency[keyof typeof PaperTraderStateInstrumentCurrency];
+
+
+export const PaperTraderStateInstrumentCurrency = {
+  GBP: 'GBP',
+  USD: 'USD',
+} as const;
+
+export type PaperTraderStateInstrumentPriceType = typeof PaperTraderStateInstrumentPriceType[keyof typeof PaperTraderStateInstrumentPriceType];
+
+
+export const PaperTraderStateInstrumentPriceType = {
+  SPOT: 'SPOT',
+  FUTURES: 'FUTURES',
+} as const;
+
+/**
+ * Honest labelling of the instrument, its trading mode, and data source.
+ */
+export type PaperTraderStateInstrument = {
+  kind: PaperTraderStateInstrumentKind;
+  tradingMode: PaperTraderStateInstrumentTradingMode;
+  statusLabel: string;
+  currency: PaperTraderStateInstrumentCurrency;
+  priceType: PaperTraderStateInstrumentPriceType;
+  dataSource: string;
+};
+
+export type OpportunityMode = typeof OpportunityMode[keyof typeof OpportunityMode];
+
+
+export const OpportunityMode = {
+  TREND: 'TREND',
+  RANGE: 'RANGE',
+  DANGER: 'DANGER',
+} as const;
+
+export type OpportunityEntryStatus = typeof OpportunityEntryStatus[keyof typeof OpportunityEntryStatus];
+
+
+export const OpportunityEntryStatus = {
+  READY: 'READY',
+  WAIT: 'WAIT',
+  BLOCKED: 'BLOCKED',
+} as const;
+
+/**
+ * Weighted opportunity score, market mode and entry status (paper mode).
+ */
+export interface Opportunity {
+  score: number;
+  maxScore: number;
+  mode: OpportunityMode;
+  entryStatus: OpportunityEntryStatus;
+  reason: string | null;
+  nextEligible: string | null;
+  lastTradeAt: string | null;
+}
 
 export interface PaperTraderState {
   coin: string;
@@ -270,12 +346,15 @@ export interface PaperTraderState {
   indicators: IndicatorSnapshot;
   strategyConditions?: StrategyConditions | null;
   proposedTrade?: ProposedTrade | null;
+  opportunity: Opportunity;
   position: OpenPosition | null;
   metrics: PaperTraderMetrics;
   risk: PaperTraderStateRisk;
   recentTrades: PaperTrade[];
   botStatus: PaperTraderStateBotStatus;
   message: string;
+  /** Honest labelling of the instrument, its trading mode, and data source. */
+  instrument: PaperTraderStateInstrument;
 }
 
 export interface MultiCoinState {
@@ -283,6 +362,8 @@ export interface MultiCoinState {
   ETH: PaperTraderState;
   SOL: PaperTraderState;
   XRP: PaperTraderState;
+  GOLD: PaperTraderState;
+  SILVER: PaperTraderState;
 }
 
 export type PortfolioSummaryCoins = {[key: string]: PaperTraderMetrics};

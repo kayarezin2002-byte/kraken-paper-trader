@@ -1,5 +1,6 @@
 - [OpenAPI/Zod compatibility](openapi-zod-compatibility.md) — use numeric schemas for generated count/limit fields until the workspace Zod runtime supports integer helpers.
 - [Kraken GBP pair names](kraken-pairs.md) — verified correct Kraken spot pair names for the four GBP coins.
 - [Multi-coin DB migration](multi-coin-db-migration.md) — the trades table migration from single-coin to multi-coin requires ALTER TABLE, not just CREATE TABLE IF NOT EXISTS.
-- [Opportunity system conclusions](opportunity-research-conclusions.md) — conclusive backtest: new 6/8 weighted-score system is worse than original 6/6 for crypto; neither viable at £100/0.62% RT fees.
+- [Opportunity system conclusions](opportunity-research-conclusions.md) — backtest (with fees): 6/8 weighted-score worse than 6/6; user chose to run 6/8 live anyway (Aug 2026) since paper trader is fee-free — judge by forward paper data.
+- [Metals monitoring mode](metals-monitoring-mode.md) — GOLD/SILVER accounts are monitoring-only (no trades, fixed £100); gold-api.com spot works, Yahoo futures candles for scans, Stooq blocked.
 - [opportunity_research.py performance](opportunity-bt-performance.md) — build_pre must use deque-based O(n) rolling windows; bytearray trend breaks string comparison; pre-compute once per series not per config.

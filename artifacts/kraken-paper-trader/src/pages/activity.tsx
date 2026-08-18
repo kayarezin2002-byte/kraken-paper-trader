@@ -24,6 +24,8 @@ const COIN_COLORS: Record<string, string> = {
   ETH: 'bg-violet-500/15 text-violet-400',
   SOL: 'bg-green-500/15 text-green-400',
   XRP: 'bg-blue-500/15 text-blue-400',
+  GOLD: 'bg-yellow-500/15 text-yellow-400',
+  SILVER: 'bg-slate-400/15 text-slate-300',
 };
 
 // ─── Diagnostic types ─────────────────────────────────────────────────────────

@@ -34,7 +34,7 @@ export function TradingShell({ children, eyebrow, title, subtitle }: TradingShel
           </div>
           <div>
             <p className="text-[15px] font-extrabold tracking-tight text-white">TIDE</p>
-            <p className="font-mono-data text-[9px] uppercase tracking-[0.18em] text-sidebar-foreground/55">4-coin learning cockpit</p>
+            <p className="font-mono-data text-[9px] uppercase tracking-[0.18em] text-sidebar-foreground/55">6-instrument learning cockpit</p>
           </div>
         </div>
         <div className="px-4 pt-8">
