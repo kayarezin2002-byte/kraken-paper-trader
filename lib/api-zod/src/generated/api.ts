@@ -3941,7 +3941,11 @@ export const GetEngineStatusResponse = zod.object({
   "intervalSeconds": zod.number(),
   "lastError": zod.string().nullable(),
   "scansCompleted": zod.number(),
-  "consecutiveErrors": zod.number().describe('Number of consecutive failed scans since last success. Resets to 0 on recovery.')
+  "consecutiveErrors": zod.number().describe('Number of consecutive failed scans since last success. Resets to 0 on recovery.'),
+  "recentFailures": zod.array(zod.object({
+    "timestamp": zod.string().describe('ISO-8601 timestamp of when the scan failure occurred.'),
+    "error": zod.string().describe('Truncated error message (≤200 chars).')
+  }).describe('A single scan failure event stored in the circular failure history buffer.')).describe('Circular log of the last 10 scan failure events (timestamp + truncated error). Survives recovery — cleared only on server restart.')
 }).describe('Status of the background strategy-scan scheduler in the API server.')
 
 
@@ -3974,7 +3978,11 @@ export const GetEngineHealthStatusResponse = zod.object({
   "lastError": zod.string().nullable(),
   "lastScanAt": zod.string().nullable(),
   "alertThreshold": zod.number().describe('Number of consecutive failures that trigger a webhook alert.'),
-  "alertWebhookConfigured": zod.boolean().describe('Whether ALERT_WEBHOOK_URL is set in the server environment.')
+  "alertWebhookConfigured": zod.boolean().describe('Whether ALERT_WEBHOOK_URL is set in the server environment.'),
+  "recentFailures": zod.array(zod.object({
+    "timestamp": zod.string().describe('ISO-8601 timestamp of when the scan failure occurred.'),
+    "error": zod.string().describe('Truncated error message (≤200 chars).')
+  })).describe('Circular log of the last 10 scan failure events (timestamp + truncated error).')
 }).describe('Simplified health-check response for external uptime monitors (UptimeRobot, Better Uptime, etc.).')
 
 

@@ -51,6 +51,7 @@ router.get("/engine/status", (_req, res) => {
     lastScanAt: s.lastScanAt,
     alertThreshold: ALERT_THRESHOLD,
     alertWebhookConfigured: Boolean(process.env.ALERT_WEBHOOK_URL),
+    recentFailures: s.recentFailures,
   });
 
   res.status(isError ? 503 : 200).json(payload);

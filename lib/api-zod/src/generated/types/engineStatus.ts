@@ -8,6 +8,16 @@
 import type { EngineStatusStatus } from './engineStatusStatus';
 
 /**
+ * A single scan failure event stored in the circular failure history buffer.
+ */
+export interface ScanFailureEvent {
+  /** ISO-8601 timestamp of when the scan failure occurred. */
+  timestamp: string;
+  /** Truncated error message (≤200 chars). */
+  error: string;
+}
+
+/**
  * Status of the background strategy-scan scheduler in the API server.
  */
 export interface EngineStatus {
@@ -22,4 +32,6 @@ export interface EngineStatus {
   scansCompleted: number;
   /** Number of consecutive failed scans since last success. Resets to 0 on recovery. */
   consecutiveErrors: number;
+  /** Circular log of the last 10 scan failure events (timestamp + truncated error). Survives recovery — cleared only on server restart. */
+  recentFailures: ScanFailureEvent[];
 }

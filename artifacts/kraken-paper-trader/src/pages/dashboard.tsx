@@ -266,6 +266,24 @@ function EngineStatusStrip({ lastCandleAt }: { lastCandleAt: string | null | und
         )}
         {engine.lastError && <span className="font-mono-data text-[10px] text-destructive">last error: {engine.lastError.slice(0, 120)}</span>}
       </div>
+      {/* Failure history — shown when there are any recorded failures */}
+      {engine.recentFailures != null && engine.recentFailures.length > 0 && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2.5">
+          <p className="mb-1.5 font-mono-data text-[10px] font-bold uppercase tracking-wider text-destructive">
+            Scan failure history ({engine.recentFailures.length})
+          </p>
+          <div className="space-y-1">
+            {[...engine.recentFailures].reverse().map((f, i) => (
+              <div key={i} className="flex items-start gap-2 text-[10px]">
+                <span className="shrink-0 font-mono-data text-muted-foreground/70 tabular-nums">
+                  {dateTime(f.timestamp)}
+                </span>
+                <span className="font-mono-data text-destructive/80 break-all">{f.error}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {/* Alert configuration status + shell test command */}
       {health != null && (
         <div className="space-y-1.5 rounded-lg border border-border/40 bg-card/60 px-4 py-2.5">

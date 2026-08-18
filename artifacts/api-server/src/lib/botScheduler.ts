@@ -28,6 +28,11 @@ const ALERT_WEBHOOK_URL = process.env.ALERT_WEBHOOK_URL ?? null;
 
 /** Minimum gap between test-alert deliveries (protects the webhook from spam). */
 export const TEST_ALERT_COOLDOWN_MS = 60_000;
+type ScanFailureEvent = {
+  timestamp: string;
+  error: string;
+};
+
 type EngineState = {
   status: "RUNNING" | "ERROR" | "STARTING";
   lastScanAt: string | null;
@@ -36,7 +41,11 @@ type EngineState = {
   lastError: string | null;
   scansCompleted: number;
   consecutiveErrors: number;
+  recentFailures: ScanFailureEvent[];
 };
+
+/** Maximum number of scan failure events kept in the circular buffer. */
+const MAX_RECENT_FAILURES = 10;
 
 const engine: EngineState = {
   status: "STARTING",
@@ -46,6 +55,7 @@ const engine: EngineState = {
   lastError: null,
   scansCompleted: 0,
   consecutiveErrors: 0,
+  recentFailures: [],
 };
 
 let scanning = false;
@@ -194,6 +204,16 @@ async function runScan(): Promise<void> {
     engine.lastError = error instanceof Error ? error.message.slice(0, 500) : String(error);
     engine.consecutiveErrors += 1;
     logger.error({ err: error, consecutiveErrors: engine.consecutiveErrors }, "Scheduled strategy scan failed");
+
+    // Append to the circular failure history buffer (cap at MAX_RECENT_FAILURES).
+    const failureEvent: ScanFailureEvent = {
+      timestamp: new Date().toISOString(),
+      error: (error instanceof Error ? error.message : String(error)).slice(0, 200),
+    };
+    engine.recentFailures.push(failureEvent);
+    if (engine.recentFailures.length > MAX_RECENT_FAILURES) {
+      engine.recentFailures.shift();
+    }
 
     // Alert when we breach the threshold for the first time in this streak.
     if (engine.consecutiveErrors >= ALERT_THRESHOLD && !streakAlerted) {
