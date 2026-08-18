@@ -1,0 +1,319 @@
+Build a historical backtesting system for the existing GOLD (XAU/USD) and SILVER (XAG/USD) strategies.
+
+IMPORTANT:
+Do not change the current live/paper trading strategy yet.
+Do not alter BTC, ETH, SOL or XRP logic.
+Do not enable live trading.
+This task is for historical analysis only.
+
+GOAL:
+I want to find a version of the Gold and Silver strategy that creates MORE trading opportunities while remaining profitable and controlling drawdown.
+
+CURRENT METALS ENTRY CONDITIONS:
+1. 4h Trend
+2. 1h Trend
+3. RSI
+4. MACD Momentum
+5. Price vs MA
+6. Volume
+
+The current strategy requires 6/6 conditions.
+
+I want to test whether 5/6 or 4/6 can produce more trades without destroying profitability.
+
+BACKTEST PERIOD:
+Use approximately the latest 365 days of available historical data.
+
+Use enough warm-up candles before the test window so moving averages, RSI, MACD, ATR and other indicators are fully initialized.
+
+DATA:
+Use the same data source/timeframes currently used by the Gold/Silver strategy wherever possible.
+
+However:
+The current system calculates indicators/ATR from COMEX futures candles while simulated fills use spot prices.
+
+For the backtester, avoid mixing price sources if possible.
+
+Preferred order:
+1. Use one consistent historical source for BOTH indicators and simulated entries/exits.
+2. If that is impossible, clearly document exactly where futures data and spot data are mixed.
+3. Do not hide this limitation.
+
+TIMEFRAMES:
+Match the existing strategy's 4h and 1h logic exactly.
+
+EXIT LOGIC:
+Use the same stop-loss and take-profit logic currently configured in the paper trader.
+
+Also record the exact:
+- ATR multiplier
+- stop distance
+- take-profit multiple / R target
+- any trailing stop logic
+- any time-based exit logic
+
+Do not optimise exits during the first test unless necessary to reproduce the current strategy.
+
+POSITION RULES:
+- Maximum one open position per asset at a time
+- No overlapping Gold positions
+- No overlapping Silver positions
+- No look-ahead bias
+- Signals must only use information that would have been known at that candle close
+- Enter on the next valid executable price after the signal
+- Do not use future candle information when generating a signal
+
+TEST THESE STRATEGIES SEPARATELY FOR GOLD AND SILVER:
+
+A. STRICT
+6/6 conditions required
+
+B. ANY 5/6
+At least 5 of the 6 conditions pass
+
+C. ANY 4/6
+At least 4 of the 6 conditions pass
+
+VERY IMPORTANT:
+Also test WHICH condition is failing.
+
+Create separate results for:
+
+5/6 missing only:
+- 4h Trend
+- 1h Trend
+- RSI
+- MACD Momentum
+- Price vs MA
+- Volume
+
+For 4/6 setups, analyse the combinations of the two failed conditions.
+
+Do not assume all failed conditions are equally important.
+
+For example:
+5/6 where only Volume fails should be analysed separately from 5/6 where the 4h Trend fails.
+
+LONG AND SHORT:
+Analyse LONG and SHORT trades separately as well as combined.
+
+Gold LONG may behave differently from Gold SHORT.
+Silver LONG may behave differently from Silver SHORT.
+
+METRICS REQUIRED FOR EVERY TEST:
+
+- Starting capital
+- Ending capital
+- Net profit
+- ROI %
+- Number of trades
+- Wins
+- Losses
+- Win rate %
+- Profit factor
+- Gross profit
+- Gross loss
+- Average win
+- Average loss
+- Win/loss ratio
+- Expectancy per trade
+- Expectancy in R
+- Average R multiple
+- Maximum drawdown %
+- Maximum drawdown £/$
+- Sharpe ratio if reasonably calculable
+- Average trade duration
+- Median trade duration
+- Longest trade
+- Consecutive wins
+- Consecutive losses
+- Largest winning trade
+- Largest losing trade
+
+Also calculate:
+
+MONTHLY RESULTS
+For every calendar month show:
+- trades
+- profit/loss
+- ROI
+- wins
+- losses
+- win rate
+
+Count the number of profitable months and losing months.
+
+TRADE FREQUENCY:
+Calculate:
+- average trades per month
+- average trades per week
+- average days between trades
+
+This is especially important because the goal is to increase trading opportunities.
+
+CONDITION ANALYSIS:
+
+For every condition calculate:
+
+How often it passed on winning trades
+How often it passed on losing trades
+
+Example output:
+
+Condition          Winners   Losers
+4h Trend            84%       55%
+1h Trend            78%       62%
+RSI                 66%       64%
+MACD                82%       57%
+Price vs MA         81%       60%
+Volume              55%       51%
+
+Use this to help determine which filters actually contribute useful predictive value.
+
+Also analyse:
+
+When a 5/6 trade wins or loses, which condition was missing?
+
+Produce a table similar to:
+
+Missing condition | Trades | ROI | PF | WR | Max DD | Expectancy
+
+Do this separately for Gold and Silver.
+
+4/6 COMBINATION ANALYSIS:
+
+For all reasonably populated two-condition failure combinations, show:
+
+Failed conditions | Trades | ROI | PF | WR | Max DD | Expectancy
+
+Ignore extremely tiny sample sizes when ranking results, but still show them.
+
+TRADE LOG:
+
+Export or display every historical trade with:
+
+- Asset
+- Direction
+- Signal timestamp
+- Entry timestamp
+- Entry price
+- Exit timestamp
+- Exit price
+- Stop loss
+- Take profit
+- Position size
+- Risk
+- P&L
+- R multiple
+- Duration
+- Win/loss
+- Exit reason
+- Number of conditions passed
+- Which conditions passed
+- Which conditions failed
+- RSI value
+- MACD values
+- trend state
+- MA value
+- volume value
+- ATR
+
+RISK:
+
+For strategy comparison, use the same risk-per-trade setting across every version.
+
+Do not allow a strategy to appear better simply because it takes more monetary risk.
+
+If the existing bot uses percentage risk sizing, reproduce that logic exactly.
+
+FEES / COSTS:
+
+Show two result sets if practical:
+
+1. Raw strategy performance with no fees/slippage
+2. Conservative estimated trading costs/slippage
+
+Clearly state what cost assumptions were used.
+
+Do not invent unrealistic spreads.
+
+If reliable metals cost assumptions are unavailable, keep the primary result fee-free and clearly label the limitation.
+
+QUALITY CONTROL:
+
+Before trusting the results, test the backtester for:
+
+- look-ahead bias
+- indicator warm-up problems
+- duplicate entries
+- positions opening while another position is active
+- incorrect LONG/SHORT exit handling
+- same-candle SL/TP ambiguity
+- timezone errors
+- missing candles
+- stale data
+- incorrect ATR alignment
+- future information leakage
+
+If both stop loss and take profit are touched during the same candle and the intrabar sequence is unknown, use a conservative assumption or explicitly flag the trade as ambiguous.
+
+DO NOT OPTIMISE FOR MAXIMUM ROI ALONE.
+
+I want the final recommendation based on a balance of:
+
+1. Positive expectancy
+2. Profit factor
+3. Maximum drawdown
+4. Sufficient trade count
+5. Monthly consistency
+6. Sample size
+7. Robustness
+8. Trade frequency
+
+Avoid recommending a strategy based on only a handful of lucky trades.
+
+FINAL COMPARISON:
+
+Give me a summary table for each asset similar to:
+
+Strategy | Trades | ROI | PF | WR | MaxDD | Expectancy | Avg Trades/Month | Profitable Months
+
+Include:
+- 6/6
+- 5/6
+- 4/6
+- best individual 5/6 variant
+- best sensible 4/6 combination
+
+Then clearly state:
+
+BEST GOLD CONFIGURATION
+BEST SILVER CONFIGURATION
+
+and explain why.
+
+Also state whether the evidence suggests:
+- keep 6/6
+- move to 5/6
+- move to a specific 5/6 combination
+- move to 4/6
+- use different rules for Gold and Silver
+
+VERY IMPORTANT:
+Do not automatically modify the production/paper strategy after the test.
+
+Show me the results first so I can decide what changes to make.
+
+Save the backtesting code so we can rerun it later with different windows, exits and parameters.
+
+At the end, report:
+- files created/changed
+- historical data sources used
+- exact test dates
+- number of candles analysed
+- assumptions
+- known limitations
+- validation checks performed
+- complete Gold results
+- complete Silver results
+- your recommended configurations

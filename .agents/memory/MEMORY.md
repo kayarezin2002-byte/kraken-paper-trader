@@ -3,4 +3,5 @@
 - [Multi-coin DB migration](multi-coin-db-migration.md) — the trades table migration from single-coin to multi-coin requires ALTER TABLE, not just CREATE TABLE IF NOT EXISTS.
 - [Opportunity system conclusions](opportunity-research-conclusions.md) — backtest (with fees): 6/8 weighted-score worse than 6/6; user chose to run 6/8 live anyway (Aug 2026) since paper trader is fee-free — judge by forward paper data.
 - [Metals paper-trading mode](metals-monitoring-mode.md) — GOLD/SILVER now paper-trade on the strict 6/6 gate (USD $100 accounts, unvalidated-strategy warning, LIVE_TRADING=False hard gate); spot fails closed.
+- [Metals backtest conclusions](metals-backtest-conclusions.md) — 365d gate study: relaxing 4h Trend/Volume beats 6/6; 1h Trend is implied by MACD+PriceVsMA; live 3-loss pause never un-pauses (bug).
 - [opportunity_research.py performance](opportunity-bt-performance.md) — build_pre must use deque-based O(n) rolling windows; bytearray trend breaks string comparison; pre-compute once per series not per config.
