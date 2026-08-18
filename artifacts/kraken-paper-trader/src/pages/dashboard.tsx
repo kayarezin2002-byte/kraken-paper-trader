@@ -10,6 +10,7 @@ import {
   getListActivityLogQueryKey,
   getListAllTradesQueryKey,
   useGetEngineStatus,
+  useGetEngineHealthStatus,
   useGetMultiCoinState,
   useListAllTrades,
   useRefreshMultiCoin,
@@ -217,22 +218,52 @@ function ExecutionDiagnosticsPanel({ diag, coin }: { diag: NonNullable<PaperTrad
 // ─── Engine status strip (server-side scan scheduler) ───────────────────────
 function EngineStatusStrip({ lastCandleAt }: { lastCandleAt: string | null | undefined }) {
   const { data: engine } = useGetEngineStatus({ query: { queryKey: ['engine-status'], refetchInterval: 30000 } });
+  const { data: health } = useGetEngineHealthStatus({ query: { queryKey: ['engine-health'], refetchInterval: 30000 } });
   if (!engine) return null;
   const tone =
     engine.status === 'RUNNING' ? 'text-accent'
     : engine.status === 'ERROR' ? 'text-destructive'
     : 'text-muted-foreground';
+  const hasConsecutiveErrors = engine.consecutiveErrors > 0;
+  const isAlertBreached = hasConsecutiveErrors && health?.alertThreshold != null && engine.consecutiveErrors >= health.alertThreshold;
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-border/60 bg-card px-4 py-2.5" data-testid="engine-status">
-      <span className="flex items-center gap-1.5 font-mono-data text-[10px] font-bold uppercase tracking-wider">
-        <span className={`h-1.5 w-1.5 rounded-full ${engine.status === 'RUNNING' ? 'bg-accent pulse-dot' : engine.status === 'ERROR' ? 'bg-destructive' : 'bg-muted-foreground'}`} />
-        Engine <span className={tone}>{engine.status}</span>
-      </span>
-      <span className="font-mono-data text-[10px] text-muted-foreground">Last strategy scan: <span className="text-foreground">{dateTime(engine.lastScanAt)}</span></span>
-      <span className="font-mono-data text-[10px] text-muted-foreground">Next strategy scan: <span className="text-foreground">{dateTime(engine.nextScanAt)}</span></span>
-      <span className="font-mono-data text-[10px] text-muted-foreground">Last completed 1h candle: <span className="text-foreground">{dateTime(lastCandleAt)}</span></span>
-      <span className="font-mono-data text-[10px] text-muted-foreground">scans every {engine.intervalSeconds}s server-side (browser can be closed)</span>
-      {engine.lastError && <span className="font-mono-data text-[10px] text-destructive">last error: {engine.lastError.slice(0, 120)}</span>}
+    <div className="space-y-2" data-testid="engine-status">
+      {/* Main status row */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-border/60 bg-card px-4 py-2.5">
+        <span className="flex items-center gap-1.5 font-mono-data text-[10px] font-bold uppercase tracking-wider">
+          <span className={`h-1.5 w-1.5 rounded-full ${engine.status === 'RUNNING' ? 'bg-accent pulse-dot' : engine.status === 'ERROR' ? 'bg-destructive' : 'bg-muted-foreground'}`} />
+          Engine <span className={tone}>{engine.status}</span>
+        </span>
+        <span className="font-mono-data text-[10px] text-muted-foreground">Last strategy scan: <span className="text-foreground">{dateTime(engine.lastScanAt)}</span></span>
+        <span className="font-mono-data text-[10px] text-muted-foreground">Next strategy scan: <span className="text-foreground">{dateTime(engine.nextScanAt)}</span></span>
+        <span className="font-mono-data text-[10px] text-muted-foreground">Last completed 1h candle: <span className="text-foreground">{dateTime(lastCandleAt)}</span></span>
+        <span className="font-mono-data text-[10px] text-muted-foreground">scans every {engine.intervalSeconds}s server-side (browser can be closed)</span>
+        {hasConsecutiveErrors && (
+          <span className={`font-mono-data text-[10px] font-semibold ${isAlertBreached ? 'text-destructive' : 'text-amber-400'}`}>
+            {engine.consecutiveErrors} consecutive error{engine.consecutiveErrors !== 1 ? 's' : ''}
+            {health?.alertThreshold != null && ` (alert fires at ${health.alertThreshold})`}
+          </span>
+        )}
+        {engine.lastError && <span className="font-mono-data text-[10px] text-destructive">last error: {engine.lastError.slice(0, 120)}</span>}
+      </div>
+      {/* Alert configuration status */}
+      {health != null && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border/40 bg-card/60 px-4 py-2">
+          <span className="flex items-center gap-1.5 font-mono-data text-[10px] text-muted-foreground">
+            <span className={`h-1.5 w-1.5 rounded-full ${health.alertWebhookConfigured ? 'bg-accent' : 'bg-muted-foreground/40'}`} />
+            Webhook alerts: <span className="text-foreground">{health.alertWebhookConfigured ? `enabled (fires after ${health.alertThreshold} consecutive errors)` : 'not configured'}</span>
+          </span>
+          <span className="font-mono-data text-[10px] text-muted-foreground">
+            Health endpoint: <span className="text-foreground/80 select-all">/api/engine/status</span>
+            <span className="ml-1 text-muted-foreground/60">(point UptimeRobot / Better Uptime here)</span>
+          </span>
+          {!health.alertWebhookConfigured && (
+            <span className="font-mono-data text-[10px] text-amber-400/80">
+              Set <span className="font-bold text-amber-400">ALERT_WEBHOOK_URL</span> env var to enable webhook alerts
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

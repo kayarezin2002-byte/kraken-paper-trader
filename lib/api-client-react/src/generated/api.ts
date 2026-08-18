@@ -22,6 +22,7 @@ import type {
 import type {
   ActivityEvent,
   ChartData,
+  EngineHealthStatus,
   EngineStatus,
   ErrorResponse,
   GetChartDataParams,
@@ -659,6 +660,88 @@ export function useGetEngineStatus<TData = Awaited<ReturnType<typeof getEngineSt
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetEngineStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetEngineHealthStatusUrl = () => {
+
+
+
+
+  return `/api/engine/status`
+}
+
+/**
+ * Returns HTTP 200 when the background scheduler is RUNNING or STARTING.
+ * Returns HTTP 503 when the scheduler is in ERROR state.
+ *
+ * Point UptimeRobot / Better Uptime / any ping service at this endpoint.
+ * Configure an alert when the endpoint returns non-2xx or stops responding.
+ * @summary Engine health check for external uptime monitors
+ */
+export const getEngineHealthStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<EngineHealthStatus> => {
+
+  return customFetch<EngineHealthStatus>(getGetEngineHealthStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEngineHealthStatusQueryKey = () => {
+    return [
+    `/api/engine/status`
+    ] as const;
+    }
+
+
+export const getGetEngineHealthStatusQueryOptions = <TData = Awaited<ReturnType<typeof getEngineHealthStatus>>, TError = ErrorType<EngineHealthStatus>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEngineHealthStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEngineHealthStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEngineHealthStatus>>> = ({ signal }) => getEngineHealthStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEngineHealthStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEngineHealthStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getEngineHealthStatus>>>
+export type GetEngineHealthStatusQueryError = ErrorType<EngineHealthStatus>
+
+
+/**
+ * @summary Engine health check for external uptime monitors
+ */
+
+export function useGetEngineHealthStatus<TData = Awaited<ReturnType<typeof getEngineHealthStatus>>, TError = ErrorType<EngineHealthStatus>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEngineHealthStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEngineHealthStatusQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

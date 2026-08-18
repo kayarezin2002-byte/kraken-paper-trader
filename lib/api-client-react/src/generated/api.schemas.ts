@@ -544,6 +544,46 @@ export interface EngineStatus {
   /** @nullable */
   lastError: string | null;
   scansCompleted: number;
+  /** Number of consecutive failed scans since last success. Resets to 0 on recovery. */
+  consecutiveErrors: number;
+}
+
+/**
+ * "ok" when engine is RUNNING or STARTING; "error" when it is in ERROR state.
+ */
+export type EngineHealthStatusStatus = typeof EngineHealthStatusStatus[keyof typeof EngineHealthStatusStatus];
+
+
+export const EngineHealthStatusStatus = {
+  ok: 'ok',
+  error: 'error',
+} as const;
+
+export type EngineHealthStatusEngine = typeof EngineHealthStatusEngine[keyof typeof EngineHealthStatusEngine];
+
+
+export const EngineHealthStatusEngine = {
+  RUNNING: 'RUNNING',
+  ERROR: 'ERROR',
+  STARTING: 'STARTING',
+} as const;
+
+/**
+ * Simplified health-check response for external uptime monitors (UptimeRobot, Better Uptime, etc.).
+ */
+export interface EngineHealthStatus {
+  /** "ok" when engine is RUNNING or STARTING; "error" when it is in ERROR state. */
+  status: EngineHealthStatusStatus;
+  engine: EngineHealthStatusEngine;
+  consecutiveErrors: number;
+  /** @nullable */
+  lastError: string | null;
+  /** @nullable */
+  lastScanAt: string | null;
+  /** Number of consecutive failures that trigger a webhook alert. */
+  alertThreshold: number;
+  /** Whether ALERT_WEBHOOK_URL is set in the server environment. */
+  alertWebhookConfigured: boolean;
 }
 
 export type PortfolioSummaryCoins = {[key: string]: PaperTraderMetrics};

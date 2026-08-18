@@ -20,4 +20,6 @@ export interface EngineStatus {
   /** @nullable */
   lastError: string | null;
   scansCompleted: number;
+  /** Number of consecutive failed scans since last success. Resets to 0 on recovery. */
+  consecutiveErrors: number;
 }

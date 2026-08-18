@@ -3021,8 +3021,28 @@ export const GetEngineStatusResponse = zod.object({
   "nextScanAt": zod.string().nullable(),
   "intervalSeconds": zod.number(),
   "lastError": zod.string().nullable(),
-  "scansCompleted": zod.number()
+  "scansCompleted": zod.number(),
+  "consecutiveErrors": zod.number().describe('Number of consecutive failed scans since last success. Resets to 0 on recovery.')
 }).describe('Status of the background strategy-scan scheduler in the API server.')
+
+
+/**
+ * Returns HTTP 200 when the background scheduler is RUNNING or STARTING.
+ * Returns HTTP 503 when the scheduler is in ERROR state.
+ *
+ * Point UptimeRobot / Better Uptime / any ping service at this endpoint.
+ * Configure an alert when the endpoint returns non-2xx or stops responding.
+ * @summary Engine health check for external uptime monitors
+ */
+export const GetEngineHealthStatusResponse = zod.object({
+  "status": zod.enum(['ok', 'error']).describe('\"ok\" when engine is RUNNING or STARTING; \"error\" when it is in ERROR state.'),
+  "engine": zod.enum(['RUNNING', 'ERROR', 'STARTING']),
+  "consecutiveErrors": zod.number(),
+  "lastError": zod.string().nullable(),
+  "lastScanAt": zod.string().nullable(),
+  "alertThreshold": zod.number().describe('Number of consecutive failures that trigger a webhook alert.'),
+  "alertWebhookConfigured": zod.boolean().describe('Whether ALERT_WEBHOOK_URL is set in the server environment.')
+}).describe('Simplified health-check response for external uptime monitors (UptimeRobot, Better Uptime, etc.).')
 
 
 /**
