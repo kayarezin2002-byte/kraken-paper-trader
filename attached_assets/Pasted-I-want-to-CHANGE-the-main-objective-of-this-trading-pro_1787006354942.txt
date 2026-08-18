@@ -1,0 +1,335 @@
+I want to CHANGE the main objective of this trading project.
+
+The previous strategy was designed to be extremely selective. It waits for 6/6 conditions and consequently produces very few trades.
+
+That is no longer the outcome I want.
+
+## NEW OBJECTIVE
+
+I want the system to:
+
+Actively take good trading opportunities when they appear and generate substantially more trades, while maintaining positive expectancy and controlled risk.
+
+I do NOT want a bot that waits weeks for perfect 6/6 alignment.
+
+However, I also do NOT want random trades or artificially high trade frequency.
+
+The objective is:
+
+MORE QUALITY OPPORTUNITIES + POSITIVE EXPECTANCY + CONTROLLED DRAWDOWN
+
+rather than:
+
+PERFECT CONFIRMATION + VERY FEW TRADES
+
+Do NOT change the existing live paper trader yet.
+
+Build and backtest the new approach first.
+
+# TARGET FREQUENCY
+
+Research strategies capable of approximately:
+
+3–10 trades per week across the overall portfolio
+
+This is a target range, NOT a requirement.
+
+Do not force trades to meet a quota.
+
+If no genuine setup exists, NO TRADE is still the correct decision.
+
+# MARKET UNIVERSE
+
+Initially research:
+
+CRYPTO:
+- BTC
+- ETH
+- SOL
+- XRP
+- LINK
+
+METALS:
+- Gold
+- Silver
+
+Later we can add FX.
+
+Each market may use a strategy appropriate to its behaviour.
+
+Do NOT force every market to use identical rules.
+
+# LOWER TIMEFRAMES
+
+The existing 1h entry / 4h confirmation system is producing too few opportunities.
+
+Research:
+
+### Configuration A
+30-minute entry / 4-hour market direction
+
+### Configuration B
+30-minute entry / 2-hour market direction
+
+### Configuration C
+15-minute entry / 1-hour market direction
+
+### Configuration D
+15-minute entry / 4-hour market direction
+
+The higher timeframe should provide context rather than requiring perfect alignment of every indicator.
+
+# CHANGE FROM 6/6 TO WEIGHTED CONFIRMATION
+
+Research a scoring system rather than requiring every condition to PASS.
+
+For example:
+
+Higher-timeframe trend: 2 points  
+Entry-timeframe trend: 2 points  
+MACD momentum: 1 point  
+RSI: 1 point  
+Price/EMA structure: 1 point  
+Volume: 1 point
+
+Maximum = 8 points.
+
+Test predetermined thresholds such as:
+
+6/8
+and
+7/8
+
+Do NOT test dozens of thresholds.
+
+Higher-timeframe trend should have greater importance than secondary indicators.
+
+Do not allow one weak indicator such as volume to automatically reject an otherwise strong setup.
+
+# HARD SAFETY CONDITIONS
+
+Some conditions should remain mandatory regardless of score.
+
+For example:
+
+Do not LONG into a clearly strong higher-timeframe bearish trend.
+
+Do not SHORT into a clearly strong higher-timeframe bullish trend.
+
+Do not enter if:
+- data is stale
+- volatility is abnormally extreme
+- spread/slippage is excessive
+- required price data is missing
+
+A NEUTRAL higher-timeframe trend should NOT automatically block every trade.
+
+Instead, require stronger confirmation from the other indicators.
+
+# STRATEGY TYPES
+
+Research THREE distinct opportunity types:
+
+## 1. TREND CONTINUATION
+
+Enter established trends after short-term confirmation.
+
+## 2. PULLBACK
+
+Enter a pullback within a larger trend when momentum begins returning in the trend direction.
+
+## 3. BREAKOUT
+
+Enter confirmed breaks from consolidation/ranges with volatility/volume confirmation where appropriate.
+
+This gives the bot several legitimate ways to find opportunities rather than waiting for one perfect setup.
+
+# COOLDOWN / RE-ENTRY
+
+Prevent artificial trade inflation.
+
+The bot must NOT repeatedly enter the same unchanged signal after being stopped out.
+
+Require either:
+
+- a genuinely new signal
+- a new candle/setup
+- or a meaningful reset of the entry conditions
+
+before re-entry.
+
+Report how this is implemented.
+
+# RISK
+
+Keep risk at:
+
+1% maximum account risk per trade
+
+during research and paper testing.
+
+Do NOT increase risk simply to improve returns.
+
+The higher return should come primarily from:
+
+- more genuine opportunities
+- more markets
+- better capital utilisation
+- positive expectancy
+
+not bigger bets.
+
+# EXIT
+
+Use the existing ATR stop / approximately 2R target as the baseline.
+
+Do not optimise dozens of exit variations yet.
+
+First establish whether the new entry system produces a genuine edge.
+
+# REALISTIC COSTS
+
+All main backtests must include realistic:
+
+- trading fees
+- spreads
+- slippage
+
+This is especially important on 15m/30m strategies because costs become more significant at higher trade frequency.
+
+# BACKTEST
+
+Use as much reliable historical data as reasonably available.
+
+Prefer at least:
+
+2–3 years
+
+where possible.
+
+For each market/configuration report:
+
+- Trades
+- Trades/week
+- Trades/month
+- ROI
+- Annualised return
+- Win rate
+- Profit factor
+- Maximum drawdown
+- Expectancy/trade
+- Sharpe ratio
+- Maximum consecutive losses
+- LONG performance
+- SHORT performance
+- Performance after costs
+
+# OUT-OF-SAMPLE TESTING
+
+Do not optimise the entire dataset.
+
+Use approximately:
+
+70% development data  
+30% untouched validation data
+
+Select rules using development data.
+
+Then run the final chosen configuration ONCE on the untouched validation period.
+
+Clearly separate:
+
+IN-SAMPLE
+
+from
+
+OUT-OF-SAMPLE.
+
+# WHAT COUNTS AS SUCCESS?
+
+I am willing to accept a LOWER win rate if the reward/risk and expectancy remain good.
+
+I care more about:
+
+- positive expectancy
+- PF preferably above 1.30 after costs
+- reasonable drawdown
+- consistent results
+- enough trades to provide meaningful evidence
+- substantially greater trade frequency
+
+than achieving an unusually high win rate.
+
+Do not reject a profitable strategy simply because its win rate is below 50%.
+
+# PORTFOLIO GOAL
+
+Ultimately I want several independent strategies finding opportunities across:
+
+BTC  
+ETH  
+SOL  
+XRP  
+LINK  
+Gold  
+Silver
+
+Rather than £100 sitting unused for weeks waiting for a perfect setup.
+
+Determine which markets genuinely contribute profitable opportunities.
+
+Do not include an instrument merely to increase trade count.
+
+# FINAL COMPARISON
+
+Compare the NEW opportunity-based system against the original strict 6/6 system.
+
+Show:
+
+ORIGINAL:
+- trades/month
+- ROI
+- PF
+- max drawdown
+- expectancy
+
+NEW:
+- trades/month
+- ROI
+- PF
+- max drawdown
+- expectancy
+
+I specifically want to know:
+
+How many additional trades are we getting for each additional unit of drawdown/risk?
+
+Also report how many additional trades are:
+
+- winners
+- losers
+- breakeven
+
+# FINAL RECOMMENDATION
+
+Identify the configuration that gives the best balance of:
+
+1. More trading opportunities
+2. Positive expectancy
+3. Profit factor
+4. Controlled drawdown
+5. Performance after fees
+6. Out-of-sample performance
+7. Adequate sample size
+
+Do NOT automatically select the highest-frequency strategy.
+
+Do NOT automatically select the highest-ROI strategy.
+
+Select the strategy with the strongest evidence that increased activity is producing useful profitable trades rather than simply more trades.
+
+If successful, label it:
+
+CANDIDATE FOR PAPER TESTING
+
+Do not change the existing live bot until I explicitly approve the new configuration.

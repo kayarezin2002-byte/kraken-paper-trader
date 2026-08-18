@@ -1,3 +1,5 @@
 - [OpenAPI/Zod compatibility](openapi-zod-compatibility.md) — use numeric schemas for generated count/limit fields until the workspace Zod runtime supports integer helpers.
 - [Kraken GBP pair names](kraken-pairs.md) — verified correct Kraken spot pair names for the four GBP coins.
 - [Multi-coin DB migration](multi-coin-db-migration.md) — the trades table migration from single-coin to multi-coin requires ALTER TABLE, not just CREATE TABLE IF NOT EXISTS.
+- [Opportunity system conclusions](opportunity-research-conclusions.md) — conclusive backtest: new 6/8 weighted-score system is worse than original 6/6 for crypto; neither viable at £100/0.62% RT fees.
+- [opportunity_research.py performance](opportunity-bt-performance.md) — build_pre must use deque-based O(n) rolling windows; bytearray trend breaks string comparison; pre-compute once per series not per config.
