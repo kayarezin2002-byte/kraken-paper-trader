@@ -5,6 +5,400 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface WatchlistToggleInput {
+  ticker: string;
+}
+
+export interface ElliottTimeframe {
+  timeframe: string;
+  structure: string;
+  wave?: string | null;
+  direction: string;
+  confidence: number;
+  confidenceLabel: string;
+  notes?: string[];
+  fibLocation?: string | null;
+  wave3Candidate?: boolean;
+  wave5Exhaustion?: boolean;
+  abcCandidate?: boolean;
+}
+
+export type ElliottAnalysisTimeframes = {
+  '15m'?: ElliottTimeframe;
+  '1h'?: ElliottTimeframe;
+  '4h'?: ElliottTimeframe;
+} | null;
+
+/**
+ * Experimental Elliott Wave read — analytics only, never influences entries
+ */
+export interface ElliottAnalysis {
+  structure: string;
+  wave?: string | null;
+  direction: string;
+  confidence: number;
+  confidenceLabel: string;
+  headlineTimeframe?: string | null;
+  alignment?: string | null;
+  wave3Candidate?: boolean | null;
+  wave5Exhaustion?: boolean | null;
+  abcCandidate?: boolean | null;
+  fibLocation?: string | null;
+  timeframes?: ElliottAnalysisTimeframes;
+}
+
+export interface ElliottLabCandidate {
+  ticker: string;
+  name?: string | null;
+  structure?: string | null;
+  wave?: string | null;
+  direction?: string | null;
+  confidence?: number | null;
+  confidenceLabel?: string | null;
+  alignment?: string | null;
+  signal?: string | null;
+  longScore?: number | null;
+  shortScore?: number | null;
+}
+
+export interface ElliottBucketStats {
+  trades: number;
+  wins: number;
+  losses: number;
+  winRate?: number | null;
+  netPnl: number;
+  avgWin?: number | null;
+  avgLoss?: number | null;
+  profitFactor?: number | null;
+  expectancy?: number | null;
+  maxDrawdown?: number | null;
+}
+
+export type ElliottLabFlags = {
+  elliottScoreInfluence: string;
+  wave5Veto: string;
+  activeGate: string;
+};
+
+export type ElliottLabTradeStats = {[key: string]: ElliottBucketStats};
+
+export interface ElliottLab {
+  flags: ElliottLabFlags;
+  wave3Candidates: ElliottLabCandidate[];
+  wave5ExhaustionCandidates: ElliottLabCandidate[];
+  abcCandidates: ElliottLabCandidate[];
+  strongestStructures: ElliottLabCandidate[];
+  bullishAligned: string[];
+  bearishAligned: string[];
+  uncertain: string[];
+  tradeStats: ElliottLabTradeStats;
+}
+
+/**
+ * Standard Strategy Lab metric block (R-based, net of costs)
+ */
+export interface LabStats {
+  trades: number;
+  confidence: string;
+  wins?: number;
+  losses?: number;
+  winRate?: number | null;
+  netR?: number;
+  roiPct?: number | null;
+  profitFactor?: number | null;
+  expectancy?: number | null;
+  maxDrawdownPct?: number | null;
+  sharpe?: number | null;
+  avgWin?: number | null;
+  avgLoss?: number | null;
+  longestLossStreak?: number;
+  insufficientData?: boolean;
+}
+
+export type LabLeaderboardEntry = LabStats & {
+  strategy: string;
+  threshold: number;
+  profile: string;
+  promotionCandidate: boolean;
+  riskPct?: number;
+};
+
+export interface LabDirectionStats {
+  LONG: LabStats;
+  SHORT: LabStats;
+}
+
+export type LabNamedStats = LabStats & {
+  name: string;
+};
+
+export type LabRiskStats = LabStats & {
+  riskPct: number;
+};
+
+export interface LabDDSim {
+  trades: number;
+  roiPct: number;
+  maxDrawdownPct: number;
+}
+
+export type LabOverviewSummaryBestProfitFactor = {
+  strategy: string;
+  value?: number | null;
+} | null;
+
+export type LabOverviewSummaryBestExpectancy = {
+  strategy: string;
+  value?: number | null;
+} | null;
+
+export type LabOverviewSummaryLowestDrawdown = {
+  strategy: string;
+  value?: number | null;
+} | null;
+
+export type LabOverviewSummaryHighestNetReturn = {
+  strategy: string;
+  value?: number | null;
+} | null;
+
+export type LabOverviewSummaryBestRiskAdjusted = {
+  strategy: string;
+  value?: number | null;
+} | null;
+
+export type LabOverviewSummary = {
+  experimentsRunning: number;
+  openShadowTrades: number;
+  totalShadowTrades: number;
+  totalSignals: number;
+  dataConfidence: string;
+  bestStrategy?: string | null;
+  bestProfitFactor?: LabOverviewSummaryBestProfitFactor;
+  bestExpectancy?: LabOverviewSummaryBestExpectancy;
+  lowestDrawdown?: LabOverviewSummaryLowestDrawdown;
+  highestNetReturn?: LabOverviewSummaryHighestNetReturn;
+  bestRiskAdjusted?: LabOverviewSummaryBestRiskAdjusted;
+  feePctPerSide: number;
+  costsIncluded: boolean;
+  mainStrategyLocked: string;
+};
+
+export type LabOverviewPerAssetItem = {
+  ticker: string;
+  long: LabStats;
+  short: LabStats;
+};
+
+export type LabOverviewElliott = {[key: string]: LabStats};
+
+export type LabOverviewRegimes = {[key: string]: LabStats};
+
+export type LabOverviewDrawdownProtection = {
+  protected?: LabDDSim | null;
+  constant?: LabStats | null;
+} | null;
+
+export type LabOverviewCorrelationProtection = {
+  off: LabStats;
+  on: LabStats;
+};
+
+export type LabOverviewMissedOpportunities = {
+  signalsBlocked: number;
+  performanceIfTaken: LabStats;
+};
+
+export interface LabOverview {
+  summary: LabOverviewSummary;
+  leaderboard: LabLeaderboardEntry[];
+  longShort: LabDirectionStats;
+  perAsset: LabOverviewPerAssetItem[];
+  elliott: LabOverviewElliott;
+  regimes: LabOverviewRegimes;
+  combinations: LabNamedStats[];
+  riskModels: LabRiskStats[];
+  drawdownProtection?: LabOverviewDrawdownProtection;
+  correlationProtection: LabOverviewCorrelationProtection;
+  missedOpportunities: LabOverviewMissedOpportunities;
+}
+
+export type LabStrategyDetailEquityItem = {
+  ts?: string | null;
+  balance: number;
+  drawdownPct: number;
+};
+
+export interface LabStrategyDetail {
+  ok: boolean;
+  error?: string | null;
+  strategy?: string;
+  startBalance?: number;
+  riskPct?: number;
+  stats?: LabStats;
+  equity?: LabStrategyDetailEquityItem[];
+  riskTable?: LabRiskStats[];
+  drawdownProtection?: LabDDSim | null;
+}
+
+export type ElliottChartOverlayPivotsItem = {
+  time: number;
+  price: number;
+  label: string;
+};
+
+export type ElliottChartOverlayFibRetracements = {[key: string]: number};
+
+export type ElliottChartOverlayFibExtensions = {[key: string]: number};
+
+export type ElliottChartOverlayFib = {
+  swingLow?: number;
+  swingHigh?: number;
+  retracements?: ElliottChartOverlayFibRetracements;
+  extensions?: ElliottChartOverlayFibExtensions;
+} | null;
+
+/**
+ * Pivot labels and fib levels for the chart ELLIOTT/FIB toggles
+ */
+export interface ElliottChartOverlay {
+  structure: string;
+  wave?: string | null;
+  direction: string;
+  confidence: number;
+  confidenceLabel: string;
+  pivots: ElliottChartOverlayPivotsItem[];
+  fib?: ElliottChartOverlayFib;
+}
+
+export interface ScannerCondition {
+  name: string;
+  currentValue?: string;
+  requiredValue?: string;
+  pass: boolean;
+}
+
+export interface ScannerSignalChange {
+  at?: string | null;
+  longFrom?: number | null;
+  longTo?: number | null;
+  shortFrom?: number | null;
+  shortTo?: number | null;
+}
+
+export interface ScannerPosition {
+  ticker: string;
+  name?: string | null;
+  currency?: string | null;
+  strategy?: string | null;
+  account?: string | null;
+  direction: string;
+  entry: number;
+  stopLoss: number;
+  initialStop?: number | null;
+  takeProfit: number;
+  quantity: number;
+  riskAmount?: number | null;
+  openedAt: string;
+  currentPrice?: number | null;
+  unrealisedPnl?: number | null;
+  bestPrice?: number | null;
+  worstPrice?: number | null;
+  entryScore?: number | null;
+  maxScore?: number | null;
+  entryThreshold?: number | null;
+  longScore?: number | null;
+  shortScore?: number | null;
+  entryConditions?: string | null;
+  trend1h?: string | null;
+  entryAtr?: number | null;
+}
+
+export interface AssetTradeStats {
+  trades: number;
+  winRate?: number | null;
+  pnl: number;
+  profitFactor?: number | null;
+}
+
+export interface ScannerAsset {
+  ticker: string;
+  name: string;
+  rank?: number | null;
+  price?: number | null;
+  change24h?: number | null;
+  high24?: number | null;
+  low24?: number | null;
+  volumeUsd?: number | null;
+  spreadPct?: number | null;
+  signal?: string | null;
+  decision?: string | null;
+  decisionReason?: string | null;
+  longScore?: number | null;
+  shortScore?: number | null;
+  threshold?: number | null;
+  maxScore?: number | null;
+  trend15m?: string | null;
+  trend1h?: string | null;
+  trend4h?: string | null;
+  longConditions?: ScannerCondition[] | null;
+  shortConditions?: ScannerCondition[] | null;
+  elliott?: ElliottAnalysis | null;
+  lastScanAt?: string | null;
+  nextScanAt?: string | null;
+  lastCandleAt?: string | null;
+  tradingEnabled?: boolean | null;
+  disabledReason?: string | null;
+  entryBlocker?: string | null;
+  dataAvailable?: boolean | null;
+  scanError?: string | null;
+  hasPosition?: boolean | null;
+  watchlisted?: boolean | null;
+  lastSignalChange?: ScannerSignalChange | null;
+  position?: ScannerPosition | null;
+  stats?: AssetTradeStats | null;
+}
+
+export type MarketStatsCounts = {[key: string]: number};
+
+export interface MarketStats {
+  scanned: number;
+  universe: number;
+  counts: MarketStatsCounts;
+  openCryptoTrades: number;
+  nextScanAt?: string | null;
+}
+
+export interface ScannerAccount {
+  currency: string;
+  balance: number;
+  startingBalance: number;
+  openPositions: number;
+  maxPositions: number;
+  riskPerTradePct?: number;
+  maxTotalRiskPct?: number;
+  maxSameDirection?: number;
+  minVolumeUsd?: number;
+}
+
+export interface MarketDirectory {
+  assets: ScannerAsset[];
+  marketStats: MarketStats;
+  scannerAccount: ScannerAccount;
+  watchlist: string[];
+}
+
+export interface MarketAssetDetail {
+  ok: boolean;
+  error?: string | null;
+  asset?: ScannerAsset | null;
+  isCoreCoin?: boolean | null;
+  position?: ScannerPosition | null;
+  watchlisted?: boolean | null;
+  lastTradeAt?: string | null;
+  stats?: AssetTradeStats | null;
+}
+
 export interface PnlDataPoint {
   /** ISO timestamp when the trade closed */
   ts: string;
@@ -728,6 +1122,7 @@ export interface ChartData {
   dataSource: string;
   candles: ChartCandle[];
   signals: ChartSignalPoint[];
+  elliott?: ElliottChartOverlay | null;
 }
 
 export type EngineStatusStatus = typeof EngineStatusStatus[keyof typeof EngineStatusStatus];
@@ -898,25 +1293,16 @@ limit?: number;
 };
 
 export type GetChartDataParams = {
-asset: GetChartDataAsset;
+/**
+ * BTC/ETH/SOL/XRP/GOLD/SILVER or any scanner-universe ticker (e.g. DOGE, LINK, PEPE)
+ */
+asset: string;
 range?: GetChartDataRange;
 /**
  * Candle timeframe. Defaults per range (24H→15m, 7D/30D→1h, 90D→4h).
  */
 interval?: GetChartDataInterval;
 };
-
-export type GetChartDataAsset = typeof GetChartDataAsset[keyof typeof GetChartDataAsset];
-
-
-export const GetChartDataAsset = {
-  BTC: 'BTC',
-  ETH: 'ETH',
-  SOL: 'SOL',
-  XRP: 'XRP',
-  GOLD: 'GOLD',
-  SILVER: 'SILVER',
-} as const;
 
 export type GetChartDataRange = typeof GetChartDataRange[keyof typeof GetChartDataRange];
 
@@ -943,5 +1329,18 @@ export type ListAllTradesParams = {
  * @maximum 500
  */
 limit?: number;
+};
+
+export type ToggleWatchlist200 = {
+  ok: boolean;
+  ticker?: string;
+  watchlisted?: boolean;
+  watchlist?: string[];
+};
+
+export type GetLabStrategyParams = {
+strategy: string;
+start?: number;
+risk?: number;
 };
 

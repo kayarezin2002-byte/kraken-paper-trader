@@ -22,22 +22,31 @@ import type {
 import type {
   ActivityEvent,
   ChartData,
+  ElliottLab,
   EngineHealthStatus,
   EngineStatus,
   ErrorResponse,
   GetChartDataParams,
+  GetLabStrategyParams,
   HealthStatus,
+  LabOverview,
+  LabStrategyDetail,
   ListActivityLogParams,
   ListAllTradesParams,
   ListPaperTradesParams,
+  MarketAssetDetail,
+  MarketDirectory,
   MultiCoinState,
   PaperTrade,
   PaperTraderState,
   PnlSeriesResult,
   PortfolioSummary,
   ResetPaperTraderInput,
+  ScannerPosition,
   SetActiveModeInput,
-  SetActiveModeResult
+  SetActiveModeResult,
+  ToggleWatchlist200,
+  WatchlistToggleInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -1306,4 +1315,544 @@ export const useResetAllCoins = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getResetAllCoinsMutationOptions(options));
     }
+
+export const getGetMarketDirectoryUrl = () => {
+
+
+
+
+  return `/api/market/scanner`
+}
+
+/**
+ * @summary Full crypto scanner directory — every asset with scores, ticker data and signal
+ */
+export const getMarketDirectory = async ( options?: Parameters<typeof customFetch>[1]): Promise<MarketDirectory> => {
+
+  return customFetch<MarketDirectory>(getGetMarketDirectoryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMarketDirectoryQueryKey = () => {
+    return [
+    `/api/market/scanner`
+    ] as const;
+    }
+
+
+export const getGetMarketDirectoryQueryOptions = <TData = Awaited<ReturnType<typeof getMarketDirectory>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMarketDirectory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMarketDirectoryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMarketDirectory>>> = ({ signal }) => getMarketDirectory({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMarketDirectory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMarketDirectoryQueryResult = NonNullable<Awaited<ReturnType<typeof getMarketDirectory>>>
+export type GetMarketDirectoryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Full crypto scanner directory — every asset with scores, ticker data and signal
+ */
+
+export function useGetMarketDirectory<TData = Awaited<ReturnType<typeof getMarketDirectory>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMarketDirectory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMarketDirectoryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMarketAssetUrl = (ticker: string,) => {
+
+
+
+
+  return `/api/market/asset/${ticker}`
+}
+
+/**
+ * @summary Detailed scanner view of one cryptocurrency
+ */
+export const getMarketAsset = async (ticker: string, options?: Parameters<typeof customFetch>[1]): Promise<MarketAssetDetail> => {
+
+  return customFetch<MarketAssetDetail>(getGetMarketAssetUrl(ticker),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMarketAssetQueryKey = (ticker: string,) => {
+    return [
+    `/api/market/asset/${ticker}`
+    ] as const;
+    }
+
+
+export const getGetMarketAssetQueryOptions = <TData = Awaited<ReturnType<typeof getMarketAsset>>, TError = ErrorType<unknown>>(ticker: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMarketAsset>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMarketAssetQueryKey(ticker);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMarketAsset>>> = ({ signal }) => getMarketAsset(ticker, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: ticker !== null && ticker !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMarketAsset>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMarketAssetQueryResult = NonNullable<Awaited<ReturnType<typeof getMarketAsset>>>
+export type GetMarketAssetQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Detailed scanner view of one cryptocurrency
+ */
+
+export function useGetMarketAsset<TData = Awaited<ReturnType<typeof getMarketAsset>>, TError = ErrorType<unknown>>(
+ ticker: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMarketAsset>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMarketAssetQueryOptions(ticker,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getToggleWatchlistUrl = () => {
+
+
+
+
+  return `/api/market/watchlist`
+}
+
+/**
+ * @summary Add or remove a cryptocurrency from the personal watchlist
+ */
+export const toggleWatchlist = async (watchlistToggleInput: WatchlistToggleInput, options?: Parameters<typeof customFetch>[1]): Promise<ToggleWatchlist200> => {
+
+  return customFetch<ToggleWatchlist200>(getToggleWatchlistUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(watchlistToggleInput)
+  }
+);}
+
+
+
+
+
+export const getToggleWatchlistMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof toggleWatchlist>>, TError,{data: BodyType<WatchlistToggleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof toggleWatchlist>>, TError,{data: BodyType<WatchlistToggleInput>}, TContext> => {
+
+const mutationKey = ['toggleWatchlist'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof toggleWatchlist>>, {data: BodyType<WatchlistToggleInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  toggleWatchlist(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ToggleWatchlistMutationResult = NonNullable<Awaited<ReturnType<typeof toggleWatchlist>>>
+    export type ToggleWatchlistMutationBody = BodyType<WatchlistToggleInput>
+    export type ToggleWatchlistMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add or remove a cryptocurrency from the personal watchlist
+ */
+export const useToggleWatchlist = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof toggleWatchlist>>, TError,{data: BodyType<WatchlistToggleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof toggleWatchlist>>,
+        TError,
+        {data: BodyType<WatchlistToggleInput>},
+        TContext
+      > => {
+      return useMutation(getToggleWatchlistMutationOptions(options));
+    }
+
+export const getGetElliottLabUrl = () => {
+
+
+
+
+  return `/api/market/elliott-lab`
+}
+
+/**
+ * @summary ELLIOTT LAB — experimental Elliott Wave analytics (observation only, never gates trades)
+ */
+export const getElliottLab = async ( options?: Parameters<typeof customFetch>[1]): Promise<ElliottLab> => {
+
+  return customFetch<ElliottLab>(getGetElliottLabUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetElliottLabQueryKey = () => {
+    return [
+    `/api/market/elliott-lab`
+    ] as const;
+    }
+
+
+export const getGetElliottLabQueryOptions = <TData = Awaited<ReturnType<typeof getElliottLab>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getElliottLab>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetElliottLabQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getElliottLab>>> = ({ signal }) => getElliottLab({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getElliottLab>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetElliottLabQueryResult = NonNullable<Awaited<ReturnType<typeof getElliottLab>>>
+export type GetElliottLabQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary ELLIOTT LAB — experimental Elliott Wave analytics (observation only, never gates trades)
+ */
+
+export function useGetElliottLab<TData = Awaited<ReturnType<typeof getElliottLab>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getElliottLab>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetElliottLabQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetLabOverviewUrl = () => {
+
+
+
+
+  return `/api/market/lab-overview`
+}
+
+/**
+ * @summary STRATEGY LAB — shadow-strategy experiments (simulation only, never trades)
+ */
+export const getLabOverview = async ( options?: Parameters<typeof customFetch>[1]): Promise<LabOverview> => {
+
+  return customFetch<LabOverview>(getGetLabOverviewUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLabOverviewQueryKey = () => {
+    return [
+    `/api/market/lab-overview`
+    ] as const;
+    }
+
+
+export const getGetLabOverviewQueryOptions = <TData = Awaited<ReturnType<typeof getLabOverview>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLabOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLabOverviewQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLabOverview>>> = ({ signal }) => getLabOverview({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLabOverview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLabOverviewQueryResult = NonNullable<Awaited<ReturnType<typeof getLabOverview>>>
+export type GetLabOverviewQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary STRATEGY LAB — shadow-strategy experiments (simulation only, never trades)
+ */
+
+export function useGetLabOverview<TData = Awaited<ReturnType<typeof getLabOverview>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLabOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLabOverviewQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetLabStrategyUrl = (params: GetLabStrategyParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/market/lab-strategy?${stringifiedParams}` : `/api/market/lab-strategy`
+}
+
+/**
+ * @summary STRATEGY LAB — equity curve and risk table for one strategy
+ */
+export const getLabStrategy = async (params: GetLabStrategyParams, options?: Parameters<typeof customFetch>[1]): Promise<LabStrategyDetail> => {
+
+  return customFetch<LabStrategyDetail>(getGetLabStrategyUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLabStrategyQueryKey = (params?: GetLabStrategyParams,) => {
+    return [
+    `/api/market/lab-strategy`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetLabStrategyQueryOptions = <TData = Awaited<ReturnType<typeof getLabStrategy>>, TError = ErrorType<unknown>>(params: GetLabStrategyParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLabStrategy>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLabStrategyQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLabStrategy>>> = ({ signal }) => getLabStrategy(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLabStrategy>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetLabStrategyQueryResult = NonNullable<Awaited<ReturnType<typeof getLabStrategy>>>
+export type GetLabStrategyQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary STRATEGY LAB — equity curve and risk table for one strategy
+ */
+
+export function useGetLabStrategy<TData = Awaited<ReturnType<typeof getLabStrategy>>, TError = ErrorType<unknown>>(
+ params: GetLabStrategyParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getLabStrategy>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetLabStrategyQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetScannerPositionsUrl = () => {
+
+
+
+
+  return `/api/market/scanner-positions`
+}
+
+/**
+ * @summary Open SCANNER-account paper positions
+ */
+export const getScannerPositions = async ( options?: Parameters<typeof customFetch>[1]): Promise<ScannerPosition[]> => {
+
+  return customFetch<ScannerPosition[]>(getGetScannerPositionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetScannerPositionsQueryKey = () => {
+    return [
+    `/api/market/scanner-positions`
+    ] as const;
+    }
+
+
+export const getGetScannerPositionsQueryOptions = <TData = Awaited<ReturnType<typeof getScannerPositions>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScannerPositions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetScannerPositionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getScannerPositions>>> = ({ signal }) => getScannerPositions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getScannerPositions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetScannerPositionsQueryResult = NonNullable<Awaited<ReturnType<typeof getScannerPositions>>>
+export type GetScannerPositionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Open SCANNER-account paper positions
+ */
+
+export function useGetScannerPositions<TData = Awaited<ReturnType<typeof getScannerPositions>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getScannerPositions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetScannerPositionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

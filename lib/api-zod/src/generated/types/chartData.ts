@@ -7,6 +7,7 @@
  */
 import type { ChartCandle } from './chartCandle';
 import type { ChartSignalPoint } from './chartSignalPoint';
+import type { ElliottChartOverlay } from './elliottChartOverlay';
 
 /**
  * Price chart payload — same market data the strategy engine uses.
@@ -27,4 +28,5 @@ export interface ChartData {
   dataSource: string;
   candles: ChartCandle[];
   signals: ChartSignalPoint[];
+  elliott?: ElliottChartOverlay | null;
 }

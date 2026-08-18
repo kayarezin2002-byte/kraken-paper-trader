@@ -217,7 +217,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [BTC, ETH, SOL, XRP, GOLD, SILVER]
+            description: BTC/ETH/SOL/XRP/GOLD/SILVER or any scanner-universe ticker (e.g. DOGE, LINK, PEPE)
         - name: range
           in: query
           required: false
@@ -316,8 +316,652 @@ paths:
               schema:
                 $ref: "#/components/schemas/MultiCoinState"
 
+  /market/scanner:
+    get:
+      operationId: getMarketDirectory
+      tags: [market]
+      summary: Full crypto scanner directory — every asset with scores, ticker data and signal
+      responses:
+        "200":
+          description: Directory of all scanned cryptocurrencies plus market stats and SCANNER account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketDirectory"
+
+  /market/asset/{ticker}:
+    get:
+      operationId: getMarketAsset
+      tags: [market]
+      summary: Detailed scanner view of one cryptocurrency
+      parameters:
+        - name: ticker
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Asset detail with engine scores, conditions and diagnostics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketAssetDetail"
+
+  /market/watchlist:
+    post:
+      operationId: toggleWatchlist
+      tags: [market]
+      summary: Add or remove a cryptocurrency from the personal watchlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WatchlistToggleInput"
+      responses:
+        "200":
+          description: New watchlist state
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  ticker: { type: string }
+                  watchlisted: { type: boolean }
+                  watchlist:
+                    type: array
+                    items: { type: string }
+                required: [ok]
+
+  /market/elliott-lab:
+    get:
+      operationId: getElliottLab
+      tags: [market]
+      summary: ELLIOTT LAB — experimental Elliott Wave analytics (observation only, never gates trades)
+      responses:
+        "200":
+          description: Elliott candidates across the scanner universe plus the aligned-vs-not trade experiment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ElliottLab"
+
+  /market/lab-overview:
+    get:
+      operationId: getLabOverview
+      tags: [market]
+      summary: STRATEGY LAB — shadow-strategy experiments (simulation only, never trades)
+      responses:
+        "200":
+          description: Leaderboard, breakdowns and experiment summaries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LabOverview"
+
+  /market/lab-strategy:
+    get:
+      operationId: getLabStrategy
+      tags: [market]
+      summary: STRATEGY LAB — equity curve and risk table for one strategy
+      parameters:
+        - name: strategy
+          in: query
+          required: true
+          schema: { type: string }
+        - name: start
+          in: query
+          required: false
+          schema: { type: number }
+        - name: risk
+          in: query
+          required: false
+          schema: { type: number }
+      responses:
+        "200":
+          description: Equity curve, drawdown and risk models for the strategy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LabStrategyDetail"
+
+  /market/scanner-positions:
+    get:
+      operationId: getScannerPositions
+      tags: [market]
+      summary: Open SCANNER-account paper positions
+      responses:
+        "200":
+          description: Open scanner positions with live unrealised P&L
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScannerPosition"
+
 components:
   schemas:
+    WatchlistToggleInput:
+      type: object
+      properties:
+        ticker: { type: string }
+      required: [ticker]
+
+    ElliottTimeframe:
+      type: object
+      properties:
+        timeframe: { type: string }
+        structure: { type: string }
+        wave: { type: string, nullable: true }
+        direction: { type: string }
+        confidence: { type: number }
+        confidenceLabel: { type: string }
+        notes:
+          type: array
+          items: { type: string }
+        fibLocation: { type: string, nullable: true }
+        wave3Candidate: { type: boolean }
+        wave5Exhaustion: { type: boolean }
+        abcCandidate: { type: boolean }
+      required: [timeframe, structure, direction, confidence, confidenceLabel]
+
+    ElliottAnalysis:
+      type: object
+      description: Experimental Elliott Wave read — analytics only, never influences entries
+      properties:
+        structure: { type: string }
+        wave: { type: string, nullable: true }
+        direction: { type: string }
+        confidence: { type: number }
+        confidenceLabel: { type: string }
+        headlineTimeframe: { type: string, nullable: true }
+        alignment: { type: string, nullable: true }
+        wave3Candidate: { type: boolean, nullable: true }
+        wave5Exhaustion: { type: boolean, nullable: true }
+        abcCandidate: { type: boolean, nullable: true }
+        fibLocation: { type: string, nullable: true }
+        timeframes:
+          type: object
+          nullable: true
+          properties:
+            "15m": { $ref: "#/components/schemas/ElliottTimeframe" }
+            "1h": { $ref: "#/components/schemas/ElliottTimeframe" }
+            "4h": { $ref: "#/components/schemas/ElliottTimeframe" }
+      required: [structure, direction, confidence, confidenceLabel]
+
+    ElliottLabCandidate:
+      type: object
+      properties:
+        ticker: { type: string }
+        name: { type: string, nullable: true }
+        structure: { type: string, nullable: true }
+        wave: { type: string, nullable: true }
+        direction: { type: string, nullable: true }
+        confidence: { type: number, nullable: true }
+        confidenceLabel: { type: string, nullable: true }
+        alignment: { type: string, nullable: true }
+        signal: { type: string, nullable: true }
+        longScore: { type: number, nullable: true }
+        shortScore: { type: number, nullable: true }
+      required: [ticker]
+
+    ElliottBucketStats:
+      type: object
+      properties:
+        trades: { type: number }
+        wins: { type: number }
+        losses: { type: number }
+        winRate: { type: number, nullable: true }
+        netPnl: { type: number }
+        avgWin: { type: number, nullable: true }
+        avgLoss: { type: number, nullable: true }
+        profitFactor: { type: number, nullable: true }
+        expectancy: { type: number, nullable: true }
+        maxDrawdown: { type: number, nullable: true }
+      required: [trades, wins, losses, netPnl]
+
+    ElliottLab:
+      type: object
+      properties:
+        flags:
+          type: object
+          properties:
+            elliottScoreInfluence: { type: string }
+            wave5Veto: { type: string }
+            activeGate: { type: string }
+          required: [elliottScoreInfluence, wave5Veto, activeGate]
+        wave3Candidates:
+          type: array
+          items: { $ref: "#/components/schemas/ElliottLabCandidate" }
+        wave5ExhaustionCandidates:
+          type: array
+          items: { $ref: "#/components/schemas/ElliottLabCandidate" }
+        abcCandidates:
+          type: array
+          items: { $ref: "#/components/schemas/ElliottLabCandidate" }
+        strongestStructures:
+          type: array
+          items: { $ref: "#/components/schemas/ElliottLabCandidate" }
+        bullishAligned:
+          type: array
+          items: { type: string }
+        bearishAligned:
+          type: array
+          items: { type: string }
+        uncertain:
+          type: array
+          items: { type: string }
+        tradeStats:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/ElliottBucketStats"
+      required: [flags, wave3Candidates, wave5ExhaustionCandidates, abcCandidates, strongestStructures, bullishAligned, bearishAligned, uncertain, tradeStats]
+
+    LabStats:
+      type: object
+      description: Standard Strategy Lab metric block (R-based, net of costs)
+      properties:
+        trades: { type: number }
+        confidence: { type: string }
+        wins: { type: number }
+        losses: { type: number }
+        winRate: { type: number, nullable: true }
+        netR: { type: number }
+        roiPct: { type: number, nullable: true }
+        profitFactor: { type: number, nullable: true }
+        expectancy: { type: number, nullable: true }
+        maxDrawdownPct: { type: number, nullable: true }
+        sharpe: { type: number, nullable: true }
+        avgWin: { type: number, nullable: true }
+        avgLoss: { type: number, nullable: true }
+        longestLossStreak: { type: number }
+        insufficientData: { type: boolean }
+      required: [trades, confidence]
+
+    LabLeaderboardEntry:
+      allOf:
+        - $ref: "#/components/schemas/LabStats"
+        - type: object
+          properties:
+            strategy: { type: string }
+            threshold: { type: number }
+            profile: { type: string }
+            promotionCandidate: { type: boolean }
+            riskPct: { type: number }
+          required: [strategy, threshold, profile, promotionCandidate]
+
+    LabDirectionStats:
+      type: object
+      properties:
+        LONG: { $ref: "#/components/schemas/LabStats" }
+        SHORT: { $ref: "#/components/schemas/LabStats" }
+      required: [LONG, SHORT]
+
+    LabNamedStats:
+      allOf:
+        - $ref: "#/components/schemas/LabStats"
+        - type: object
+          properties:
+            name: { type: string }
+          required: [name]
+
+    LabRiskStats:
+      allOf:
+        - $ref: "#/components/schemas/LabStats"
+        - type: object
+          properties:
+            riskPct: { type: number }
+          required: [riskPct]
+
+    LabDDSim:
+      type: object
+      properties:
+        trades: { type: number }
+        roiPct: { type: number }
+        maxDrawdownPct: { type: number }
+      required: [trades, roiPct, maxDrawdownPct]
+
+    LabOverview:
+      type: object
+      properties:
+        summary:
+          type: object
+          properties:
+            experimentsRunning: { type: number }
+            openShadowTrades: { type: number }
+            totalShadowTrades: { type: number }
+            totalSignals: { type: number }
+            dataConfidence: { type: string }
+            bestStrategy: { type: string, nullable: true }
+            bestProfitFactor:
+              type: object
+              nullable: true
+              properties:
+                strategy: { type: string }
+                value: { type: number, nullable: true }
+              required: [strategy]
+            bestExpectancy:
+              type: object
+              nullable: true
+              properties:
+                strategy: { type: string }
+                value: { type: number, nullable: true }
+              required: [strategy]
+            lowestDrawdown:
+              type: object
+              nullable: true
+              properties:
+                strategy: { type: string }
+                value: { type: number, nullable: true }
+              required: [strategy]
+            highestNetReturn:
+              type: object
+              nullable: true
+              properties:
+                strategy: { type: string }
+                value: { type: number, nullable: true }
+              required: [strategy]
+            bestRiskAdjusted:
+              type: object
+              nullable: true
+              properties:
+                strategy: { type: string }
+                value: { type: number, nullable: true }
+              required: [strategy]
+            feePctPerSide: { type: number }
+            costsIncluded: { type: boolean }
+            mainStrategyLocked: { type: string }
+          required: [experimentsRunning, openShadowTrades, totalShadowTrades, totalSignals, dataConfidence, feePctPerSide, costsIncluded, mainStrategyLocked]
+        leaderboard:
+          type: array
+          items: { $ref: "#/components/schemas/LabLeaderboardEntry" }
+        longShort: { $ref: "#/components/schemas/LabDirectionStats" }
+        perAsset:
+          type: array
+          items:
+            type: object
+            properties:
+              ticker: { type: string }
+              long: { $ref: "#/components/schemas/LabStats" }
+              short: { $ref: "#/components/schemas/LabStats" }
+            required: [ticker, long, short]
+        elliott:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/LabStats" }
+        regimes:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/LabStats" }
+        combinations:
+          type: array
+          items: { $ref: "#/components/schemas/LabNamedStats" }
+        riskModels:
+          type: array
+          items: { $ref: "#/components/schemas/LabRiskStats" }
+        drawdownProtection:
+          type: object
+          nullable: true
+          properties:
+            protected:
+              nullable: true
+              allOf: [{ $ref: "#/components/schemas/LabDDSim" }]
+            constant:
+              nullable: true
+              allOf: [{ $ref: "#/components/schemas/LabStats" }]
+        correlationProtection:
+          type: object
+          properties:
+            off: { $ref: "#/components/schemas/LabStats" }
+            on: { $ref: "#/components/schemas/LabStats" }
+          required: [off, on]
+        missedOpportunities:
+          type: object
+          properties:
+            signalsBlocked: { type: number }
+            performanceIfTaken: { $ref: "#/components/schemas/LabStats" }
+          required: [signalsBlocked, performanceIfTaken]
+      required: [summary, leaderboard, longShort, perAsset, elliott, regimes, combinations, riskModels, correlationProtection, missedOpportunities]
+
+    LabStrategyDetail:
+      type: object
+      properties:
+        ok: { type: boolean }
+        error: { type: string, nullable: true }
+        strategy: { type: string }
+        startBalance: { type: number }
+        riskPct: { type: number }
+        stats: { $ref: "#/components/schemas/LabStats" }
+        equity:
+          type: array
+          items:
+            type: object
+            properties:
+              ts: { type: string, nullable: true }
+              balance: { type: number }
+              drawdownPct: { type: number }
+            required: [balance, drawdownPct]
+        riskTable:
+          type: array
+          items: { $ref: "#/components/schemas/LabRiskStats" }
+        drawdownProtection:
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/LabDDSim" }]
+      required: [ok]
+
+    ElliottChartOverlay:
+      type: object
+      description: Pivot labels and fib levels for the chart ELLIOTT/FIB toggles
+      properties:
+        structure: { type: string }
+        wave: { type: string, nullable: true }
+        direction: { type: string }
+        confidence: { type: number }
+        confidenceLabel: { type: string }
+        pivots:
+          type: array
+          items:
+            type: object
+            properties:
+              time: { type: number }
+              price: { type: number }
+              label: { type: string }
+            required: [time, price, label]
+        fib:
+          type: object
+          nullable: true
+          properties:
+            swingLow: { type: number }
+            swingHigh: { type: number }
+            retracements:
+              type: object
+              additionalProperties: { type: number }
+            extensions:
+              type: object
+              additionalProperties: { type: number }
+      required: [structure, direction, confidence, confidenceLabel, pivots]
+
+    ScannerCondition:
+      type: object
+      properties:
+        name: { type: string }
+        currentValue: { type: string }
+        requiredValue: { type: string }
+        pass: { type: boolean }
+      required: [name, pass]
+
+    ScannerSignalChange:
+      type: object
+      properties:
+        at: { type: string, nullable: true }
+        longFrom: { type: number, nullable: true }
+        longTo: { type: number, nullable: true }
+        shortFrom: { type: number, nullable: true }
+        shortTo: { type: number, nullable: true }
+
+    ScannerAsset:
+      type: object
+      properties:
+        ticker: { type: string }
+        name: { type: string }
+        rank: { type: number, nullable: true }
+        price: { type: number, nullable: true }
+        change24h: { type: number, nullable: true }
+        high24: { type: number, nullable: true }
+        low24: { type: number, nullable: true }
+        volumeUsd: { type: number, nullable: true }
+        spreadPct: { type: number, nullable: true }
+        signal: { type: string, nullable: true }
+        decision: { type: string, nullable: true }
+        decisionReason: { type: string, nullable: true }
+        longScore: { type: number, nullable: true }
+        shortScore: { type: number, nullable: true }
+        threshold: { type: number, nullable: true }
+        maxScore: { type: number, nullable: true }
+        trend15m: { type: string, nullable: true }
+        trend1h: { type: string, nullable: true }
+        trend4h: { type: string, nullable: true }
+        longConditions:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ScannerCondition"
+        shortConditions:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ScannerCondition"
+        elliott:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ElliottAnalysis"
+        lastScanAt: { type: string, nullable: true }
+        nextScanAt: { type: string, nullable: true }
+        lastCandleAt: { type: string, nullable: true }
+        tradingEnabled: { type: boolean, nullable: true }
+        disabledReason: { type: string, nullable: true }
+        entryBlocker: { type: string, nullable: true }
+        dataAvailable: { type: boolean, nullable: true }
+        scanError: { type: string, nullable: true }
+        hasPosition: { type: boolean, nullable: true }
+        watchlisted: { type: boolean, nullable: true }
+        lastSignalChange:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ScannerSignalChange"
+        position:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ScannerPosition"
+        stats:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AssetTradeStats"
+      required: [ticker, name]
+
+    AssetTradeStats:
+      type: object
+      properties:
+        trades: { type: number }
+        winRate: { type: number, nullable: true }
+        pnl: { type: number }
+        profitFactor: { type: number, nullable: true }
+      required: [trades, pnl]
+
+    ScannerPosition:
+      type: object
+      properties:
+        ticker: { type: string }
+        name: { type: string, nullable: true }
+        currency: { type: string, nullable: true }
+        strategy: { type: string, nullable: true }
+        account: { type: string, nullable: true }
+        direction: { type: string }
+        entry: { type: number }
+        stopLoss: { type: number }
+        initialStop: { type: number, nullable: true }
+        takeProfit: { type: number }
+        quantity: { type: number }
+        riskAmount: { type: number, nullable: true }
+        openedAt: { type: string }
+        currentPrice: { type: number, nullable: true }
+        unrealisedPnl: { type: number, nullable: true }
+        bestPrice: { type: number, nullable: true }
+        worstPrice: { type: number, nullable: true }
+        entryScore: { type: number, nullable: true }
+        maxScore: { type: number, nullable: true }
+        entryThreshold: { type: number, nullable: true }
+        longScore: { type: number, nullable: true }
+        shortScore: { type: number, nullable: true }
+        entryConditions: { type: string, nullable: true }
+        trend1h: { type: string, nullable: true }
+        entryAtr: { type: number, nullable: true }
+      required: [ticker, direction, entry, stopLoss, takeProfit, quantity, openedAt]
+
+    MarketStats:
+      type: object
+      properties:
+        scanned: { type: number }
+        universe: { type: number }
+        counts:
+          type: object
+          additionalProperties: { type: number }
+        openCryptoTrades: { type: number }
+        nextScanAt: { type: string, nullable: true }
+      required: [scanned, universe, counts, openCryptoTrades]
+
+    ScannerAccount:
+      type: object
+      properties:
+        currency: { type: string }
+        balance: { type: number }
+        startingBalance: { type: number }
+        openPositions: { type: number }
+        maxPositions: { type: number }
+        riskPerTradePct: { type: number }
+        maxTotalRiskPct: { type: number }
+        maxSameDirection: { type: number }
+        minVolumeUsd: { type: number }
+      required: [currency, balance, startingBalance, openPositions, maxPositions]
+
+    MarketDirectory:
+      type: object
+      properties:
+        assets:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScannerAsset"
+        marketStats:
+          $ref: "#/components/schemas/MarketStats"
+        scannerAccount:
+          $ref: "#/components/schemas/ScannerAccount"
+        watchlist:
+          type: array
+          items: { type: string }
+      required: [assets, marketStats, scannerAccount, watchlist]
+
+    MarketAssetDetail:
+      type: object
+      properties:
+        ok: { type: boolean }
+        error: { type: string, nullable: true }
+        asset:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ScannerAsset"
+        isCoreCoin: { type: boolean, nullable: true }
+        position:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ScannerPosition"
+        watchlisted: { type: boolean, nullable: true }
+        lastTradeAt: { type: string, nullable: true }
+        stats:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/AssetTradeStats"
+      required: [ok]
+
     PnlDataPoint:
       type: object
       properties:
@@ -981,6 +1625,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ChartSignalPoint"
+        elliott:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ElliottChartOverlay"
       required: [asset, display, currency, range, intervalSeconds, dataSource, candles, signals]
 
     EngineStatus:

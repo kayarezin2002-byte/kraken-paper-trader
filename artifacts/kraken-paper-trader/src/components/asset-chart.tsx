@@ -81,6 +81,8 @@ export function AssetChart({ asset, trades, position, activePosition, currentPri
   const [showRsi, setShowRsi] = useState(false);
   const [showMacd, setShowMacd] = useState(false);
   const [showSignals, setShowSignals] = useState(false);
+  const [showElliott, setShowElliott] = useState(false);
+  const [showFib, setShowFib] = useState(false);
   const [selectedTradeId, setSelectedTradeId] = useState<number | null>(focusTrade?.id ?? null);
   const [selectedSignalTs, setSelectedSignalTs] = useState<number | null>(null);
 
@@ -273,6 +275,47 @@ export function AssetChart({ asset, trades, position, activePosition, currentPri
       }
     }
 
+    // ── Elliott Wave overlay (experimental — visualisation only) ─────────
+    const elliott = data.elliott;
+    if (showElliott && elliott && elliott.structure !== 'UNCERTAIN' && elliott.pivots.length > 0) {
+      const zig = chart.addSeries(LineSeries, {
+        color: '#8b5cf6', lineWidth: 2, lineStyle: LineStyle.Solid,
+        priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+      });
+      const pts = elliott.pivots
+        .slice()
+        .sort((a, b) => a.time - b.time)
+        .filter((p, i, arr) => i === 0 || p.time > arr[i - 1].time);
+      zig.setData(pts.map((p) => ({ time: p.time as UTCTimestamp, value: p.price })));
+      for (const p of pts) {
+        markers.push({
+          time: p.time as UTCTimestamp,
+          position: 'aboveBar',
+          shape: 'circle',
+          color: '#8b5cf6',
+          text: `W${p.label}`,
+          _kind: 'elliott',
+        });
+      }
+    }
+    // ── Fibonacci levels overlay ─────────────────────────────────────────
+    if (showFib && elliott?.fib) {
+      const fib = elliott.fib;
+      for (const [lvl, price] of Object.entries(fib.retracements ?? {})) {
+        candleSeries.createPriceLine({
+          price: price as number, color: 'rgba(139,92,246,0.7)', lineWidth: 1,
+          lineStyle: LineStyle.Dotted, title: `FIB ${lvl}`,
+        });
+      }
+      for (const [lvl, price] of Object.entries(fib.extensions ?? {})) {
+        if (lvl === '100%') continue;
+        candleSeries.createPriceLine({
+          price: price as number, color: 'rgba(14,165,233,0.55)', lineWidth: 1,
+          lineStyle: LineStyle.SparseDotted, title: `EXT ${lvl}`,
+        });
+      }
+    }
+
     markers.sort((a, b) => (a.time as number) - (b.time as number));
     createSeriesMarkers(candleSeries, markers);
 
@@ -327,7 +370,7 @@ export function AssetChart({ asset, trades, position, activePosition, currentPri
       chartRef.current = null;
       chart.remove();
     };
-  }, [data, visibleTrades, position, activePosition, currentPrice, potentialSignals, showEma20, showEma50, showVolume, showRsi, showMacd, showSignals, focusTrade, selectedTradeId]);
+  }, [data, visibleTrades, position, activePosition, currentPrice, potentialSignals, showEma20, showEma50, showVolume, showRsi, showMacd, showSignals, showElliott, showFib, focusTrade, selectedTradeId]);
 
   const toggle = (label: string, on: boolean, set: (v: boolean) => void, dotClass?: string) => (
     <button
@@ -383,6 +426,8 @@ export function AssetChart({ asset, trades, position, activePosition, currentPri
           {toggle('RSI', showRsi, setShowRsi, 'bg-yellow-500')}
           {toggle('MACD', showMacd, setShowMacd, 'bg-cyan-500')}
           {toggle('Signals', showSignals, setShowSignals)}
+          {toggle('ELLIOTT', showElliott, setShowElliott, 'bg-violet-500')}
+          {toggle('FIB', showFib, setShowFib, 'bg-sky-500')}
         </div>
       </div>
 

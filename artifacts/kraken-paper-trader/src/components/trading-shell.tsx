@@ -1,4 +1,4 @@
-import { Activity, BookOpen, Briefcase, CircleHelp, Gauge, History, ShieldCheck, Waves, Zap } from 'lucide-react';
+import { Activity, BookOpen, Briefcase, CircleHelp, FlaskConical, Gauge, Globe, History, ShieldCheck, Waves, Zap } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useHealthCheck } from '@workspace/api-client-react';
 import type { ReactNode } from 'react';
@@ -12,6 +12,8 @@ type TradingShellProps = {
 
 const NAV_LINKS = [
   { href: '/',         label: 'Dashboard',    Icon: Gauge,   testId: 'link-dashboard'  },
+  { href: '/markets',  label: 'Markets',      Icon: Globe,   testId: 'link-markets'    },
+  { href: '/lab',      label: 'Strategy Lab', Icon: FlaskConical, testId: 'link-strategy-lab' },
   { href: '/open',     label: 'Open trades',  Icon: Briefcase, testId: 'link-open-trades' },
   { href: '/history',  label: 'Trade history', Icon: History,  testId: 'link-history'   },
   { href: '/activity', label: 'Activity log',  Icon: Zap,      testId: 'link-activity'  },
@@ -42,7 +44,7 @@ export function TradingShell({ children, eyebrow, title, subtitle }: TradingShel
           <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-sidebar-foreground/45">Workspace</p>
           <nav className="space-y-1">
             {NAV_LINKS.map(({ href, label, Icon, testId }) => {
-              const active = location === href;
+              const active = href === '/' ? location === '/' : location.startsWith(href);
               return (
                 <Link
                   key={href}
@@ -106,15 +108,15 @@ export function TradingShell({ children, eyebrow, title, subtitle }: TradingShel
           {/* Mobile nav */}
           <nav className="flex border-t border-border/70 bg-card px-1 py-1 lg:hidden" aria-label="Mobile workspace navigation">
             {NAV_LINKS.map(({ href, label, Icon, testId }) => {
-              const active = location === href;
+              const active = href === '/' ? location === '/' : location.startsWith(href);
               return (
                 <Link
                   key={href}
                   href={href}
                   data-testid={`link-mobile-${testId}`}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-xs font-bold ${active ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
+                  className={`flex flex-1 flex-col items-center justify-center gap-0.5 rounded-md py-1.5 text-[10px] font-bold sm:flex-row sm:gap-1.5 sm:text-xs ${active ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
                 >
-                  <Icon size={13} /> {label}
+                  <Icon size={13} /> {label.replace(' log', '').replace('Trade history', 'History').replace('Open trades', 'Open').replace('Strategy Lab', 'Lab')}
                 </Link>
               );
             })}

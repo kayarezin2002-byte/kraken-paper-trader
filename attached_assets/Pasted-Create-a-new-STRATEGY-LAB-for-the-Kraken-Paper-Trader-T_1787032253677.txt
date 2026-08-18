@@ -1,0 +1,577 @@
+Create a new STRATEGY LAB for the Kraken Paper Trader.
+
+The objective is to determine, from actual data, which combination of:
+
+- entry rules
+- LONG/SHORT scoring
+- take-profit
+- stop-loss
+- trailing stops
+- risk level
+- timeframe
+- market
+- Elliott Wave alignment
+
+produces the highest risk-adjusted returns.
+
+Everything remains PAPER TRADING ONLY.
+
+Do not connect real-money trading.
+
+# 1. Core concept — parallel shadow strategies
+
+Whenever the bot identifies a market opportunity, allow multiple experimental strategies to simulate what WOULD have happened.
+
+These are called:
+
+SHADOW STRATEGIES
+
+They must NOT create duplicate real paper positions in the main account.
+
+Example:
+
+BTC produces ACTIVE LONG 4/6 at $X.
+
+Main paper strategy may open one position.
+
+At the same time Strategy Lab can independently simulate:
+
+Experiment A — 0.3% TP / 0.25% SL  
+Experiment B — 0.5% TP / 0.3% SL  
+Experiment C — 0.75% TP / 0.4% SL  
+Experiment D — trailing exit  
+Experiment E — Elliott aligned only
+
+All experiments use the same underlying market data.
+
+# 2. Create Strategy Lab tab
+
+Add:
+
+STRATEGY LAB
+
+to the navigation.
+
+At the top show:
+
+Experiments running  
+Total simulated trades  
+Best strategy  
+Best profit factor  
+Best expectancy  
+Lowest drawdown  
+Highest net return  
+Data confidence
+
+# 3. Entry-threshold experiments
+
+Simultaneously test:
+
+ACTIVE 3/6
+ACTIVE 4/6
+ACTIVE 5/6
+ACTIVE 6/6
+
+The main paper account should remain at 4/6 for now.
+
+3/6 is experimental only.
+
+This will tell us whether taking more lower-confidence opportunities actually increases or decreases profitability.
+
+# 4. Exit experiments
+
+Test several exit profiles.
+
+### SCALP A
+TP: 0.30%
+SL: 0.25%
+
+### SCALP B
+TP: 0.50%
+SL: 0.30%
+
+### BALANCED
+TP: 0.75%
+SL: 0.50%
+
+### TREND
+Use wider initial stop with trailing profit protection.
+
+### DYNAMIC
+ATR/volatility-based stop and target.
+
+All values must remain configurable.
+
+Include estimated fees and slippage when calculating performance.
+
+# 5. Trailing-stop experiments
+
+Test:
+
+NO TRAILING STOP
+
+against several trailing-stop configurations.
+
+Also test:
+
+BREAK-EVEN PROTECTION
+
+after predefined favourable movement.
+
+Record whether these mechanisms improve or reduce expectancy.
+
+# 6. Risk experiments
+
+For every qualifying Strategy Lab trade, calculate hypothetical portfolio performance at:
+
+0.5% risk
+1.0% risk
+1.5% risk
+2.0% risk
+2.5% risk
+
+These must NOT create five separate trades.
+
+The same trade result should be mathematically applied to the different risk models.
+
+This allows us to determine the effect on:
+
+Net return  
+Maximum drawdown  
+Volatility  
+Losing streak impact  
+Account growth
+
+# 7. Elliott experiment
+
+Continue recording the new Elliott/Fibonacci information.
+
+Separate results into:
+
+ALL ACTIVE TRADES
+
+ELLIOTT ALIGNED
+
+ELLIOTT NOT ALIGNED
+
+POTENTIAL WAVE 3
+
+WAVE 5 EXHAUSTION
+
+ABC CORRECTION
+
+ELLIOTT UNCERTAIN
+
+Do NOT enable Elliott as a mandatory main-strategy filter yet.
+
+# 8. LONG vs SHORT analysis
+
+Analyse LONG and SHORT trades separately.
+
+Display:
+
+LONG trades  
+LONG win rate  
+LONG profit factor  
+LONG expectancy  
+LONG P&L
+
+and:
+
+SHORT trades  
+SHORT win rate  
+SHORT profit factor  
+SHORT expectancy  
+SHORT P&L
+
+Also break these results down by cryptocurrency.
+
+We may discover that certain assets perform better LONG than SHORT or vice versa.
+
+# 9. Per-asset learning
+
+Track Strategy Lab results independently for:
+
+BTC  
+ETH  
+SOL  
+XRP  
+and every supported cryptocurrency in the expanded scanner.
+
+Also retain Gold and Silver separately.
+
+Example:
+
+SOL
+
+4/6 LONG
+PF: 1.63
+
+4/6 SHORT
+PF: 1.18
+
+5/6 LONG
+PF: 1.91
+
+Wave 3 LONG
+PF: 2.14
+
+This should allow us to discover that different assets may require different configurations.
+
+# 10. Market-regime classification
+
+Add a simple experimental market-regime classifier.
+
+Classify each observation as:
+
+STRONG UPTREND
+UPTREND
+RANGE
+DOWNTREND
+STRONG DOWNTREND
+HIGH VOLATILITY
+LOW VOLATILITY
+
+Store the regime with every Strategy Lab trade.
+
+Do NOT initially change trading behaviour because of this.
+
+We want to discover which strategies perform best in each environment.
+
+# 11. Strategy leaderboard
+
+Create a leaderboard showing:
+
+Rank
+Strategy
+Trades
+Win Rate
+Net P&L
+ROI
+Profit Factor
+Expectancy
+Max Drawdown
+Sharpe
+Average Winner
+Average Loser
+
+Allow sorting by each metric.
+
+Do NOT rank strategies purely by win rate.
+
+# 12. Minimum sample warning
+
+Do not declare a strategy a winner after a handful of trades.
+
+Show:
+
+INSUFFICIENT DATA
+
+for very small samples.
+
+Suggested stages:
+
+Under 30 trades:
+VERY LOW CONFIDENCE
+
+30–99:
+LOW CONFIDENCE
+
+100–249:
+MODERATE CONFIDENCE
+
+250–499:
+GOOD SAMPLE
+
+500+:
+LARGE SAMPLE
+
+These labels indicate sample size only and must NOT imply guaranteed future profitability.
+
+# 13. Strategy comparison
+
+Allow any two strategies to be selected.
+
+Display:
+
+Strategy A vs Strategy B
+
+Compare:
+
+Trades  
+Win rate  
+Profit factor  
+Expectancy  
+Net P&L  
+Maximum drawdown  
+Sharpe  
+Average win/loss  
+Longest losing streak
+
+Highlight meaningful differences without claiming statistical certainty unless an appropriate statistical test supports it.
+
+# 14. Equity curves
+
+Show an interactive equity curve for every Strategy Lab experiment.
+
+Allow:
+
+£100 starting account
+£1,000 starting account
+
+Show hypothetical compounding.
+
+Also show drawdown underneath or as a separate view.
+
+# 15. Risk-adjusted ranking
+
+Create:
+
+BEST RETURN
+
+and separately:
+
+BEST RISK-ADJUSTED
+
+Do not assume the strategy producing the highest raw return is automatically best.
+
+A strategy producing:
+
++40% return / -35% drawdown
+
+may be less desirable than:
+
++30% return / -8% drawdown.
+
+# 16. Drawdown protection experiment
+
+Simulate a dynamic risk model.
+
+Example:
+
+Normal conditions:
+100% configured risk
+
+Account drawdown reaches 5%:
+reduce risk by 25%
+
+Drawdown reaches 8%:
+reduce risk by 50%
+
+Drawdown reaches 10%:
+enter defensive risk mode
+
+Recovering to a new equity high:
+gradually restore normal risk.
+
+Test this against constant-risk models.
+
+# 17. Correlation protection
+
+Because many cryptocurrencies move together, record portfolio correlation effects.
+
+Test what happens when several highly correlated crypto LONG positions appear simultaneously.
+
+Create an experimental rule:
+
+CORRELATION PROTECTION
+
+This should limit excessive exposure to essentially the same market move.
+
+Compare results:
+
+Protection ON
+
+vs
+
+Protection OFF.
+
+# 18. Fees and slippage
+
+This is essential.
+
+Strategy Lab results must include realistic configurable estimates for:
+
+Trading fees
+Spread
+Slippage
+
+Show:
+
+Gross P&L
+
+and
+
+Net P&L after estimated trading costs.
+
+A strategy that only appears profitable before costs must NOT be classified as profitable.
+
+# 19. Opportunity analysis
+
+Record EVERY qualifying signal, even when the main portfolio cannot take the trade because another position/risk limit blocks it.
+
+Label these:
+
+MISSED / SHADOW OPPORTUNITY
+
+This lets Strategy Lab determine whether portfolio restrictions are helping or hurting performance.
+
+# 20. Why trades win or lose
+
+For every trade record the entry conditions:
+
+EMA  
+RSI  
+MACD  
+Momentum  
+Volume  
+Support/resistance  
+Market regime  
+Elliott structure  
+Fibonacci position  
+15m trend  
+1h trend  
+4h trend  
+LONG/SHORT score
+
+Later analyse which combinations produce the strongest expectancy.
+
+# 21. Combination analysis
+
+Create an analytics section showing examples such as:
+
+RSI + MACD
+Trades: X
+PF: X
+Expectancy: X
+
+EMA + Momentum
+Trades: X
+PF: X
+Expectancy: X
+
+4/6 + Elliott aligned
+Trades: X
+PF: X
+Expectancy: X
+
+5/6 + Wave 3
+Trades: X
+PF: X
+Expectancy: X
+
+We want the data to reveal which combinations actually work.
+
+# 22. Do not overfit
+
+Do NOT automatically modify the main strategy every time one experiment temporarily moves into first place.
+
+A strategy must have an adequate sample and remain robust across different periods/assets before being considered for promotion.
+
+Add:
+
+CANDIDATE FOR PROMOTION
+
+rather than automatically changing production settings.
+
+# 23. Main strategy remains unchanged initially
+
+For now:
+
+MAIN ACTIVE STRATEGY = 4/6
+
+Elliott influence = OFF
+
+Wave 5 veto = OFF
+
+Strategy Lab = observation/simulation only
+
+Do not let Strategy Lab experiments interfere with actual main paper trades.
+
+# 24. Strategy Lab notifications
+
+Add useful events to Activity Log:
+
+NEW STRATEGY LEADER
+
+100-TRADE SAMPLE REACHED
+
+250-TRADE SAMPLE REACHED
+
+STRATEGY LOST PROFITABILITY
+
+NEW MAX DRAWDOWN
+
+POTENTIAL PROMOTION CANDIDATE
+
+Do not spam the Activity Log on every candle.
+
+# 25. Strategy Lab summary
+
+At the top eventually show something like:
+
+8,462 shadow trades analysed
+
+Best raw return:
+ACTIVE 4/6 + Dynamic Exit
+
+Best risk-adjusted:
+ACTIVE 5/6 + Elliott Alignment
+
+Best LONG:
+Wave 3 + ACTIVE 4/6
+
+Best SHORT:
+ACTIVE 5/6 + Trend Exit
+
+Lowest drawdown:
+ACTIVE 5/6 + 1% risk
+
+Again, these are examples only.
+
+Use actual calculated results.
+
+# 26. Preserve all raw experimental data
+
+Do not only store aggregate statistics.
+
+Store sufficient information about each signal/trade so experiments can be recalculated later as the Strategy Lab develops.
+
+Avoid deleting losing strategies or losing trades.
+
+Negative results are important.
+
+# 27. PERFORMANCE
+
+The Strategy Lab must not cause the application to become slow.
+
+Do not run hundreds of redundant indicator calculations.
+
+Reuse cached candles, indicator values and signals wherever possible.
+
+One market observation should feed multiple experimental calculations.
+
+# 28. PAPER MODE ONLY
+
+No real-money execution.
+
+No exchange API keys.
+
+No automatic transition from Strategy Lab to real trading.
+
+The purpose is to discover whether we have a repeatable statistical edge before considering anything else.
+
+After implementation show me:
+
+1. All Strategy Lab experiments currently running.
+2. Which entry thresholds are being compared.
+3. Which exit strategies are being compared.
+4. Which risk levels are being simulated.
+5. Confirmation fees/slippage are included.
+6. Confirmation Elliott alignment is being recorded.
+7. Confirmation market regime is being recorded.
+8. Confirmation LONG and SHORT are analysed independently.
+9. Confirmation each cryptocurrency is analysed independently.
+10. Confirmation Strategy Lab cannot alter the main ACTIVE 4/6 strategy automatically.
+11. Current number of shadow observations/trades.
+12. Strategy Lab leaderboard.

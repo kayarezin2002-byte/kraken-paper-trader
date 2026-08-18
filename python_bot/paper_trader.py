@@ -276,6 +276,9 @@ def init_db(connection: sqlite3.Connection) -> None:
         ("long_score",       "REAL"),
         ("short_score",      "REAL"),
         ("entry_threshold",  "REAL"),
+        # Elliott Wave observation-mode record (Aug 2026): JSON snapshot of the
+        # Elliott state at entry. Analytics only — never influences execution.
+        ("elliott",          "TEXT"),
     ):
         if col not in existing_cols:
             connection.execute(f"ALTER TABLE trades ADD COLUMN {col} {col_type}")
@@ -1519,8 +1522,8 @@ def close_position(
              risk_amount, r_multiple, pnl_pct, duration_seconds, result,
              entry_score, pass_count, trend_1h, entry_mode, entry_conditions,
              long_score, short_score, entry_threshold, strategy,
-             est_fees, est_slippage, pnl_net)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             est_fees, est_slippage, pnl_net, elliott)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             coin, position["openedAt"], closed_at, direction,
@@ -1534,6 +1537,7 @@ def close_position(
             safe_float(position.get("longScore")), safe_float(position.get("shortScore")),
             safe_float(position.get("entryThreshold")), strategy,
             est_fees, est_slippage, pnl_net,
+            json.dumps(position["elliott"]) if position.get("elliott") else None,
         ),
     )
     # Disarm re-entry protection on the strategy's own slot: no same-signal
@@ -1725,6 +1729,21 @@ def set_active_mode_command(mode: str) -> dict[str, Any]:
         return {"ok": True, "mode": mode, "threshold": ACTIVE_THRESHOLD_MODES[mode]}
     finally:
         connection.close()
+
+
+def _elliott_record_for(connection: sqlite3.Connection, coin: str, direction: str) -> dict[str, Any]:
+    """Elliott state at entry, read from the market scanner's cached snapshot
+    (same 15m data, no extra fetch). Observation mode only — the caller must
+    already have decided to open the trade before calling this."""
+    try:
+        from elliott_wave import elliott_entry_record
+        row = connection.execute(
+            "SELECT snapshot FROM scanner_state WHERE ticker = ?", (coin,)
+        ).fetchone()
+        elliott = json.loads(row["snapshot"]).get("elliott") if row else None
+        return elliott_entry_record(elliott, direction)
+    except Exception:
+        return {"available": False, "aligned": "UNKNOWN"}
 
 
 def evaluate_active_directional(
@@ -2018,6 +2037,9 @@ def refresh_active(
                         cd["name"] for cd in dir_eval[decision.lower()]["conditions"] if cd["pass"]
                     ),
                 }
+                # Elliott observation mode: record the Elliott state at entry.
+                # NEVER influences whether this trade opens (influence = OFF).
+                opened["elliott"] = _elliott_record_for(connection, coin, decision)
                 connection.execute(
                     "UPDATE coin_state SET active_position = ?, updated_at = ? WHERE coin = ?",
                     (json.dumps(opened), now_iso(), coin),
@@ -3276,7 +3298,8 @@ def _default_interval(range_key: str) -> str:
     return {"24H": "15m", "7D": "1h", "30D": "1h", "90D": "4h"}[range_key]
 
 
-def _fetch_chart_rows(asset: str, range_key: str, interval_key: str) -> tuple[list[list[Any]], int]:
+def _fetch_chart_rows(asset: str, range_key: str, interval_key: str,
+                      scanner_pair: str | None = None) -> tuple[list[list[Any]], int]:
     """Completed candles covering the range plus indicator warm-up.
 
     Returns (rows, interval_seconds). Uses the SAME data sources as the
@@ -3284,8 +3307,8 @@ def _fetch_chart_rows(asset: str, range_key: str, interval_key: str) -> tuple[li
     for metals. Kraken history caps apply (15m ≈ 7.5 days, 1h ≈ 30 days) —
     the chart simply shows what the exchange provides for that timeframe.
     """
-    if asset in COINS:
-        pair = COINS[asset]["pair"]
+    if asset in COINS or scanner_pair:
+        pair = scanner_pair or COINS[asset]["pair"]
         interval = CHART_INTERVALS[interval_key] // 60
         result = fetch_json(
             f"https://api.kraken.com/0/public/OHLC?pair={pair}&interval={interval}"
@@ -3360,8 +3383,19 @@ def chart_command(asset: str, range_key: str, interval_key: str | None = None) -
     Renders fine with zero trades — candles and indicators never depend on
     trade history."""
     asset = asset.upper()
+    scanner_pair: str | None = None
     if asset not in INSTRUMENTS:
-        raise RuntimeError(f"Unknown asset {asset}")
+        # Scanner universe assets chart from their Kraken USD pair
+        from market_scanner import SCANNER_ASSETS, _pair_map
+        if asset not in SCANNER_ASSETS:
+            raise RuntimeError(f"Unknown asset {asset}")
+        conn = db()
+        try:
+            scanner_pair = _pair_map(conn).get(asset)
+        finally:
+            conn.close()
+        if not scanner_pair:
+            raise RuntimeError(f"No Kraken USD pair available for {asset}")
     if range_key not in CHART_RANGES:
         raise RuntimeError(f"Unknown range {range_key}")
     if interval_key is None:
@@ -3372,8 +3406,8 @@ def chart_command(asset: str, range_key: str, interval_key: str | None = None) -
     # Live market price for the current-price line (best effort)
     current_price: float | None = None
     try:
-        if asset in COINS:
-            pair = COINS[asset]["pair"]
+        if asset in COINS or scanner_pair:
+            pair = scanner_pair or COINS[asset]["pair"]
             tr = fetch_json(f"https://api.kraken.com/0/public/Ticker?pair={pair}")
             tk = tr.get(pair) or next(iter(tr.values()), None)
             if tk and tk.get("c"):
@@ -3383,7 +3417,7 @@ def chart_command(asset: str, range_key: str, interval_key: str | None = None) -
     except Exception:
         current_price = None
 
-    rows, interval_seconds = _fetch_chart_rows(asset, range_key, interval_key)
+    rows, interval_seconds = _fetch_chart_rows(asset, range_key, interval_key, scanner_pair)
     closes = [float(r[4]) for r in rows]
     ema20 = ema_series(closes, 20)
     ema50 = ema_series(closes, 50)
@@ -3451,10 +3485,15 @@ def chart_command(asset: str, range_key: str, interval_key: str | None = None) -
         })
     signals.reverse()
 
-    info = instrument_info(asset)
+    if scanner_pair:
+        info = {"currency": "USD", "dataSource": f"Kraken public API ({asset}/USD, spot)"}
+        display = f"{asset}/USD"
+    else:
+        info = instrument_info(asset)
+        display = instrument_display(asset)
     return {
         "asset": asset,
-        "display": instrument_display(asset),
+        "display": display,
         "currency": info["currency"],
         "range": range_key,
         "interval": interval_key,
@@ -3463,7 +3502,32 @@ def chart_command(asset: str, range_key: str, interval_key: str | None = None) -
         "dataSource": info["dataSource"],
         "candles": candles,
         "signals": signals,
+        "elliott": _chart_elliott_overlay(rows, interval_key, window_start),
     }
+
+
+def _chart_elliott_overlay(rows: list[list[Any]], interval_key: str,
+                           window_start: float) -> dict[str, Any] | None:
+    """Elliott pivots + fib levels for the chart's ELLIOTT/FIB overlay toggles.
+    Computed on the already-fetched chart candles — read-only visualisation."""
+    try:
+        from elliott_wave import analyze_timeframe
+        tf = analyze_timeframe(rows, interval_key)
+        if tf["structure"] == "UNCERTAIN":
+            return {"structure": "UNCERTAIN", "wave": None, "direction": "NEUTRAL",
+                    "confidence": tf["confidence"], "confidenceLabel": tf["confidenceLabel"],
+                    "pivots": [], "fib": None}
+        pivots = [p for p in tf["pivots"] if p["time"] >= window_start]
+        fib = tf.get("fib")
+        return {
+            "structure": tf["structure"], "wave": tf["wave"],
+            "direction": tf["direction"], "confidence": tf["confidence"],
+            "confidenceLabel": tf["confidenceLabel"],
+            "pivots": pivots,
+            "fib": fib,
+        }
+    except Exception:
+        return None
 
 
 def reset_all_command(payload: str | None = None) -> dict[str, Any]:
@@ -3532,6 +3596,34 @@ def main() -> None:
     elif command == "all-trades":
         limit = int(sys.argv[2]) if len(sys.argv) > 2 else 200
         result = all_trades(limit)
+    elif command == "scan-market":
+        from market_scanner import scan_market
+        result = scan_market()
+    elif command == "market-directory":
+        from market_scanner import market_directory
+        result = market_directory()
+    elif command == "market-asset":
+        from market_scanner import market_asset
+        result = market_asset(sys.argv[2] if len(sys.argv) > 2 else "")
+    elif command == "watchlist-toggle":
+        from market_scanner import toggle_watchlist
+        result = toggle_watchlist(sys.argv[2] if len(sys.argv) > 2 else "")
+    elif command == "scanner-positions":
+        from market_scanner import scanner_open_positions
+        result = scanner_open_positions()
+    elif command == "elliott-lab":
+        from market_scanner import elliott_lab
+        result = elliott_lab()
+    elif command == "lab-overview":
+        from strategy_lab import lab_overview
+        result = lab_overview()
+    elif command == "lab-strategy":
+        from strategy_lab import lab_strategy_detail
+        result = lab_strategy_detail(
+            sys.argv[2],
+            start=float(sys.argv[3]) if len(sys.argv) > 3 else 1000.0,
+            risk_pct=float(sys.argv[4]) if len(sys.argv) > 4 else 1.0,
+        )
     elif command == "set-active-mode":
         mode = sys.argv[2] if len(sys.argv) > 2 else ""
         result = set_active_mode_command(mode)

@@ -3,8 +3,11 @@ import { ArrowDownRight, ArrowUpRight, Briefcase, LineChart, X } from 'lucide-re
 import {
   useGetMultiCoinState,
   getGetMultiCoinStateQueryKey,
+  useGetScannerPositions,
+  getGetScannerPositionsQueryKey,
   type PaperTraderState,
   type OpenPosition,
+  type ScannerPosition,
 } from '@workspace/api-client-react';
 import { TradingShell } from '@/components/trading-shell';
 import { AssetChart } from '@/components/asset-chart';
@@ -20,14 +23,38 @@ const COIN_COLORS: Record<string, string> = {
   SILVER: 'bg-slate-400/15 text-slate-300',
 };
 
-type StrategyLabel = 'ACTIVE' | 'HIGH-CONFIDENCE';
+type StrategyLabel = 'ACTIVE' | 'HIGH-CONFIDENCE' | 'SCANNER';
 
 interface OpenTrade {
   coin: string;
   strategy: StrategyLabel;
   currency: string;
   pos: OpenPosition;
-  state: PaperTraderState;
+  state?: PaperTraderState;
+}
+
+/** Scanner positions come from the $ SCANNER account — reshape to OpenPosition. */
+function scannerToOpenPosition(p: ScannerPosition): OpenPosition {
+  const pct = p.currentPrice != null && p.entry
+    ? ((p.direction === 'LONG' ? p.currentPrice - p.entry : p.entry - p.currentPrice) / p.entry) * 100
+    : null;
+  return {
+    direction: p.direction as OpenPosition['direction'],
+    entry: p.entry,
+    stopLoss: p.stopLoss,
+    initialStop: p.initialStop ?? null,
+    takeProfit: p.takeProfit,
+    quantity: p.quantity,
+    riskAmount: p.riskAmount ?? null,
+    openedAt: p.openedAt,
+    currentPrice: p.currentPrice ?? null,
+    unrealisedPnl: p.unrealisedPnl ?? null,
+    unrealisedPct: pct != null ? Math.round(pct * 100) / 100 : null,
+    bestPrice: p.bestPrice ?? null,
+    worstPrice: p.worstPrice ?? null,
+    longScore: p.longScore ?? null,
+    shortScore: p.shortScore ?? null,
+  } as OpenPosition;
 }
 
 const sym = (c: string) => (c === 'USD' ? '$' : '£');
@@ -68,7 +95,7 @@ function TradeCard({ t, onView }: { t: OpenTrade; onView: (t: OpenTrade) => void
   const cur = pos.currentPrice;
   const qty = pos.quantity;
   const score = isLong ? pos.longScore : pos.shortScore;
-  const maxScore = strategy === 'ACTIVE' ? 6 : coin === 'GOLD' || coin === 'SILVER' ? 6 : 8;
+  const maxScore = strategy === 'ACTIVE' || strategy === 'SCANNER' ? 6 : coin === 'GOLD' || coin === 'SILVER' ? 6 : 8;
   const distStop = cur != null ? Math.abs(cur - pos.stopLoss) / cur * 100 : null;
   const distTp = cur != null ? Math.abs(pos.takeProfit - cur) / cur * 100 : null;
   const initialStop = pos.initialStop ?? pos.stopLoss;
@@ -88,7 +115,7 @@ function TradeCard({ t, onView }: { t: OpenTrade; onView: (t: OpenTrade) => void
         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono-data text-[10px] font-bold ${isLong ? 'bg-accent/15 text-accent' : 'bg-destructive/15 text-destructive'}`}>
           {isLong ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}{pos.direction}
         </span>
-        <span className={`rounded px-1.5 py-0.5 font-mono-data text-[9px] font-bold uppercase ${strategy === 'ACTIVE' ? 'bg-cyan-500/15 text-cyan-500' : 'bg-blue-500/10 text-blue-500'}`}>{strategy}</span>
+        <span className={`rounded px-1.5 py-0.5 font-mono-data text-[9px] font-bold uppercase ${strategy === 'ACTIVE' ? 'bg-cyan-500/15 text-cyan-500' : strategy === 'SCANNER' ? 'bg-purple-500/15 text-purple-400' : 'bg-blue-500/10 text-blue-500'}`}>{strategy}</span>
         <span className={`ml-auto rounded px-1.5 py-0.5 font-mono-data text-[10px] font-bold uppercase ${inProfit ? 'bg-accent/15 text-accent' : 'bg-destructive/15 text-destructive'}`}>
           {inProfit ? 'PROFIT' : 'LOSS'}
         </span>
@@ -177,7 +204,7 @@ function TradeChartModal({ trade, onClose }: { trade: OpenTrade; onClose: () => 
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-bold">
             Open trade — {trade.coin} {trade.pos.direction}
-            <span className={`ml-2 rounded px-1.5 py-0.5 font-mono-data text-[9px] font-bold uppercase ${trade.strategy === 'ACTIVE' ? 'bg-cyan-500/15 text-cyan-500' : 'bg-blue-500/10 text-blue-500'}`}>{trade.strategy}</span>
+            <span className={`ml-2 rounded px-1.5 py-0.5 font-mono-data text-[9px] font-bold uppercase ${trade.strategy === 'ACTIVE' ? 'bg-cyan-500/15 text-cyan-500' : trade.strategy === 'SCANNER' ? 'bg-purple-500/15 text-purple-400' : 'bg-blue-500/10 text-blue-500'}`}>{trade.strategy}</span>
           </h3>
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" data-testid="button-close-trade-chart">
             <X size={16} />
@@ -187,7 +214,7 @@ function TradeChartModal({ trade, onClose }: { trade: OpenTrade; onClose: () => 
           asset={trade.coin}
           trades={[]}
           position={trade.strategy === 'HIGH-CONFIDENCE' ? trade.pos : null}
-          activePosition={trade.strategy === 'ACTIVE' ? trade.pos : null}
+          activePosition={trade.strategy !== 'HIGH-CONFIDENCE' ? trade.pos : null}
           currentPrice={trade.pos.currentPrice ?? undefined}
           defaultRange={range as '24H' | '7D' | '30D' | '90D'}
         />
@@ -196,7 +223,7 @@ function TradeChartModal({ trade, onClose }: { trade: OpenTrade; onClose: () => 
   );
 }
 
-const STRAT_FILTERS = ['ALL', 'LONG', 'SHORT', 'ACTIVE STRATEGY', 'HIGH-CONFIDENCE'] as const;
+const STRAT_FILTERS = ['ALL', 'LONG', 'SHORT', 'ACTIVE STRATEGY', 'HIGH-CONFIDENCE', 'SCANNER'] as const;
 type StratFilter = typeof STRAT_FILTERS[number];
 
 export default function OpenTrades() {
@@ -207,11 +234,18 @@ export default function OpenTrades() {
   const multiStateQuery = useGetMultiCoinState({
     query: { queryKey: getGetMultiCoinStateQueryKey(), refetchInterval: 15000 },
   });
+  const scannerQuery = useGetScannerPositions({
+    query: { queryKey: getGetScannerPositionsQueryKey(), refetchInterval: 15000 },
+  });
   const ms = multiStateQuery.data;
+  const scannerPositions = scannerQuery.data;
 
   const trades = useMemo<OpenTrade[]>(() => {
-    if (!ms) return [];
     const out: OpenTrade[] = [];
+    for (const p of scannerPositions ?? []) {
+      out.push({ coin: p.ticker, strategy: 'SCANNER', currency: 'USD', pos: scannerToOpenPosition(p) });
+    }
+    if (!ms) return out;
     for (const coin of COINS) {
       const state = (ms as unknown as Record<string, PaperTraderState>)[coin];
       if (!state) continue;
@@ -220,7 +254,7 @@ export default function OpenTrades() {
       if (state.activePosition) out.push({ coin, strategy: 'ACTIVE', currency, pos: state.activePosition, state });
     }
     return out;
-  }, [ms]);
+  }, [ms, scannerPositions]);
 
   const filtered = trades.filter((t) => {
     if (coinFilter !== 'ALL' && t.coin !== coinFilter) return false;
@@ -228,6 +262,7 @@ export default function OpenTrades() {
     if (filter === 'SHORT') return t.pos.direction === 'SHORT';
     if (filter === 'ACTIVE STRATEGY') return t.strategy === 'ACTIVE';
     if (filter === 'HIGH-CONFIDENCE') return t.strategy === 'HIGH-CONFIDENCE';
+    if (filter === 'SCANNER') return t.strategy === 'SCANNER';
     return true;
   });
 
@@ -294,7 +329,7 @@ export default function OpenTrades() {
             ))}
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {['ALL', ...COINS].map((c) => (
+            {['ALL', ...COINS, ...Array.from(new Set(trades.filter((t) => t.strategy === 'SCANNER').map((t) => t.coin)))].map((c) => (
               <button key={c} onClick={() => setCoinFilter(c)}
                 className={`shrink-0 rounded-lg px-3 py-1.5 font-mono-data text-[10px] font-bold uppercase tracking-wider transition-all ${coinFilter === c ? 'bg-primary text-white' : 'border border-border bg-card text-muted-foreground hover:text-foreground'}`}>
                 {c}

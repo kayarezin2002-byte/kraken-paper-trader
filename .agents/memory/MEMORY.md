@@ -8,4 +8,7 @@
 - [Metals backtest conclusions](metals-backtest-conclusions.md) — 365d gate study: relaxing 4h Trend/Volume beats 6/6; 1h Trend is implied by MACD+PriceVsMA; live 3-loss pause never un-pauses (bug).
 - [Execution runtime & scan scheduler](execution-runtime.md) — scans run server-side every 120s; all bot invocations must be serialized through one queue (SQLite single-writer); metals volume=0 is a data quirk.
 - [Crypto strategy research](crypto-strategy-research.md) — IS/OOS study: ETH no edge; XRP SHORT headline was in-sample; nothing survives real Kraken fees on 1h; windowed sims must liquidate endpoint positions.
+- [Crypto market scanner](market-scanner.md) — 30-asset USD scanner on separate $1k account; core coins ranked but never scanner-traded; exitReason is a contract enum.
+- [Elliott Wave module](elliott-wave-module.md) — observation-only analytics; influence flags OFF; ZigZag seed must track extreme indices; per-candle compute cached in scanner snapshot.
+- [Strategy Lab](strategy-lab.md) — simulation-only shadow strategies; thresholds/risk/filters applied at query time; gap fills use candle open; overlap analysis uses simulated timestamps.
 - [opportunity_research.py performance](opportunity-bt-performance.md) — build_pre must use deque-based O(n) rolling windows; bytearray trend breaks string comparison; pre-compute once per series not per config.

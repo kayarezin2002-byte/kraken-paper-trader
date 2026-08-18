@@ -93,6 +93,9 @@ async function runScan(): Promise<void> {
     // runBot serializes against every other bot invocation (browser refreshes,
     // resets) — a single process-wide queue, so no concurrent SQLite writers.
     await runBot("multi-refresh");
+    // Whole-market crypto scanner: same tick cadence; only re-evaluates an
+    // asset when a new completed 15m candle is due (lightweight otherwise).
+    await runBot("scan-market");
     engine.status = "RUNNING";
     engine.lastError = null;
     engine.scansCompleted += 1;

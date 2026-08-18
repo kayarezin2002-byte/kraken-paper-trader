@@ -5,7 +5,15 @@ import {
   GetChartDataQueryParams,
   GetChartDataResponse,
   GetEngineStatusResponse,
+  GetMarketAssetParams,
+  GetMarketAssetResponse,
+  GetMarketDirectoryResponse,
   GetMultiCoinStateResponse,
+  GetScannerPositionsResponse,
+  GetElliottLabResponse,
+  GetLabOverviewResponse,
+  GetLabStrategyQueryParams,
+  GetLabStrategyResponse,
   GetPaperTraderStateResponse,
   GetPnlSeriesResponse,
   GetPortfolioSummaryResponse,
@@ -23,6 +31,8 @@ import {
   ResetPaperTraderResponse,
   SetActiveModeBody,
   SetActiveModeResponse,
+  ToggleWatchlistBody,
+  ToggleWatchlistResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -134,6 +144,87 @@ router.get("/paper-trader/chart", async (req, res) => {
   } catch (error) {
     req.log.error({ err: error }, "Unable to build chart data");
     res.status(502).json({ error: "Unable to fetch chart market data" });
+  }
+});
+
+// ── Market scanner endpoints ────────────────────────────────────────────────
+router.get("/market/scanner", async (req, res) => {
+  try {
+    const data = GetMarketDirectoryResponse.parse(await runBot("market-directory"));
+    res.json(data);
+  } catch (error) {
+    req.log.error({ err: error }, "Unable to load market directory");
+    res.status(502).json({ error: "Unable to load market directory" });
+  }
+});
+
+router.get("/market/asset/:ticker", async (req, res) => {
+  try {
+    const params = GetMarketAssetParams.parse(req.params);
+    const data = GetMarketAssetResponse.parse(await runBot("market-asset", params.ticker));
+    res.json(data);
+  } catch (error) {
+    req.log.error({ err: error }, "Unable to load market asset");
+    res.status(502).json({ error: "Unable to load market asset" });
+  }
+});
+
+router.post("/market/watchlist", async (req, res) => {
+  try {
+    const body = ToggleWatchlistBody.parse(req.body ?? {});
+    const data = ToggleWatchlistResponse.parse(await runBot("watchlist-toggle", body.ticker));
+    res.json(data);
+  } catch (error) {
+    req.log.error({ err: error }, "Unable to toggle watchlist");
+    res.status(502).json({ error: "Unable to toggle watchlist" });
+  }
+});
+
+router.get("/market/elliott-lab", async (req, res) => {
+  try {
+    const data = GetElliottLabResponse.parse(await runBot("elliott-lab"));
+    res.json(data);
+  } catch (error) {
+    req.log.error({ err: error }, "Unable to load Elliott lab");
+    res.status(502).json({ error: "Unable to load Elliott lab" });
+  }
+});
+
+router.get("/market/lab-overview", async (req, res) => {
+  try {
+    const data = GetLabOverviewResponse.parse(await runBot("lab-overview"));
+    res.json(data);
+  } catch (error) {
+    req.log.error({ err: error }, "Unable to load Strategy Lab overview");
+    res.status(502).json({ error: "Unable to load Strategy Lab overview" });
+  }
+});
+
+router.get("/market/lab-strategy", async (req, res) => {
+  try {
+    const params = GetLabStrategyQueryParams.parse(req.query);
+    const data = GetLabStrategyResponse.parse(
+      await runBot(
+        "lab-strategy",
+        params.strategy,
+        String(params.start ?? 1000),
+        String(params.risk ?? 1),
+      ),
+    );
+    res.json(data);
+  } catch (error) {
+    req.log.error({ err: error }, "Unable to load Strategy Lab strategy");
+    res.status(502).json({ error: "Unable to load Strategy Lab strategy" });
+  }
+});
+
+router.get("/market/scanner-positions", async (req, res) => {
+  try {
+    const data = GetScannerPositionsResponse.parse(await runBot("scanner-positions"));
+    res.json(data);
+  } catch (error) {
+    req.log.error({ err: error }, "Unable to load scanner positions");
+    res.status(502).json({ error: "Unable to load scanner positions" });
   }
 });
 

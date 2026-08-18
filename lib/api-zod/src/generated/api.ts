@@ -4066,7 +4066,7 @@ export const ListActivityLogResponse = zod.array(ListActivityLogResponseItem)
 export const getChartDataQueryRangeDefault = `7D`;
 
 export const GetChartDataQueryParams = zod.object({
-  "asset": zod.enum(['BTC', 'ETH', 'SOL', 'XRP', 'GOLD', 'SILVER']),
+  "asset": zod.coerce.string(),
   "range": zod.enum(['24H', '7D', '30D', '90D']).default(getChartDataQueryRangeDefault),
   "interval": zod.enum(['15m', '1h', '4h']).optional().describe('Candle timeframe. Defaults per range (24H→15m, 7D\/30D→1h, 90D→4h).')
 })
@@ -4098,7 +4098,25 @@ export const GetChartDataResponse = zod.object({
   "direction": zod.string().nullable(),
   "executed": zod.boolean(),
   "blockedReason": zod.string().nullable()
-}).describe('A historical qualifying strategy signal (executed or blocked).'))
+}).describe('A historical qualifying strategy signal (executed or blocked).')),
+  "elliott": zod.object({
+  "structure": zod.string(),
+  "wave": zod.string().nullish(),
+  "direction": zod.string(),
+  "confidence": zod.number(),
+  "confidenceLabel": zod.string(),
+  "pivots": zod.array(zod.object({
+  "time": zod.number(),
+  "price": zod.number(),
+  "label": zod.string()
+})),
+  "fib": zod.object({
+  "swingLow": zod.number().optional(),
+  "swingHigh": zod.number().optional(),
+  "retracements": zod.record(zod.string(), zod.number()).optional(),
+  "extensions": zod.record(zod.string(), zod.number()).optional()
+}).nullish()
+}).describe('Pivot labels and fib levels for the chart ELLIOTT\/FIB toggles').nullish()
 }).describe('Price chart payload — same market data the strategy engine uses.')
 
 
@@ -5726,5 +5744,831 @@ export const ResetAllCoinsResponse = zod.object({
 }).describe('Honest labelling of the instrument, its trading mode, and data source.')
 })
 })
+
+
+/**
+ * @summary Full crypto scanner directory — every asset with scores, ticker data and signal
+ */
+export const GetMarketDirectoryResponse = zod.object({
+  "assets": zod.array(zod.object({
+  "ticker": zod.string(),
+  "name": zod.string(),
+  "rank": zod.number().nullish(),
+  "price": zod.number().nullish(),
+  "change24h": zod.number().nullish(),
+  "high24": zod.number().nullish(),
+  "low24": zod.number().nullish(),
+  "volumeUsd": zod.number().nullish(),
+  "spreadPct": zod.number().nullish(),
+  "signal": zod.string().nullish(),
+  "decision": zod.string().nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "trend15m": zod.string().nullish(),
+  "trend1h": zod.string().nullish(),
+  "trend4h": zod.string().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string().optional(),
+  "requiredValue": zod.string().optional(),
+  "pass": zod.boolean()
+})).nullish(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string().optional(),
+  "requiredValue": zod.string().optional(),
+  "pass": zod.boolean()
+})).nullish(),
+  "elliott": zod.object({
+  "structure": zod.string(),
+  "wave": zod.string().nullish(),
+  "direction": zod.string(),
+  "confidence": zod.number(),
+  "confidenceLabel": zod.string(),
+  "headlineTimeframe": zod.string().nullish(),
+  "alignment": zod.string().nullish(),
+  "wave3Candidate": zod.boolean().nullish(),
+  "wave5Exhaustion": zod.boolean().nullish(),
+  "abcCandidate": zod.boolean().nullish(),
+  "fibLocation": zod.string().nullish(),
+  "timeframes": zod.object({
+  "15m": zod.object({
+  "timeframe": zod.string(),
+  "structure": zod.string(),
+  "wave": zod.string().nullish(),
+  "direction": zod.string(),
+  "confidence": zod.number(),
+  "confidenceLabel": zod.string(),
+  "notes": zod.array(zod.string()).optional(),
+  "fibLocation": zod.string().nullish(),
+  "wave3Candidate": zod.boolean().optional(),
+  "wave5Exhaustion": zod.boolean().optional(),
+  "abcCandidate": zod.boolean().optional()
+}).optional(),
+  "1h": zod.object({
+  "timeframe": zod.string(),
+  "structure": zod.string(),
+  "wave": zod.string().nullish(),
+  "direction": zod.string(),
+  "confidence": zod.number(),
+  "confidenceLabel": zod.string(),
+  "notes": zod.array(zod.string()).optional(),
+  "fibLocation": zod.string().nullish(),
+  "wave3Candidate": zod.boolean().optional(),
+  "wave5Exhaustion": zod.boolean().optional(),
+  "abcCandidate": zod.boolean().optional()
+}).optional(),
+  "4h": zod.object({
+  "timeframe": zod.string(),
+  "structure": zod.string(),
+  "wave": zod.string().nullish(),
+  "direction": zod.string(),
+  "confidence": zod.number(),
+  "confidenceLabel": zod.string(),
+  "notes": zod.array(zod.string()).optional(),
+  "fibLocation": zod.string().nullish(),
+  "wave3Candidate": zod.boolean().optional(),
+  "wave5Exhaustion": zod.boolean().optional(),
+  "abcCandidate": zod.boolean().optional()
+}).optional()
+}).nullish()
+}).describe('Experimental Elliott Wave read — analytics only, never influences entries').nullish(),
+  "lastScanAt": zod.string().nullish(),
+  "nextScanAt": zod.string().nullish(),
+  "lastCandleAt": zod.string().nullish(),
+  "tradingEnabled": zod.boolean().nullish(),
+  "disabledReason": zod.string().nullish(),
+  "entryBlocker": zod.string().nullish(),
+  "dataAvailable": zod.boolean().nullish(),
+  "scanError": zod.string().nullish(),
+  "hasPosition": zod.boolean().nullish(),
+  "watchlisted": zod.boolean().nullish(),
+  "lastSignalChange": zod.object({
+  "at": zod.string().nullish(),
+  "longFrom": zod.number().nullish(),
+  "longTo": zod.number().nullish(),
+  "shortFrom": zod.number().nullish(),
+  "shortTo": zod.number().nullish()
+}).nullish(),
+  "position": zod.object({
+  "ticker": zod.string(),
+  "name": zod.string().nullish(),
+  "currency": zod.string().nullish(),
+  "strategy": zod.string().nullish(),
+  "account": zod.string().nullish(),
+  "direction": zod.string(),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "initialStop": zod.number().nullish(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number().nullish(),
+  "openedAt": zod.string(),
+  "currentPrice": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "bestPrice": zod.number().nullish(),
+  "worstPrice": zod.number().nullish(),
+  "entryScore": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryConditions": zod.string().nullish(),
+  "trend1h": zod.string().nullish(),
+  "entryAtr": zod.number().nullish()
+}).nullish(),
+  "stats": zod.object({
+  "trades": zod.number(),
+  "winRate": zod.number().nullish(),
+  "pnl": zod.number(),
+  "profitFactor": zod.number().nullish()
+}).nullish()
+})),
+  "marketStats": zod.object({
+  "scanned": zod.number(),
+  "universe": zod.number(),
+  "counts": zod.record(zod.string(), zod.number()),
+  "openCryptoTrades": zod.number(),
+  "nextScanAt": zod.string().nullish()
+}),
+  "scannerAccount": zod.object({
+  "currency": zod.string(),
+  "balance": zod.number(),
+  "startingBalance": zod.number(),
+  "openPositions": zod.number(),
+  "maxPositions": zod.number(),
+  "riskPerTradePct": zod.number().optional(),
+  "maxTotalRiskPct": zod.number().optional(),
+  "maxSameDirection": zod.number().optional(),
+  "minVolumeUsd": zod.number().optional()
+}),
+  "watchlist": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Detailed scanner view of one cryptocurrency
+ */
+export const GetMarketAssetParams = zod.object({
+  "ticker": zod.coerce.string()
+})
+
+export const GetMarketAssetResponse = zod.object({
+  "ok": zod.boolean(),
+  "error": zod.string().nullish(),
+  "asset": zod.object({
+  "ticker": zod.string(),
+  "name": zod.string(),
+  "rank": zod.number().nullish(),
+  "price": zod.number().nullish(),
+  "change24h": zod.number().nullish(),
+  "high24": zod.number().nullish(),
+  "low24": zod.number().nullish(),
+  "volumeUsd": zod.number().nullish(),
+  "spreadPct": zod.number().nullish(),
+  "signal": zod.string().nullish(),
+  "decision": zod.string().nullish(),
+  "decisionReason": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "threshold": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "trend15m": zod.string().nullish(),
+  "trend1h": zod.string().nullish(),
+  "trend4h": zod.string().nullish(),
+  "longConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string().optional(),
+  "requiredValue": zod.string().optional(),
+  "pass": zod.boolean()
+})).nullish(),
+  "shortConditions": zod.array(zod.object({
+  "name": zod.string(),
+  "currentValue": zod.string().optional(),
+  "requiredValue": zod.string().optional(),
+  "pass": zod.boolean()
+})).nullish(),
+  "elliott": zod.object({
+  "structure": zod.string(),
+  "wave": zod.string().nullish(),
+  "direction": zod.string(),
+  "confidence": zod.number(),
+  "confidenceLabel": zod.string(),
+  "headlineTimeframe": zod.string().nullish(),
+  "alignment": zod.string().nullish(),
+  "wave3Candidate": zod.boolean().nullish(),
+  "wave5Exhaustion": zod.boolean().nullish(),
+  "abcCandidate": zod.boolean().nullish(),
+  "fibLocation": zod.string().nullish(),
+  "timeframes": zod.object({
+  "15m": zod.object({
+  "timeframe": zod.string(),
+  "structure": zod.string(),
+  "wave": zod.string().nullish(),
+  "direction": zod.string(),
+  "confidence": zod.number(),
+  "confidenceLabel": zod.string(),
+  "notes": zod.array(zod.string()).optional(),
+  "fibLocation": zod.string().nullish(),
+  "wave3Candidate": zod.boolean().optional(),
+  "wave5Exhaustion": zod.boolean().optional(),
+  "abcCandidate": zod.boolean().optional()
+}).optional(),
+  "1h": zod.object({
+  "timeframe": zod.string(),
+  "structure": zod.string(),
+  "wave": zod.string().nullish(),
+  "direction": zod.string(),
+  "confidence": zod.number(),
+  "confidenceLabel": zod.string(),
+  "notes": zod.array(zod.string()).optional(),
+  "fibLocation": zod.string().nullish(),
+  "wave3Candidate": zod.boolean().optional(),
+  "wave5Exhaustion": zod.boolean().optional(),
+  "abcCandidate": zod.boolean().optional()
+}).optional(),
+  "4h": zod.object({
+  "timeframe": zod.string(),
+  "structure": zod.string(),
+  "wave": zod.string().nullish(),
+  "direction": zod.string(),
+  "confidence": zod.number(),
+  "confidenceLabel": zod.string(),
+  "notes": zod.array(zod.string()).optional(),
+  "fibLocation": zod.string().nullish(),
+  "wave3Candidate": zod.boolean().optional(),
+  "wave5Exhaustion": zod.boolean().optional(),
+  "abcCandidate": zod.boolean().optional()
+}).optional()
+}).nullish()
+}).describe('Experimental Elliott Wave read — analytics only, never influences entries').nullish(),
+  "lastScanAt": zod.string().nullish(),
+  "nextScanAt": zod.string().nullish(),
+  "lastCandleAt": zod.string().nullish(),
+  "tradingEnabled": zod.boolean().nullish(),
+  "disabledReason": zod.string().nullish(),
+  "entryBlocker": zod.string().nullish(),
+  "dataAvailable": zod.boolean().nullish(),
+  "scanError": zod.string().nullish(),
+  "hasPosition": zod.boolean().nullish(),
+  "watchlisted": zod.boolean().nullish(),
+  "lastSignalChange": zod.object({
+  "at": zod.string().nullish(),
+  "longFrom": zod.number().nullish(),
+  "longTo": zod.number().nullish(),
+  "shortFrom": zod.number().nullish(),
+  "shortTo": zod.number().nullish()
+}).nullish(),
+  "position": zod.object({
+  "ticker": zod.string(),
+  "name": zod.string().nullish(),
+  "currency": zod.string().nullish(),
+  "strategy": zod.string().nullish(),
+  "account": zod.string().nullish(),
+  "direction": zod.string(),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "initialStop": zod.number().nullish(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number().nullish(),
+  "openedAt": zod.string(),
+  "currentPrice": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "bestPrice": zod.number().nullish(),
+  "worstPrice": zod.number().nullish(),
+  "entryScore": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryConditions": zod.string().nullish(),
+  "trend1h": zod.string().nullish(),
+  "entryAtr": zod.number().nullish()
+}).nullish(),
+  "stats": zod.object({
+  "trades": zod.number(),
+  "winRate": zod.number().nullish(),
+  "pnl": zod.number(),
+  "profitFactor": zod.number().nullish()
+}).nullish()
+}).nullish(),
+  "isCoreCoin": zod.boolean().nullish(),
+  "position": zod.object({
+  "ticker": zod.string(),
+  "name": zod.string().nullish(),
+  "currency": zod.string().nullish(),
+  "strategy": zod.string().nullish(),
+  "account": zod.string().nullish(),
+  "direction": zod.string(),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "initialStop": zod.number().nullish(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number().nullish(),
+  "openedAt": zod.string(),
+  "currentPrice": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "bestPrice": zod.number().nullish(),
+  "worstPrice": zod.number().nullish(),
+  "entryScore": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryConditions": zod.string().nullish(),
+  "trend1h": zod.string().nullish(),
+  "entryAtr": zod.number().nullish()
+}).nullish(),
+  "watchlisted": zod.boolean().nullish(),
+  "lastTradeAt": zod.string().nullish(),
+  "stats": zod.object({
+  "trades": zod.number(),
+  "winRate": zod.number().nullish(),
+  "pnl": zod.number(),
+  "profitFactor": zod.number().nullish()
+}).nullish()
+})
+
+
+/**
+ * @summary Add or remove a cryptocurrency from the personal watchlist
+ */
+export const ToggleWatchlistBody = zod.object({
+  "ticker": zod.string()
+})
+
+export const ToggleWatchlistResponse = zod.object({
+  "ok": zod.boolean(),
+  "ticker": zod.string().optional(),
+  "watchlisted": zod.boolean().optional(),
+  "watchlist": zod.array(zod.string()).optional()
+})
+
+
+/**
+ * @summary ELLIOTT LAB — experimental Elliott Wave analytics (observation only, never gates trades)
+ */
+export const GetElliottLabResponse = zod.object({
+  "flags": zod.object({
+  "elliottScoreInfluence": zod.string(),
+  "wave5Veto": zod.string(),
+  "activeGate": zod.string()
+}),
+  "wave3Candidates": zod.array(zod.object({
+  "ticker": zod.string(),
+  "name": zod.string().nullish(),
+  "structure": zod.string().nullish(),
+  "wave": zod.string().nullish(),
+  "direction": zod.string().nullish(),
+  "confidence": zod.number().nullish(),
+  "confidenceLabel": zod.string().nullish(),
+  "alignment": zod.string().nullish(),
+  "signal": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish()
+})),
+  "wave5ExhaustionCandidates": zod.array(zod.object({
+  "ticker": zod.string(),
+  "name": zod.string().nullish(),
+  "structure": zod.string().nullish(),
+  "wave": zod.string().nullish(),
+  "direction": zod.string().nullish(),
+  "confidence": zod.number().nullish(),
+  "confidenceLabel": zod.string().nullish(),
+  "alignment": zod.string().nullish(),
+  "signal": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish()
+})),
+  "abcCandidates": zod.array(zod.object({
+  "ticker": zod.string(),
+  "name": zod.string().nullish(),
+  "structure": zod.string().nullish(),
+  "wave": zod.string().nullish(),
+  "direction": zod.string().nullish(),
+  "confidence": zod.number().nullish(),
+  "confidenceLabel": zod.string().nullish(),
+  "alignment": zod.string().nullish(),
+  "signal": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish()
+})),
+  "strongestStructures": zod.array(zod.object({
+  "ticker": zod.string(),
+  "name": zod.string().nullish(),
+  "structure": zod.string().nullish(),
+  "wave": zod.string().nullish(),
+  "direction": zod.string().nullish(),
+  "confidence": zod.number().nullish(),
+  "confidenceLabel": zod.string().nullish(),
+  "alignment": zod.string().nullish(),
+  "signal": zod.string().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish()
+})),
+  "bullishAligned": zod.array(zod.string()),
+  "bearishAligned": zod.array(zod.string()),
+  "uncertain": zod.array(zod.string()),
+  "tradeStats": zod.record(zod.string(), zod.object({
+  "trades": zod.number(),
+  "wins": zod.number(),
+  "losses": zod.number(),
+  "winRate": zod.number().nullish(),
+  "netPnl": zod.number(),
+  "avgWin": zod.number().nullish(),
+  "avgLoss": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "maxDrawdown": zod.number().nullish()
+}))
+})
+
+
+/**
+ * @summary STRATEGY LAB — shadow-strategy experiments (simulation only, never trades)
+ */
+export const GetLabOverviewResponse = zod.object({
+  "summary": zod.object({
+  "experimentsRunning": zod.number(),
+  "openShadowTrades": zod.number(),
+  "totalShadowTrades": zod.number(),
+  "totalSignals": zod.number(),
+  "dataConfidence": zod.string(),
+  "bestStrategy": zod.string().nullish(),
+  "bestProfitFactor": zod.object({
+  "strategy": zod.string(),
+  "value": zod.number().nullish()
+}).nullish(),
+  "bestExpectancy": zod.object({
+  "strategy": zod.string(),
+  "value": zod.number().nullish()
+}).nullish(),
+  "lowestDrawdown": zod.object({
+  "strategy": zod.string(),
+  "value": zod.number().nullish()
+}).nullish(),
+  "highestNetReturn": zod.object({
+  "strategy": zod.string(),
+  "value": zod.number().nullish()
+}).nullish(),
+  "bestRiskAdjusted": zod.object({
+  "strategy": zod.string(),
+  "value": zod.number().nullish()
+}).nullish(),
+  "feePctPerSide": zod.number(),
+  "costsIncluded": zod.boolean(),
+  "mainStrategyLocked": zod.string()
+}),
+  "leaderboard": zod.array(zod.object({
+  "trades": zod.number(),
+  "confidence": zod.string(),
+  "wins": zod.number().optional(),
+  "losses": zod.number().optional(),
+  "winRate": zod.number().nullish(),
+  "netR": zod.number().optional(),
+  "roiPct": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "maxDrawdownPct": zod.number().nullish(),
+  "sharpe": zod.number().nullish(),
+  "avgWin": zod.number().nullish(),
+  "avgLoss": zod.number().nullish(),
+  "longestLossStreak": zod.number().optional(),
+  "insufficientData": zod.boolean().optional()
+}).describe('Standard Strategy Lab metric block (R-based, net of costs)').and(zod.object({
+  "strategy": zod.string(),
+  "threshold": zod.number(),
+  "profile": zod.string(),
+  "promotionCandidate": zod.boolean(),
+  "riskPct": zod.number().optional()
+}))),
+  "longShort": zod.object({
+  "LONG": zod.object({
+  "trades": zod.number(),
+  "confidence": zod.string(),
+  "wins": zod.number().optional(),
+  "losses": zod.number().optional(),
+  "winRate": zod.number().nullish(),
+  "netR": zod.number().optional(),
+  "roiPct": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "maxDrawdownPct": zod.number().nullish(),
+  "sharpe": zod.number().nullish(),
+  "avgWin": zod.number().nullish(),
+  "avgLoss": zod.number().nullish(),
+  "longestLossStreak": zod.number().optional(),
+  "insufficientData": zod.boolean().optional()
+}).describe('Standard Strategy Lab metric block (R-based, net of costs)'),
+  "SHORT": zod.object({
+  "trades": zod.number(),
+  "confidence": zod.string(),
+  "wins": zod.number().optional(),
+  "losses": zod.number().optional(),
+  "winRate": zod.number().nullish(),
+  "netR": zod.number().optional(),
+  "roiPct": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "maxDrawdownPct": zod.number().nullish(),
+  "sharpe": zod.number().nullish(),
+  "avgWin": zod.number().nullish(),
+  "avgLoss": zod.number().nullish(),
+  "longestLossStreak": zod.number().optional(),
+  "insufficientData": zod.boolean().optional()
+}).describe('Standard Strategy Lab metric block (R-based, net of costs)')
+}),
+  "perAsset": zod.array(zod.object({
+  "ticker": zod.string(),
+  "long": zod.object({
+  "trades": zod.number(),
+  "confidence": zod.string(),
+  "wins": zod.number().optional(),
+  "losses": zod.number().optional(),
+  "winRate": zod.number().nullish(),
+  "netR": zod.number().optional(),
+  "roiPct": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "maxDrawdownPct": zod.number().nullish(),
+  "sharpe": zod.number().nullish(),
+  "avgWin": zod.number().nullish(),
+  "avgLoss": zod.number().nullish(),
+  "longestLossStreak": zod.number().optional(),
+  "insufficientData": zod.boolean().optional()
+}).describe('Standard Strategy Lab metric block (R-based, net of costs)'),
+  "short": zod.object({
+  "trades": zod.number(),
+  "confidence": zod.string(),
+  "wins": zod.number().optional(),
+  "losses": zod.number().optional(),
+  "winRate": zod.number().nullish(),
+  "netR": zod.number().optional(),
+  "roiPct": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "maxDrawdownPct": zod.number().nullish(),
+  "sharpe": zod.number().nullish(),
+  "avgWin": zod.number().nullish(),
+  "avgLoss": zod.number().nullish(),
+  "longestLossStreak": zod.number().optional(),
+  "insufficientData": zod.boolean().optional()
+}).describe('Standard Strategy Lab metric block (R-based, net of costs)')
+})),
+  "elliott": zod.record(zod.string(), zod.object({
+  "trades": zod.number(),
+  "confidence": zod.string(),
+  "wins": zod.number().optional(),
+  "losses": zod.number().optional(),
+  "winRate": zod.number().nullish(),
+  "netR": zod.number().optional(),
+  "roiPct": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "maxDrawdownPct": zod.number().nullish(),
+  "sharpe": zod.number().nullish(),
+  "avgWin": zod.number().nullish(),
+  "avgLoss": zod.number().nullish(),
+  "longestLossStreak": zod.number().optional(),
+  "insufficientData": zod.boolean().optional()
+}).describe('Standard Strategy Lab metric block (R-based, net of costs)')),
+  "regimes": zod.record(zod.string(), zod.object({
+  "trades": zod.number(),
+  "confidence": zod.string(),
+  "wins": zod.number().optional(),
+  "losses": zod.number().optional(),
+  "winRate": zod.number().nullish(),
+  "netR": zod.number().optional(),
+  "roiPct": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "maxDrawdownPct": zod.number().nullish(),
+  "sharpe": zod.number().nullish(),
+  "avgWin": zod.number().nullish(),
+  "avgLoss": zod.number().nullish(),
+  "longestLossStreak": zod.number().optional(),
+  "insufficientData": zod.boolean().optional()
+}).describe('Standard Strategy Lab metric block (R-based, net of costs)')),
+  "combinations": zod.array(zod.object({
+  "trades": zod.number(),
+  "confidence": zod.string(),
+  "wins": zod.number().optional(),
+  "losses": zod.number().optional(),
+  "winRate": zod.number().nullish(),
+  "netR": zod.number().optional(),
+  "roiPct": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "maxDrawdownPct": zod.number().nullish(),
+  "sharpe": zod.number().nullish(),
+  "avgWin": zod.number().nullish(),
+  "avgLoss": zod.number().nullish(),
+  "longestLossStreak": zod.number().optional(),
+  "insufficientData": zod.boolean().optional()
+}).describe('Standard Strategy Lab metric block (R-based, net of costs)').and(zod.object({
+  "name": zod.string()
+}))),
+  "riskModels": zod.array(zod.object({
+  "trades": zod.number(),
+  "confidence": zod.string(),
+  "wins": zod.number().optional(),
+  "losses": zod.number().optional(),
+  "winRate": zod.number().nullish(),
+  "netR": zod.number().optional(),
+  "roiPct": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "maxDrawdownPct": zod.number().nullish(),
+  "sharpe": zod.number().nullish(),
+  "avgWin": zod.number().nullish(),
+  "avgLoss": zod.number().nullish(),
+  "longestLossStreak": zod.number().optional(),
+  "insufficientData": zod.boolean().optional()
+}).describe('Standard Strategy Lab metric block (R-based, net of costs)').and(zod.object({
+  "riskPct": zod.number()
+}))),
+  "drawdownProtection": zod.object({
+  "protected": zod.object({
+  "trades": zod.number(),
+  "roiPct": zod.number(),
+  "maxDrawdownPct": zod.number()
+}).nullish(),
+  "constant": zod.object({
+  "trades": zod.number(),
+  "confidence": zod.string(),
+  "wins": zod.number().optional(),
+  "losses": zod.number().optional(),
+  "winRate": zod.number().nullish(),
+  "netR": zod.number().optional(),
+  "roiPct": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "maxDrawdownPct": zod.number().nullish(),
+  "sharpe": zod.number().nullish(),
+  "avgWin": zod.number().nullish(),
+  "avgLoss": zod.number().nullish(),
+  "longestLossStreak": zod.number().optional(),
+  "insufficientData": zod.boolean().optional()
+}).describe('Standard Strategy Lab metric block (R-based, net of costs)').nullish()
+}).nullish(),
+  "correlationProtection": zod.object({
+  "off": zod.object({
+  "trades": zod.number(),
+  "confidence": zod.string(),
+  "wins": zod.number().optional(),
+  "losses": zod.number().optional(),
+  "winRate": zod.number().nullish(),
+  "netR": zod.number().optional(),
+  "roiPct": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "maxDrawdownPct": zod.number().nullish(),
+  "sharpe": zod.number().nullish(),
+  "avgWin": zod.number().nullish(),
+  "avgLoss": zod.number().nullish(),
+  "longestLossStreak": zod.number().optional(),
+  "insufficientData": zod.boolean().optional()
+}).describe('Standard Strategy Lab metric block (R-based, net of costs)'),
+  "on": zod.object({
+  "trades": zod.number(),
+  "confidence": zod.string(),
+  "wins": zod.number().optional(),
+  "losses": zod.number().optional(),
+  "winRate": zod.number().nullish(),
+  "netR": zod.number().optional(),
+  "roiPct": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "maxDrawdownPct": zod.number().nullish(),
+  "sharpe": zod.number().nullish(),
+  "avgWin": zod.number().nullish(),
+  "avgLoss": zod.number().nullish(),
+  "longestLossStreak": zod.number().optional(),
+  "insufficientData": zod.boolean().optional()
+}).describe('Standard Strategy Lab metric block (R-based, net of costs)')
+}),
+  "missedOpportunities": zod.object({
+  "signalsBlocked": zod.number(),
+  "performanceIfTaken": zod.object({
+  "trades": zod.number(),
+  "confidence": zod.string(),
+  "wins": zod.number().optional(),
+  "losses": zod.number().optional(),
+  "winRate": zod.number().nullish(),
+  "netR": zod.number().optional(),
+  "roiPct": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "maxDrawdownPct": zod.number().nullish(),
+  "sharpe": zod.number().nullish(),
+  "avgWin": zod.number().nullish(),
+  "avgLoss": zod.number().nullish(),
+  "longestLossStreak": zod.number().optional(),
+  "insufficientData": zod.boolean().optional()
+}).describe('Standard Strategy Lab metric block (R-based, net of costs)')
+})
+})
+
+
+/**
+ * @summary STRATEGY LAB — equity curve and risk table for one strategy
+ */
+export const GetLabStrategyQueryParams = zod.object({
+  "strategy": zod.coerce.string(),
+  "start": zod.coerce.number().optional(),
+  "risk": zod.coerce.number().optional()
+})
+
+export const GetLabStrategyResponse = zod.object({
+  "ok": zod.boolean(),
+  "error": zod.string().nullish(),
+  "strategy": zod.string().optional(),
+  "startBalance": zod.number().optional(),
+  "riskPct": zod.number().optional(),
+  "stats": zod.object({
+  "trades": zod.number(),
+  "confidence": zod.string(),
+  "wins": zod.number().optional(),
+  "losses": zod.number().optional(),
+  "winRate": zod.number().nullish(),
+  "netR": zod.number().optional(),
+  "roiPct": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "maxDrawdownPct": zod.number().nullish(),
+  "sharpe": zod.number().nullish(),
+  "avgWin": zod.number().nullish(),
+  "avgLoss": zod.number().nullish(),
+  "longestLossStreak": zod.number().optional(),
+  "insufficientData": zod.boolean().optional()
+}).optional().describe('Standard Strategy Lab metric block (R-based, net of costs)'),
+  "equity": zod.array(zod.object({
+  "ts": zod.string().nullish(),
+  "balance": zod.number(),
+  "drawdownPct": zod.number()
+})).optional(),
+  "riskTable": zod.array(zod.object({
+  "trades": zod.number(),
+  "confidence": zod.string(),
+  "wins": zod.number().optional(),
+  "losses": zod.number().optional(),
+  "winRate": zod.number().nullish(),
+  "netR": zod.number().optional(),
+  "roiPct": zod.number().nullish(),
+  "profitFactor": zod.number().nullish(),
+  "expectancy": zod.number().nullish(),
+  "maxDrawdownPct": zod.number().nullish(),
+  "sharpe": zod.number().nullish(),
+  "avgWin": zod.number().nullish(),
+  "avgLoss": zod.number().nullish(),
+  "longestLossStreak": zod.number().optional(),
+  "insufficientData": zod.boolean().optional()
+}).describe('Standard Strategy Lab metric block (R-based, net of costs)').and(zod.object({
+  "riskPct": zod.number()
+}))).optional(),
+  "drawdownProtection": zod.object({
+  "trades": zod.number(),
+  "roiPct": zod.number(),
+  "maxDrawdownPct": zod.number()
+}).nullish()
+})
+
+
+/**
+ * @summary Open SCANNER-account paper positions
+ */
+export const GetScannerPositionsResponseItem = zod.object({
+  "ticker": zod.string(),
+  "name": zod.string().nullish(),
+  "currency": zod.string().nullish(),
+  "strategy": zod.string().nullish(),
+  "account": zod.string().nullish(),
+  "direction": zod.string(),
+  "entry": zod.number(),
+  "stopLoss": zod.number(),
+  "initialStop": zod.number().nullish(),
+  "takeProfit": zod.number(),
+  "quantity": zod.number(),
+  "riskAmount": zod.number().nullish(),
+  "openedAt": zod.string(),
+  "currentPrice": zod.number().nullish(),
+  "unrealisedPnl": zod.number().nullish(),
+  "bestPrice": zod.number().nullish(),
+  "worstPrice": zod.number().nullish(),
+  "entryScore": zod.number().nullish(),
+  "maxScore": zod.number().nullish(),
+  "entryThreshold": zod.number().nullish(),
+  "longScore": zod.number().nullish(),
+  "shortScore": zod.number().nullish(),
+  "entryConditions": zod.string().nullish(),
+  "trend1h": zod.string().nullish(),
+  "entryAtr": zod.number().nullish()
+})
+export const GetScannerPositionsResponse = zod.array(GetScannerPositionsResponseItem)
 
 

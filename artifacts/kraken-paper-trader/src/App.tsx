@@ -8,6 +8,9 @@ import Dashboard from '@/pages/dashboard';
 import History from '@/pages/history';
 import OpenTrades from '@/pages/open-trades';
 import ActivityLog from '@/pages/activity';
+import MarketsPage from '@/pages/markets';
+import MarketAssetPage from '@/pages/market-asset';
+import StrategyLabPage from '@/pages/strategy-lab';
 import {
   Route,
   Switch,
@@ -22,6 +25,9 @@ function Router() {
     <RoutedErrorBoundary>
       <Switch>
         <Route path="/"         component={Dashboard}   />
+        <Route path="/markets"  component={MarketsPage} />
+        <Route path="/markets/:ticker" component={MarketAssetPage} />
+        <Route path="/lab"      component={StrategyLabPage} />
         <Route path="/open"     component={OpenTrades}  />
         <Route path="/history"  component={History}     />
         <Route path="/activity" component={ActivityLog} />

@@ -1,0 +1,472 @@
+Add an ELLIOTT WAVE + FIBONACCI INTELLIGENCE MODULE to the Kraken Paper Trader.
+
+This should initially operate as an EXPERIMENTAL ANALYTICS MODULE.
+
+IMPORTANT:
+
+Do NOT make Elliott Wave confirmation mandatory for ACTIVE strategy entries yet.
+
+Do NOT allow Elliott Wave to veto an otherwise valid ACTIVE 4/6 trade.
+
+We first want to collect evidence showing whether Elliott Wave information improves trade performance.
+
+Everything remains PAPER TRADING ONLY.
+
+# 1. Elliott Wave detection
+
+Create an automated market-structure engine capable of identifying probable:
+
+Bullish impulse
+1 → 2 → 3 → 4 → 5
+
+Bearish impulse
+1 → 2 → 3 → 4 → 5
+
+Bullish correction
+A → B → C
+
+Bearish correction
+A → B → C
+
+The system should identify significant swing highs and swing lows and use them as potential wave pivots.
+
+Do not force every market into an Elliott Wave count.
+
+If the structure is unclear, return:
+
+ELLIOTT STRUCTURE: UNCERTAIN
+
+rather than inventing a wave count.
+
+# 2. Elliott Wave confidence
+
+Because Elliott Wave interpretation can be subjective, calculate a confidence score.
+
+Example:
+
+ELLIOTT WAVE
+Probable Wave: 3
+Direction: BULLISH
+Confidence: 78%
+Timeframe: 1H
+
+Or:
+
+Probable structure: ABC correction
+Current wave: C
+Direction: BEARISH
+Confidence: 64%
+
+Or:
+
+Structure: UNCERTAIN
+Confidence: 31%
+
+Use LOW / MEDIUM / HIGH classifications as well.
+
+# 3. Multi-timeframe analysis
+
+Analyse Elliott structure independently on:
+
+15m
+1h
+4h
+
+Display something like:
+
+15m: Wave 3 bullish — 72%
+1h: Wave 3 bullish — 81%
+4h: Wave 2 correction — 61%
+
+Then calculate:
+
+ELLIOTT ALIGNMENT
+
+Example:
+
+STRONG BULLISH ALIGNMENT
+or
+MIXED
+or
+STRONG BEARISH ALIGNMENT
+
+Do not require all timeframes to agree.
+
+# 4. Elliott rules
+
+Use established Elliott Wave structural rules to reject impossible counts.
+
+For impulse structures, enforce rules including:
+
+- Wave 2 should not retrace beyond the beginning of Wave 1.
+- Wave 3 cannot be the shortest of Waves 1, 3 and 5.
+- Standard impulse Wave 4 should not overlap Wave 1 territory.
+- Recognise that diagonal structures can behave differently.
+
+Do not label a structure as high confidence when it violates fundamental Elliott rules.
+
+# 5. Fibonacci retracement engine
+
+Automatically calculate Fibonacci retracement levels from relevant detected swings.
+
+Include:
+
+23.6%
+38.2%
+50.0%
+61.8%
+78.6%
+
+Use these as contextual information for potential corrections and entries.
+
+# 6. Fibonacci extensions
+
+Also calculate:
+
+100%
+127.2%
+161.8%
+200%
+261.8%
+
+Use extensions as possible wave projection/target areas.
+
+Do NOT assume price must reach these levels.
+
+# 7. Wave 3 detection
+
+Create a specific experimental signal:
+
+POTENTIAL WAVE 3
+
+This is particularly important because we want to test whether identifying an emerging Wave 3 improves our ACTIVE strategy.
+
+Potential evidence can include:
+
+- completed Wave 1
+- Wave 2 retracement
+- price holding above/below Wave 1 origin
+- Fibonacci retracement relationship
+- breakout beyond Wave 1
+- increasing momentum
+- MACD confirmation
+- increasing volume where reliable
+- alignment with higher-timeframe structure
+
+Display:
+
+POTENTIAL WAVE 3 — BULLISH
+Confidence: X%
+
+or
+
+POTENTIAL WAVE 3 — BEARISH
+Confidence: X%
+
+# 8. Wave 5 exhaustion detection
+
+Also identify possible:
+
+WAVE 5 EXHAUSTION
+
+Potential evidence:
+
+- completed extended move
+- momentum divergence
+- RSI divergence
+- MACD divergence
+- Fibonacci extension reached
+- weakening volume/momentum
+- significant resistance/support
+
+This could eventually help prevent the ACTIVE strategy from entering too late.
+
+For now RECORD it rather than automatically blocking trades.
+
+# 9. ABC correction detection
+
+Detect potential:
+
+A-B-C CORRECTION
+
+Record:
+
+Current probable wave
+Direction
+Confidence
+Relevant Fibonacci levels
+Potential completion area
+
+This could eventually help identify mean-reversion opportunities.
+
+# 10. Add Elliott information to the market scanner
+
+Add columns/fields to the expanded Crypto scanner:
+
+ELLIOTT
+WAVE
+ELLIOTT DIRECTION
+CONFIDENCE
+
+Example:
+
+SOL
+ACTIVE LONG 5/6
+Elliott: Wave 3 ↑
+Confidence: 82%
+
+BTC
+ACTIVE LONG 4/6
+Elliott: Wave 5 ↑
+Exhaustion risk: HIGH
+
+ETH
+ACTIVE SHORT 4/6
+Elliott: Wave C ↓
+Confidence: 76%
+
+Allow sorting by:
+
+Highest Elliott confidence
+Potential Wave 3
+Potential Wave 5 exhaustion
+
+# 11. Best Elliott opportunities
+
+Create a section:
+
+ELLIOTT OPPORTUNITIES
+
+Show the strongest detected structures across the entire crypto scanner.
+
+Examples:
+
+SOL
+Potential bullish Wave 3
+Confidence 84%
+ACTIVE LONG 5/6
+
+ETH
+Potential bearish Wave C
+Confidence 79%
+ACTIVE SHORT 4/6
+
+This is informational initially.
+
+# 12. Chart overlay
+
+Add an indicator toggle:
+
+ELLIOTT
+
+When enabled, display detected wave pivots directly on the chart:
+
+1
+2
+3
+4
+5
+
+and:
+
+A
+B
+C
+
+Connect significant swing points where appropriate.
+
+Do not make the chart unreadable.
+
+# 13. Fibonacci chart toggle
+
+Add another toggle:
+
+FIB
+
+When enabled, display relevant Fibonacci retracement/extension levels.
+
+Label each level clearly.
+
+Allow Elliott and Fibonacci overlays to be independently enabled/disabled.
+
+# 14. ACTIVE strategy integration — OBSERVATION MODE
+
+This is extremely important.
+
+The existing ACTIVE strategy remains:
+
+4/6
+
+Elliott Wave does NOT become a seventh mandatory condition.
+
+Instead, whenever an ACTIVE trade opens, record:
+
+Elliott direction at entry
+Probable wave
+Elliott confidence
+15m wave
+1h wave
+4h wave
+Fibonacci location
+Wave 3 flag
+Wave 5 exhaustion flag
+ABC flag
+Elliott aligned with trade: YES/NO/MIXED
+
+The trade should execute exactly as it would have without Elliott Wave.
+
+# 15. Build an Elliott experiment
+
+Automatically divide completed ACTIVE trades analytically into:
+
+ELLIOTT ALIGNED
+
+and
+
+NOT ELLIOTT ALIGNED
+
+This is NOT two separate live strategies.
+
+It is post-trade statistical classification.
+
+Compare:
+
+Trades
+Wins
+Losses
+Win rate
+Net P&L
+Average winner
+Average loser
+Profit factor
+Expectancy
+Maximum drawdown
+
+Also compare:
+
+Potential Wave 3 trades
+Wave 5 entries
+ABC correction trades
+Uncertain Elliott structure
+
+# 16. Determine whether Elliott actually adds value
+
+Once enough trades exist, we should be able to answer questions such as:
+
+Does ACTIVE 4/6 + bullish Elliott alignment outperform ordinary ACTIVE 4/6 LONG trades?
+
+Do Wave 3 entries have higher expectancy?
+
+Do Wave 5 entries perform worse?
+
+Does avoiding high-confidence Wave 5 exhaustion improve results?
+
+Do Fibonacci 50–61.8% retracement entries perform better?
+
+Does 1h Elliott alignment matter more than 15m alignment?
+
+Do results differ by cryptocurrency?
+
+Do NOT claim Elliott improves the strategy until the recorded results demonstrate it.
+
+# 17. Future Elliott bonus scoring
+
+Build support for, but DO NOT enable yet:
+
+Elliott bonus scoring
+
+Potential future behaviour:
+
+ACTIVE LONG = 4/6
+High-confidence bullish Elliott alignment = +1 bonus
+
+or:
+
+ACTIVE SHORT = 4/6
+High-confidence bearish Elliott alignment = +1 bonus
+
+This feature must initially be:
+
+ELLIOTT SCORE INFLUENCE: OFF
+
+It can only be enabled later after we analyse paper-trading results.
+
+# 18. Future exhaustion protection
+
+Also build support for:
+
+WAVE 5 EXHAUSTION PROTECTION
+
+But initially set:
+
+WAVE 5 VETO: OFF
+
+Record what WOULD have happened if the veto had been active.
+
+This gives us counterfactual statistics without changing actual trades.
+
+# 19. Apply across expanded crypto universe
+
+Run lightweight Elliott analysis across supported scanner cryptocurrencies.
+
+Do not make the scanner slow by calculating unnecessarily deep wave structures continuously.
+
+Use cached market data and calculate detailed/deeper Elliott analysis when necessary.
+
+Gold and Silver may also use Elliott/Fibonacci analysis, but do not change their existing trading rules.
+
+# 20. Elliott dashboard
+
+Add a dedicated analytics section:
+
+ELLIOTT LAB
+
+Show:
+
+Current Wave 3 candidates
+Current Wave 5 exhaustion candidates
+ABC corrections
+Highest-confidence structures
+Bullish Elliott alignment
+Bearish Elliott alignment
+Uncertain structures
+
+Then show performance statistics once trades accumulate.
+
+# 21. Preserve current systems
+
+Do not break or replace:
+
+ACTIVE 15m strategy
+HIGH-CONFIDENCE strategy
+Crypto scanner
+Open Trades
+Trade History
+Gold
+Silver
+Existing charts
+Existing indicators
+Risk management
+
+Elliott/Fibonacci is an additional intelligence layer.
+
+# 22. PAPER MODE ONLY
+
+No real orders.
+
+No exchange API keys.
+
+No real-money execution.
+
+After implementation report:
+
+1. Current Elliott structure for BTC, ETH, SOL and XRP.
+2. Strongest detected Wave 3 candidates across the expanded crypto universe.
+3. Any current Wave 5 exhaustion warnings.
+4. Current ABC correction candidates.
+5. Elliott confidence for each.
+6. Whether Elliott agrees with each asset's ACTIVE LONG/SHORT signal.
+7. Confirmation that Elliott influence on ACTIVE scoring is currently OFF.
+8. Confirmation that Wave 5 veto is OFF.
+9. Confirmation that ACTIVE remains 4/6.
+10. Confirmation that all Elliott data will be stored alongside trades for later performance analysis.
