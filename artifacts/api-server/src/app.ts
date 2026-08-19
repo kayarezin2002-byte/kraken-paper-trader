@@ -33,6 +33,8 @@ function isAllowedOrigin(origin: string): boolean {
     }
   }
 
+  if (origin === "https://kraken-paper-trader.onrender.com") return true;
+
   return false;
 }
 
