@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import fs from "node:fs";
 import path from "node:path";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -70,10 +71,15 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
-const frontendDirectory = path.resolve(
-  process.cwd(),
-  "../kraken-paper-trader/dist/public",
-);
+const frontendDirectory = [
+  path.resolve(process.cwd(), "artifacts/kraken-paper-trader/dist/public"),
+  path.resolve(process.cwd(), "../kraken-paper-trader/dist/public"),
+  path.resolve(import.meta.dirname, "../../kraken-paper-trader/dist/public"),
+].find((directory) => fs.existsSync(path.join(directory, "index.html")));
+
+if (!frontendDirectory) {
+  throw new Error("Built frontend directory not found.");
+}
 
 app.use(express.static(frontendDirectory));
 app.get(/^(?!\/api(?:\/|$)).*/, (_req, res) => {
