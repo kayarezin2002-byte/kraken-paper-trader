@@ -33,7 +33,7 @@ function isAllowedOrigin(origin: string): boolean {
     }
   }
 
-  if (origin === "https://kraken-paper-trader.onrender.com") return true;
+  if (/^https:\/\/(?:[a-z0-9-]+\.)?onrender\.com$/.test(origin)) return true;
 
   return false;
 }
