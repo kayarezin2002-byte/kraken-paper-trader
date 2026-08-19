@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, BookOpen, Filter, History as HistoryIcon, X } from 'lucide-react';
-import { useListAllTrades, getListAllTradesQueryKey, useGetPortfolioSummary, getGetPortfolioSummaryQueryKey, useGetMultiCoinState, getGetMultiCoinStateQueryKey, type PaperTrade } from '@workspace/api-client-react';
+import { useListAllTrades, getListAllTradesQueryKey, useGetPortfolioSummary, getGetPortfolioSummaryQueryKey, useGetMultiCoinState, getGetMultiCoinStateQueryKey, useGetScannerPositions, getGetScannerPositionsQueryKey, type PaperTrade } from '@workspace/api-client-react';
 import { TradingShell } from '@/components/trading-shell';
 import { AssetChart, type ChartRange } from '@/components/asset-chart';
 
@@ -48,6 +48,13 @@ const num = (v: number | null | undefined, d = 2) =>
   v == null ? '—' : v.toLocaleString('en-GB', { minimumFractionDigits: d, maximumFractionDigits: d });
 const dateTime = (v?: string | null) =>
   v ? new Date(v).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+const duration = (seconds: number | null | undefined, openedAt: string, closedAt?: string | null) => {
+  const totalSeconds = seconds ?? Math.max(0, (Date.parse(closedAt ?? new Date().toISOString()) - Date.parse(openedAt)) / 1000);
+  if (!Number.isFinite(totalSeconds)) return '—';
+  if (totalSeconds < 3600) return `${Math.floor(totalSeconds / 60)}m`;
+  if (totalSeconds < 86400) return `${Math.floor(totalSeconds / 3600)}h ${Math.floor((totalSeconds % 3600) / 60)}m`;
+  return `${Math.floor(totalSeconds / 86400)}d ${Math.floor((totalSeconds % 86400) / 3600)}h`;
+};
 
 const COINS = ['ALL', 'BTC', 'ETH', 'SOL', 'XRP', 'GOLD', 'SILVER'] as const;
 type CoinFilter = typeof COINS[number];
@@ -72,17 +79,21 @@ export default function History() {
   const portfolioQuery = useGetPortfolioSummary({ query: { queryKey: getGetPortfolioSummaryQueryKey(), staleTime: 60_000 } });
   const strategyStats = portfolioQuery.data?.strategyStats ?? null;
   const multiStateQuery = useGetMultiCoinState({ query: { queryKey: getGetMultiCoinStateQueryKey(), staleTime: 30_000 } });
+  const scannerQuery = useGetScannerPositions({ query: { queryKey: getGetScannerPositionsQueryKey(), staleTime: 30_000 } });
   const openPositions = useMemo(() => {
     const ms = multiStateQuery.data;
-    if (!ms) return [];
-    const out: { coin: string; strategy: 'HIGH-CONFIDENCE' | 'ACTIVE'; direction: string; entry: number; openedAt: string }[] = [];
+    const out: { coin: string; strategy: string; direction: string; entry: number; current: number | null; pnl: number | null; openedAt: string }[] = [];
+    for (const p of scannerQuery.data ?? []) {
+      out.push({ coin: p.ticker, strategy: 'SCANNER', direction: p.direction, entry: p.entry, current: p.currentPrice ?? null, pnl: p.unrealisedPnl ?? null, openedAt: p.openedAt });
+    }
+    if (!ms) return out;
     for (const coin of ['BTC', 'ETH', 'SOL', 'XRP', 'GOLD', 'SILVER'] as const) {
       const s = (ms as Record<string, any>)[coin];
-      if (s?.position) out.push({ coin, strategy: 'HIGH-CONFIDENCE', direction: s.position.direction, entry: s.position.entry, openedAt: s.position.openedAt });
-      if (s?.activePosition) out.push({ coin, strategy: 'ACTIVE', direction: s.activePosition.direction, entry: s.activePosition.entry, openedAt: s.activePosition.openedAt });
+      if (s?.position) out.push({ coin, strategy: 'HIGH-CONFIDENCE', direction: s.position.direction, entry: s.position.entry, current: s.position.currentPrice, pnl: s.position.unrealisedPnl, openedAt: s.position.openedAt });
+      if (s?.activePosition) out.push({ coin, strategy: 'ACTIVE', direction: s.activePosition.direction, entry: s.activePosition.entry, current: s.activePosition.currentPrice, pnl: s.activePosition.unrealisedPnl, openedAt: s.activePosition.openedAt });
     }
     return out;
-  }, [multiStateQuery.data]);
+  }, [multiStateQuery.data, scannerQuery.data]);
 
   const filtered = useMemo(
     () => coinFilter === 'ALL' ? allTrades : allTrades.filter((t) => t.coin === coinFilter),
@@ -115,7 +126,7 @@ export default function History() {
             <div>
               <div className="flex items-center gap-2 text-primary"><BookOpen size={17} /><span className="font-mono-data text-[10px] font-medium uppercase tracking-[0.18em]">Performance review</span></div>
               <h2 className="mt-2 text-2xl font-extrabold tracking-[-0.04em]">Evidence over instinct.</h2>
-              <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted-foreground">Every closed position across all six accounts. Filter by instrument to study each strategy in isolation. Gold and Silver are monitoring only, so no trades will appear for them.</p>
+                <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted-foreground">Every open and closed position across all six accounts. Open rows use the latest market price and unrealised P&amp;L; closed rows retain their final exit and result.</p>
             </div>
             <div className="flex items-center gap-2 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-xs font-bold text-primary-foreground">
               <Filter size={14} /> Last 200 trades
@@ -232,8 +243,8 @@ export default function History() {
         <section className="rise-in rise-in-delay-1 overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_10px_32px_hsl(215_35%_13%_/_0.05)]">
           <div className="flex items-center justify-between border-b border-border/70 px-5 py-4 sm:px-6">
             <div>
-              <div className="flex items-center gap-2"><HistoryIcon size={16} className="text-primary" /><h2 className="text-sm font-extrabold">Closed positions</h2></div>
-              <p className="mt-1 text-xs text-muted-foreground">Execution, context, and the reason each position ended.</p>
+              <div className="flex items-center gap-2"><HistoryIcon size={16} className="text-primary" /><h2 className="text-sm font-extrabold">Open and closed positions</h2></div>
+              <p className="mt-1 text-xs text-muted-foreground">Entry, exit, P&amp;L, status, and duration for every position.</p>
             </div>
             <span className="font-mono-data text-[10px] uppercase tracking-wider text-muted-foreground">{tradesQuery.isLoading ? 'loading' : `${ordered.length} records`}</span>
           </div>
@@ -259,11 +270,12 @@ export default function History() {
               <table className="w-full min-w-[960px] text-left">
                 <thead>
                   <tr className="border-b border-border/70 text-[10px] uppercase tracking-[0.13em] text-muted-foreground">
-                    <th className="px-5 py-3 font-bold sm:px-6">Closed / opened</th>
+                    <th className="px-5 py-3 font-bold sm:px-6">Status / opened</th>
                     <th className="px-3 py-3 font-bold">Coin</th>
                     <th className="px-3 py-3 font-bold">Strategy</th>
                     <th className="px-3 py-3 font-bold">Side</th>
                     <th className="px-3 py-3 font-bold">Entry → exit</th>
+                    <th className="px-3 py-3 font-bold">Duration</th>
                     <th className="px-3 py-3 font-bold">Stop / target</th>
                     <th className="px-3 py-3 font-bold">Context</th>
                     <th className="px-3 py-3 font-bold">Exit reason</th>
@@ -271,10 +283,24 @@ export default function History() {
                   </tr>
                 </thead>
                 <tbody>
+                  {openPositions.map((position) => (
+                    <tr key={`open-${position.coin}-${position.strategy}`} data-testid={`row-history-open-${position.coin}-${position.strategy}`} className="border-b border-border/50 bg-cyan-500/[0.03] last:border-0">
+                      <td className="px-5 py-4 sm:px-6"><span className="rounded-full bg-cyan-500/15 px-2 py-0.5 font-mono-data text-[10px] font-bold uppercase text-cyan-500">OPEN</span><p className="mt-1 text-[10px] text-muted-foreground">opened {dateTime(position.openedAt)}</p></td>
+                      <td className="px-3 py-4"><span className={`rounded px-1.5 py-0.5 font-mono-data text-[10px] font-bold uppercase ${COIN_COLORS[position.coin] ?? 'bg-muted text-muted-foreground'}`}>{position.coin}</span></td>
+                      <td className="px-3 py-4"><span className="rounded px-1.5 py-0.5 font-mono-data text-[9px] font-bold uppercase bg-cyan-500/15 text-cyan-500">{position.strategy}</span></td>
+                      <td className="px-3 py-4"><span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono-data text-[10px] font-medium ${position.direction === 'LONG' ? 'bg-accent/10 text-accent' : 'bg-destructive/10 text-destructive'}`}>{position.direction === 'LONG' ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}{position.direction}</span></td>
+                      <td className="px-3 py-4 font-mono-data text-xs">{money(position.entry)} <span className="text-muted-foreground">→</span> {money(position.current)}</td>
+                      <td className="px-3 py-4 font-mono-data text-xs text-muted-foreground">{duration(null, position.openedAt)}</td>
+                      <td className="px-3 py-4 text-xs text-muted-foreground">Live position</td>
+                      <td className="px-3 py-4 text-xs text-muted-foreground">—</td>
+                      <td className={`px-5 py-4 text-right font-mono-data text-xs font-medium sm:px-6 ${(position.pnl ?? 0) >= 0 ? 'text-accent' : 'text-destructive'}`}>{position.pnl == null ? '—' : `${position.pnl >= 0 ? '+' : ''}${money(position.pnl)}`}<p className="mt-1 text-[10px] font-normal text-muted-foreground">unrealised</p></td>
+                    </tr>
+                  ))}
                   {ordered.map((trade) => (
                     <tr key={trade.id} data-testid={`row-history-trade-${trade.id}`} onClick={() => setReviewTrade(trade)} className="cursor-pointer border-b border-border/50 last:border-0 transition-colors hover:bg-muted/35">
                       <td className="px-5 py-4 sm:px-6">
-                        <p className="font-mono-data text-xs">{dateTime(trade.closedAt)}</p>
+                        <span className="rounded-full bg-muted px-2 py-0.5 font-mono-data text-[10px] font-bold uppercase text-muted-foreground">{trade.result ?? (trade.profitLoss >= 0 ? 'WIN' : 'LOSS')}</span>
+                        <p className="mt-1 font-mono-data text-xs">{dateTime(trade.closedAt)}</p>
                         <p className="mt-1 text-[10px] text-muted-foreground">opened {dateTime(trade.openedAt)}</p>
                       </td>
                       <td className="px-3 py-4">
@@ -294,6 +320,7 @@ export default function History() {
                         </span>
                       </td>
                       <td className="px-3 py-4 font-mono-data text-xs">{money(trade.entry)} <span className="text-muted-foreground">→</span> {money(trade.exit)}</td>
+                      <td className="px-3 py-4 font-mono-data text-xs text-muted-foreground">{duration(trade.durationSeconds, trade.openedAt, trade.closedAt)}</td>
                       <td className="px-3 py-4">
                         <p className="font-mono-data text-[11px] text-destructive/80">{money(trade.stopLoss)}</p>
                         <p className="font-mono-data text-[11px] text-accent">{money(trade.takeProfit)}</p>
